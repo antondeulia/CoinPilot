@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String   @id @default(uuid())
+  telegramId       String   @unique
+  activeAccountId  String?
+  accounts         Account[]
+  transactions     Transaction[]
+  createdAt        DateTime @default(now())
+
+  @@map("users")
+}
+
+model Account {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  type      AccountTypeEnum
+  currency  String
+  createdAt DateTime @default(now())
+
+  transactions Transaction[]
+
+  @@map("accounts")
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
+  amount      Float
+  currency    String
+  direction   TransactionDirectionsEnum
+  category    String?
+  description String?
+  rawText     String
+  createdAt   DateTime @default(now())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+// Enums
+enum AccountTypeEnum {
+  cash
+  bank
+  crypto
+}
+
+enum TransactionDirectionsEnum {
+  income
+  expense
+}
