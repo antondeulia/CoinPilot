@@ -9,10 +9,9 @@ export const cancelTxCallback = (
 	accountsService: AccountsService
 ) => {
 	bot.callbackQuery('cancel_tx', async ctx => {
-		await ctx.answerCallbackQuery()
-
 		ctx.session.confirmingTransaction = false
-		ctx.session.draftTransaction = undefined
+		ctx.session.draftTransactions = undefined
+		ctx.session.currentTransactionIndex = undefined
 
 		if (ctx.session.tempMessageId) {
 			try {

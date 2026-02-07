@@ -27,3 +27,8 @@ export const START_TEXT = `
 
 Полезные боты и сервисы — https://t.me/isi_crypto
 `
+
+export const FIAT_CURRENCIES = ['USD', 'EUR', 'UAH', 'GBP', 'PLN', 'SEK', 'RUB']
+
+export const CRYPTO_CURRENCIES = ['BTC', 'ETH', 'USDT', 'USDC', 'BNB']
+

@@ -7,17 +7,5 @@ export const editTxCallback = (
 	bot: Bot<BotContext>,
 	accountsService: AccountsService
 ) => {
-	bot.callbackQuery(/^edit:/, async ctx => {
-		await ctx.answerCallbackQuery()
-
-		const field = ctx.callbackQuery.data.split(':')[1] as
-			| 'description'
-			| 'amount'
-			| 'date'
-			| 'category'
-
-		ctx.session.editingField = field
-
-		await resetToHome(ctx, accountsService)
-	})
+	// legacy handler отключён, новые edit-callback'и реализованы отдельно
 }

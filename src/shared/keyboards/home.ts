@@ -39,11 +39,11 @@ export function homeKeyboard(account, balance: number) {
 			'view_balance'
 		)
 		.row()
-		.text('+ Новая транзакция', 'add_transaction')
-		.text('👉 Счета', 'view_accounts')
+		.text('+ Запись', 'add_transaction')
+		.text('Счета', 'view_accounts')
 		.row()
-		.text('📊 Транзакции', 'view_transactions')
-		.text('📈 Аналитика', 'view_analytics')
+		.text('Записи', 'view_transactions')
+		.text('Аналитика', 'view_analytics')
 		.row()
 		.text('⚙️ Настройки', 'view_settings')
 }

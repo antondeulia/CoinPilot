@@ -1,46 +1,84 @@
-import { Bot } from 'grammy'
+import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { TransactionsService } from 'src/modules/transactions/transactions.service'
-import { renderHome } from '../utils/render-home'
 import { AccountsService } from 'src/modules/accounts/accounts.service'
-import { LlmTransaction } from 'src/modules/llm/schemas/transaction.schema'
+import { TagsService } from 'src/modules/tags/tags.service'
+import { renderHome } from '../utils/render-home'
+
+export async function getShowConversion(
+	draft: any,
+	accountId: string | null,
+	userId: string,
+	accountsService: AccountsService
+): Promise<boolean> {
+	if (!accountId || !draft?.currency) return true
+	const account = await accountsService.getOneWithAssets(accountId, userId)
+	if (!account) return true
+	const codes = Array.from(
+		new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
+	)
+	return !codes.includes(draft.currency)
+}
 
 export const confirmTxCallback = (
 	bot: Bot<BotContext>,
 	transactionsService: TransactionsService,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	tagsService: TagsService
 ) => {
 	bot.callbackQuery('confirm_tx', async ctx => {
-		await ctx.answerCallbackQuery()
+		const drafts = ctx.session.draftTransactions
+		const user: any = ctx.state.user
 
-		const draft = ctx.session.draftTransaction
-		const account = ctx.state.activeAccount
-
-		if (!draft || !account) {
-			// если что-то странное — просто вернёмся в режим ввода
+		if (!drafts || drafts.length === 0) {
 			ctx.session.awaitingTransaction = true
 			return
 		}
 
-		await transactionsService.create({
-			accountId: account.id,
-			amount: draft.amount!,
-			currency: draft.currency!,
-			direction: draft.direction,
-			category: draft.category,
-			description: draft.description,
-			rawText: draft.rawText || '',
-			userId: ctx.state.user.id
-		})
+		for (const draft of drafts as any[]) {
+			const accountId =
+				draft.accountId ||
+				user.defaultAccountId ||
+				ctx.state.activeAccount?.id
+			if (!accountId) continue
+
+			let tagId = draft.tagId
+			if (draft.tagIsNew && draft.tagName) {
+				const tag = await tagsService.create(ctx.state.user.id, draft.tagName)
+				tagId = tag.id
+			}
+			if (tagId) {
+				await tagsService.incrementUsage(tagId)
+			}
+
+			const isTransfer = draft.direction === 'transfer'
+			await transactionsService.create({
+				accountId,
+				amount: draft.amount!,
+				currency: draft.currency!,
+				direction: draft.direction,
+				...(isTransfer
+					? {
+							fromAccountId: accountId,
+							toAccountId: draft.toAccountId ?? undefined
+						}
+					: { category: draft.category ?? 'Не выбрано' }),
+				description: draft.description,
+				rawText: draft.rawText || '',
+				userId: ctx.state.user.id,
+				tagId: tagId ?? undefined,
+				convertedAmount: draft.convertedAmount,
+				convertToCurrency: draft.convertToCurrency
+			})
+		}
 
 		// 🧹 чистим confirm-состояние
 		ctx.session.confirmingTransaction = false
-		ctx.session.draftTransaction = undefined
+		ctx.session.draftTransactions = undefined
+		ctx.session.currentTransactionIndex = undefined
 		ctx.session.editingField = undefined
 
-		// ❗ ВАЖНО
-		// остаёмся в режиме добавления
-		ctx.session.awaitingTransaction = true
+		ctx.session.awaitingTransaction = false
 
 		// удаляем confirm-сообщение
 		if (ctx.session.tempMessageId) {
@@ -50,6 +88,8 @@ export const confirmTxCallback = (
 			ctx.session.tempMessageId = undefined
 		}
 
+		;(ctx.session as any).homeMessageId = undefined
+
 		// 🟢 success-сообщение
 		const msg = await ctx.reply(successText, {
 			parse_mode: 'HTML',
@@ -57,6 +97,9 @@ export const confirmTxCallback = (
 		})
 
 		ctx.session.tempMessageId = msg.message_id
+
+		// показать домашний экран как после /start (новым сообщением)
+		await renderHome(ctx as any, accountsService)
 	})
 }
 
@@ -70,28 +113,50 @@ const successText = `
 Можешь добавить ещё одну — просто напиши сообщение.
 `
 
-export function renderConfirmMessage(tx: LlmTransaction) {
-	return `
-<b>Проверь транзакцию</b>
+export function confirmKeyboard(
+	total: number,
+	currentIndex: number,
+	showConversion: boolean = true,
+	isTransfer: boolean = false
+): InlineKeyboard {
+	const hasPagination = total > 1
 
-Название: ${tx.description ?? '— не указано'}
-Сумма: ${tx.amount ?? '—'} ${tx.currency ?? ''}
-Дата: ${new Date().toLocaleDateString('ru-RU')}
-Категория: ${tx.category ?? '— не указана'}
-`
-}
+	const kb = new InlineKeyboard()
+		.text('Тип', 'edit:type')
+		.text('Название', 'edit:description')
+		.text('Сумма', 'edit:amount')
+		.row()
+		.text('Счёт', 'edit:account')
+	if (isTransfer) {
+		kb.text('На счёт', 'edit:target_account')
+	}
+	kb.text('Дата', 'edit:date')
+	if (!isTransfer) {
+		kb.text('Категория', 'edit:category')
+	}
+	kb.row()
+		.text('Валюта', 'edit:currency')
 
-export const confirmKeyboard = {
-	inline_keyboard: [
-		[
-			{ text: '✏️ Название', callback_data: 'edit:description' },
-			{ text: '✏️ Сумма', callback_data: 'edit:amount' }
-		],
-		[
-			{ text: '✏️ Дата', callback_data: 'edit:date' },
-			{ text: '✏️ Категория', callback_data: 'edit:category' }
-		],
-		[{ text: '✅ Подтвердить', callback_data: 'confirm_tx' }],
-		[{ text: '❌ Отмена', callback_data: 'cancel_tx' }]
-	]
+	if (showConversion) {
+		kb.text('Конвертация', 'edit:conversion')
+	}
+	kb.text('Теги', 'edit:tag')
+
+	if (total > 1) {
+		kb.row()
+			.text('Сохранить 1', 'confirm_1_transactions')
+			.text('Удалить 1', 'cancel_1_transactions')
+	}
+	if (hasPagination) {
+		kb.row()
+			.text('« Назад', 'pagination_back_transactions')
+			.text(`${currentIndex + 1}/${total}`, 'pagination_preview_transactions')
+			.text('Вперёд »', 'pagination_forward_transactions')
+	}
+	kb.row()
+		.text('Сохранить все', 'confirm_tx')
+		.text('Удалить все', 'cancel_tx')
+	kb.row()
+		.text('Повторить', 'repeat_parse')
+	return kb
 }

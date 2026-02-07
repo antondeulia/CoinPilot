@@ -3,9 +3,10 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { UsersService } from '../../users/users.service'
 import { Account, User } from 'generated/prisma/client'
 import { LlmTransaction } from 'src/modules/llm/schemas/transaction.schema'
+import { LlmAccount } from 'src/modules/llm/schemas/account.schema'
 
 export interface BotState {
-	user: User
+	user: User & { accounts: Account[] }
 	activeAccount: Account | null
 }
 
@@ -17,8 +18,40 @@ export type BotContext = Context & {
 		tempMessageId: number | undefined
 		homeMessageId: number
 		confirmingTransaction?: boolean
-		draftTransaction?: LlmTransaction
-		editingField?: 'description' | 'amount' | 'date' | 'category'
+		draftTransactions?: LlmTransaction[]
+		currentTransactionIndex?: number
+		editingField?:
+			| 'type'
+			| 'description'
+			| 'amount'
+			| 'account'
+			| 'date'
+			| 'category'
+			| 'tag'
+		editMessageId?: number
+		accountsPage?: number
+		categoriesPage?: number
+		awaitingTagInput?: boolean
+		tagsPage?: number
+		tagsSettingsMessageId?: number
+		tagsSettingsHintMessageId?: number
+		awaitingTagsJarvisEdit?: boolean
+		pendingTransferSide?: 'from' | 'to'
+		navigationStack?: string[]
+		awaitingAccountInput?: boolean
+		confirmingAccounts?: boolean
+		draftAccounts?: LlmAccount[]
+		currentAccountIndex?: number
+		accountsViewPage?: number
+		accountsViewSelectedId?: string | null
+		editingAccountField?: 'jarvis'
+		editingAccountDetailsId?: string
+		transactionsViewPage?: number
+		categoriesSelectedId?: string | null
+		awaitingCategoryName?: boolean
+		editingCategory?: 'create' | 'rename' | null
+		categoriesMessageId?: number
+		categoriesHintMessageId?: number
 	}
 	chat: {
 		id: string
@@ -37,10 +70,6 @@ export const userContextMiddleware =
 					where: { id: user.activeAccountId }
 				})
 			: null
-
-		console.log(user, ' <- User')
-		console.log(activeAccount, ' <- Active Account')
-
 		ctx.state = {
 			user,
 			activeAccount

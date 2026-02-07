@@ -3,14 +3,14 @@ import { BotContext } from '../core/bot.middleware'
 
 export const addTxCallback = (bot: Bot<BotContext>) => {
 	bot.callbackQuery('add_transaction', async ctx => {
-		await ctx.answerCallbackQuery()
-
 		if (ctx.session.tempMessageId) {
 			try {
 				await ctx.api.deleteMessage(ctx.chat.id, ctx.session.tempMessageId)
 			} catch {}
 		}
-
+		;(ctx.session as any).editingCurrency = false
+		;(ctx.session as any).editingMainCurrency = false
+		ctx.session.editingField = undefined
 		ctx.session.awaitingTransaction = true
 
 		const msg = await ctx.reply(
@@ -29,5 +29,18 @@ export const addTxCallback = (bot: Bot<BotContext>) => {
 		)
 
 		ctx.session.tempMessageId = msg.message_id
+	})
+
+	bot.callbackQuery('close_add_transaction', async ctx => {
+		ctx.session.awaitingTransaction = false
+
+		try {
+			await ctx.api.deleteMessage(
+				ctx.chat!.id,
+				ctx.callbackQuery.message!.message_id
+			)
+		} catch {}
+
+		ctx.session.tempMessageId = undefined
 	})
 }

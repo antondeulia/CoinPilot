@@ -9,12 +9,18 @@ datasource db {
 }
 
 model User {
-  id               String   @id @default(uuid())
-  telegramId       String   @unique
-  activeAccountId  String?
-  accounts         Account[]
-  transactions     Transaction[]
-  createdAt        DateTime @default(now())
+  id                   String   @id @default(uuid())
+  telegramId           String   @unique
+  activeAccountId      String?
+  defaultAccountId     String?
+  mainCurrency         String   @default("USD")
+  accounts             Account[]
+  transactions         Transaction[]
+  categories           Category[]
+  tags                 Tag[]
+  savedAnalyticsViews  SavedAnalyticsView[]
+  alertConfigs         AlertConfig[]
+  createdAt            DateTime @default(now())
 
   @@map("users")
 }
@@ -26,28 +32,120 @@ model Account {
   name      String
   type      AccountTypeEnum
   currency  String
+  isHidden  Boolean  @default(false)
   createdAt DateTime @default(now())
 
   transactions Transaction[]
+  transactionsFrom Transaction[] @relation("FromAccount")
+  transactionsTo Transaction[] @relation("ToAccount")
+  assets     AccountAsset[]
 
   @@map("accounts")
 }
 
+model AccountAsset {
+  id        String  @id @default(uuid())
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  currency  String
+  amount    Float
+
+  @@unique([accountId, currency])
+  @@map("account_assets")
+}
+
 model Transaction {
-  id          String   @id @default(uuid())
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  amount      Float
-  currency    String
-  direction   TransactionDirectionsEnum
-  category    String?
-  description String?
-  rawText     String
-  createdAt   DateTime @default(now())
-  userId      String   @map("user_id")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String   @id @default(uuid())
+  accountId        String
+  account          Account  @relation(fields: [accountId], references: [id])
+  amount           Float
+  currency         String
+  direction        TransactionDirectionsEnum
+  category         String?
+  description      String?
+  rawText          String
+  transactionDate   DateTime @default(now())
+  createdAt        DateTime @default(now())
+  userId           String   @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAccountId    String?
+  fromAccount      Account? @relation(name: "FromAccount", fields: [fromAccountId], references: [id])
+  toAccountId      String?
+  toAccount        Account? @relation(name: "ToAccount", fields: [toAccountId], references: [id])
+  tagId            String?
+  tag              Tag?     @relation(fields: [tagId], references: [id])
+  convertedAmount  Float?
+  convertToCurrency String?
 
   @@map("transactions")
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+
+  @@map("categories")
+}
+
+model Tag {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  aliases     TagAlias[]
+  transactions Transaction[]
+
+  @@unique([userId, name])
+  @@map("tags")
+}
+
+model TagAlias {
+  id        String   @id @default(uuid())
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  alias     String
+  createdAt DateTime @default(now())
+
+  @@map("tag_aliases")
+}
+
+model TagAuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+
+  @@map("tag_audit_logs")
+}
+
+model SavedAnalyticsView {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  filters   Json
+  createdAt DateTime @default(now())
+
+  @@map("saved_analytics_views")
+}
+
+model AlertConfig {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       AlertTypeEnum
+  threshold  Float
+  categoryId String?
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@map("alert_configs")
 }
 
 // Enums
@@ -60,4 +158,10 @@ enum AccountTypeEnum {
 enum TransactionDirectionsEnum {
   income
   expense
+  transfer
+}
+
+enum AlertTypeEnum {
+  large_expense
+  category_threshold
 }

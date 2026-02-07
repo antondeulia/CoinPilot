@@ -6,7 +6,7 @@ export async function resetToHome(ctx: BotContext, accountsService: AccountsServ
 	ctx.session.awaitingTransaction = false
 	ctx.session.confirmingTransaction = false
 	ctx.session.editingField = undefined
-	ctx.session.draftTransaction = undefined
+	ctx.session.draftTransactions = undefined
 
 	if (ctx.session.tempMessageId) {
 		try {
