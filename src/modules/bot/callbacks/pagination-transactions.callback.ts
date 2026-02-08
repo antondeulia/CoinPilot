@@ -4,10 +4,7 @@ import { AccountsService } from 'src/modules/accounts/accounts.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 
-async function updatePreview(
-	ctx: BotContext,
-	accountsService: AccountsService
-) {
+async function updatePreview(ctx: BotContext, accountsService: AccountsService) {
 	const drafts = ctx.session.draftTransactions
 	const index = ctx.session.currentTransactionIndex ?? 0
 
@@ -18,9 +15,7 @@ async function updatePreview(
 	const current = drafts[index] as any
 	const user = ctx.state.user as any
 	const accountId =
-		current.accountId ||
-		user.defaultAccountId ||
-		ctx.state.activeAccount?.id
+		current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
 	const showConversion = await getShowConversion(
 		current,
 		accountId ?? null,
@@ -35,7 +30,13 @@ async function updatePreview(
 			renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
 			{
 				parse_mode: 'HTML',
-				reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+				reply_markup: confirmKeyboard(
+					drafts.length,
+					index,
+					showConversion,
+					current?.direction === 'transfer',
+					!!ctx.session.editingTransactionId
+				)
 			}
 		)
 	} catch {}
@@ -71,4 +72,3 @@ export const paginationTransactionsCallback = (
 
 	bot.callbackQuery('pagination_preview_transactions', async () => {})
 }
-

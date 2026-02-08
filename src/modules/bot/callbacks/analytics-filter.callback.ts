@@ -37,7 +37,10 @@ export const analyticsFilterCallback = (bot: Bot<BotContext>) => {
 					msgId,
 					'Фильтр применён. Обновите обзор кнопками 7d / 30d / 90d.',
 					{
-						reply_markup: new InlineKeyboard().text('← Назад', 'analytics_back_to_main')
+						reply_markup: new InlineKeyboard().text(
+							'← Назад',
+							'analytics_back_to_main'
+						)
 					}
 				)
 			} catch {}

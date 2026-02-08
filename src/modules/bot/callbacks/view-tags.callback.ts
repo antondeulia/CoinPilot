@@ -14,10 +14,7 @@ function tagsListText(tagNames: string[]) {
 	return `<b>Теги</b>\n\nСписок ваших тегов:\n<blockquote>${list}</blockquote>`
 }
 
-export const viewTagsCallback = (
-	bot: Bot<BotContext>,
-	tagsService: TagsService
-) => {
+export const viewTagsCallback = (bot: Bot<BotContext>, tagsService: TagsService) => {
 	bot.callbackQuery('view_tags', async ctx => {
 		const userId = ctx.state.user.id
 		const tags = await tagsService.getAllByUserId(userId)
@@ -25,15 +22,10 @@ export const viewTagsCallback = (
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		ctx.session.tagsSettingsMessageId = msgId
-		await ctx.api.editMessageText(
-			ctx.chat!.id,
-			msgId,
-			tagsListText(tagNames),
-			{
-				parse_mode: 'HTML',
-				reply_markup: tagsSettingsKeyboard()
-			}
-		)
+		await ctx.api.editMessageText(ctx.chat!.id, msgId, tagsListText(tagNames), {
+			parse_mode: 'HTML',
+			reply_markup: tagsSettingsKeyboard()
+		})
 	})
 
 	bot.callbackQuery('tags_jarvis_edit', async ctx => {

@@ -47,7 +47,9 @@ function txToDraft(tx: any) {
 		direction: tx.direction,
 		category: tx.category ?? 'Не выбрано',
 		description: tx.description ?? null,
-		transactionDate: tx.transactionDate ? new Date(tx.transactionDate).toISOString() : new Date().toISOString(),
+		transactionDate: tx.transactionDate
+			? new Date(tx.transactionDate).toISOString()
+			: new Date().toISOString(),
 		tagId: tx.tagId ?? undefined,
 		tagName: tx.tag?.name ?? undefined,
 		tagIsNew: false,
@@ -108,9 +110,27 @@ export const viewTransactionsCallback = (
 		ctx.session.editingTransactionId = txId
 		ctx.session.tempMessageId = msgId
 		const user = ctx.state.user as any
-		const showConversion = await getShowConversion(draft, tx.accountId, ctx.state.user.id, accountsService)
-		const text = renderConfirmMessage(draft, 0, 1, user.defaultAccountId, undefined, 'Детали транзакции')
-		const kb = confirmKeyboard(1, 0, showConversion, draft.direction === 'transfer', true)
+		const showConversion = await getShowConversion(
+			draft,
+			tx.accountId,
+			ctx.state.user.id,
+			accountsService
+		)
+		const text = renderConfirmMessage(
+			draft,
+			0,
+			1,
+			user.defaultAccountId,
+			undefined,
+			'Детали транзакции'
+		)
+		const kb = confirmKeyboard(
+			1,
+			0,
+			showConversion,
+			draft.direction === 'transfer',
+			true
+		)
 		await ctx.api.editMessageText(ctx.chat!.id, msgId, text, {
 			parse_mode: 'HTML',
 			reply_markup: kb
@@ -129,11 +149,14 @@ export const viewTransactionsCallback = (
 			direction: draft.direction,
 			category: draft.category,
 			description: draft.description,
-			transactionDate: draft.transactionDate ? new Date(draft.transactionDate) : undefined,
+			transactionDate: draft.transactionDate
+				? new Date(draft.transactionDate)
+				: undefined,
 			tagId: draft.tagId ?? null,
 			convertedAmount: draft.convertedAmount ?? null,
 			convertToCurrency: draft.convertToCurrency ?? null,
-			fromAccountId: draft.direction === 'transfer' ? (draft.accountId ?? null) : null,
+			fromAccountId:
+				draft.direction === 'transfer' ? (draft.accountId ?? null) : null,
 			toAccountId: draft.toAccountId ?? null
 		})
 		ctx.session.editingTransactionId = undefined
@@ -142,7 +165,9 @@ export const viewTransactionsCallback = (
 		const page = ctx.session.transactionsViewPage ?? 0
 		await renderTransactionsList(ctx, prisma, page)
 		await ctx.reply('✅ Транзакция обновлена.', {
-			reply_markup: { inline_keyboard: [[{ text: 'Закрыть', callback_data: 'hide_message' }]] }
+			reply_markup: {
+				inline_keyboard: [[{ text: 'Закрыть', callback_data: 'hide_message' }]]
+			}
 		})
 	})
 
@@ -158,7 +183,9 @@ export const viewTransactionsCallback = (
 		ctx.session.transactionsViewPage = page
 		await renderTransactionsList(ctx, prisma, page)
 		await ctx.reply('✅ Транзакция удалена.', {
-			reply_markup: { inline_keyboard: [[{ text: 'Закрыть', callback_data: 'hide_message' }]] }
+			reply_markup: {
+				inline_keyboard: [[{ text: 'Закрыть', callback_data: 'hide_message' }]]
+			}
 		})
 	})
 

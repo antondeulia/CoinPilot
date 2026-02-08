@@ -1,6 +1,11 @@
 import { Account } from 'generated/prisma/client'
 import { InlineKeyboard } from 'grammy'
-import { getCurrencySymbol, formatAccountName, formatAmount, isCryptoCurrency } from 'src/utils/format'
+import {
+	getCurrencySymbol,
+	formatAccountName,
+	formatAmount,
+	isCryptoCurrency
+} from 'src/utils/format'
 import { ExchangeService } from 'src/modules/exchange/exchange.service'
 
 type AccountWithAssets = Account & {
@@ -114,19 +119,22 @@ export async function viewAccountsText(
 			if (a.currency === mainCurrency) {
 				lines.push(`• ${a.currency} — ${amountStr}`)
 			} else {
-				lines.push(`• ${a.currency} — ${amountStr} ≈ ${fmt(converted)} ${mainSym}`)
+				lines.push(
+					`• ${a.currency} — ${amountStr} ≈ ${fmt(converted)} ${mainSym}`
+				)
 			}
 		}
 		totalMain += accountTotalMain
 		const accountTotalStr = fmt(accountTotalMain)
-		const body =
-			lines.length > 0 ? lines.join('\n') : '— нет активов'
+		const body = lines.length > 0 ? lines.join('\n') : '— нет активов'
 		const accountLine =
 			acc.assets.length > 0
 				? `Итого: ${accountTotalStr} ${mainSym}`
 				: `Итого: 0.00 ${mainSym}`
 		const isDefault = acc.id === defaultAccountId
-		blocks.push(`🏦 ${formatAccountName(acc.name, isDefault)}\n${accountLine}\n\n${body}`)
+		blocks.push(
+			`🏦 ${formatAccountName(acc.name, isDefault)}\n${accountLine}\n\n${body}`
+		)
 	}
 
 	const totalStr = fmt(totalMain)
@@ -146,7 +154,11 @@ ${totalStr} ${mainSym}
 	return header + blocks.join('\n\n') + footer
 }
 
-export function accountsKeyboard(accounts: Account[], activeId: string | null, defaultAccountId?: string) {
+export function accountsKeyboard(
+	accounts: Account[],
+	activeId: string | null,
+	defaultAccountId?: string
+) {
 	const kb = new InlineKeyboard()
 
 	for (const acc of accounts) {

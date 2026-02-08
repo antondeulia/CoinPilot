@@ -17,4 +17,3 @@ export const editDescriptionCallback = (bot: Bot<BotContext>) => {
 		ctx.session.editMessageId = msg.message_id
 	})
 }
-

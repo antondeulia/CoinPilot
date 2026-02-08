@@ -29,8 +29,7 @@ export class LLMService {
 				? ` Для каждой транзакции выбери одну категорию по описанию из списка: ${categoryList}. Если ни одна не подходит — укажи категорию "Не выбрано". Категория обязательна.`
 				: ' Для категории укажи "Не выбрано".'
 
-		const tagList =
-			existingTags.length > 0 ? existingTags.join(', ') : ''
+		const tagList = existingTags.length > 0 ? existingTags.join(', ') : ''
 		const tagInstruction =
 			tagList.length > 0
 				? ` Для каждой транзакции укажи ровно один самый точный тег. Всегда сначала проверяй существующие теги: ${tagList}. Если есть подходящий — используй его (tag_text и normalized_tag в lowercase). Выбирай самый конкретный тег по смыслу (например "кофе", а не "напитки"). Если пользователь не разделил суммы (одна общая сумма на несколько позиций) — одна транзакция с одним общим тегом (например "праздник"). Если пользователь явно указал отдельные суммы (вино 3€, торт 4€) — две транзакции с разными тегами (алкоголь, сладости). tag_confidence от 0 до 1 — уверенность в выборе тега.`
@@ -74,7 +73,10 @@ export class LLMService {
 								items: {
 									type: 'object',
 									properties: {
-										action: { type: 'string', enum: ['create_transaction'] },
+										action: {
+											type: 'string',
+											enum: ['create_transaction']
+										},
 										amount: { type: 'number' },
 										currency: { type: 'string' },
 										direction: {
@@ -92,9 +94,19 @@ export class LLMService {
 												'Используйте основной предмет транзакции в качестве описания. Например: "Купил кофе за 120 грн", – описание будет "Кофе". Не отправляй длинные фразы, а выделяй сущности: "Кофе", "Термос", "Чай", "Продукты", "Одежда", "Netflix".'
 										},
 										rawText: { type: 'string' },
-										tag_text: { type: 'string', description: 'Один точный тег для транзакции' },
-										normalized_tag: { type: 'string', description: 'Тег в lowercase для сопоставления' },
-										tag_confidence: { type: 'number', description: 'Уверенность 0–1 в выборе тега' }
+										tag_text: {
+											type: 'string',
+											description: 'Один точный тег для транзакции'
+										},
+										normalized_tag: {
+											type: 'string',
+											description:
+												'Тег в lowercase для сопоставления'
+										},
+										tag_confidence: {
+											type: 'number',
+											description: 'Уверенность 0–1 в выборе тега'
+										}
 									},
 									required: ['action', 'direction']
 								}
@@ -238,7 +250,8 @@ export class LLMService {
 		})
 
 		const call = response.choices[0].message.function_call
-		if (!call?.arguments) throw new Error('LLM did not return function arguments for account edit')
+		if (!call?.arguments)
+			throw new Error('LLM did not return function arguments for account edit')
 		const parsedJson = JSON.parse(call.arguments) as { accounts: unknown[] }
 		const parsed = LlmAccountListSchema.parse(parsedJson)
 		if (!parsed.accounts.length) throw new Error('Empty account')
@@ -267,7 +280,10 @@ export class LLMService {
 					parameters: {
 						type: 'object',
 						properties: {
-							date: { type: 'string', description: 'Дата в формате ISO 8601' }
+							date: {
+								type: 'string',
+								description: 'Дата в формате ISO 8601'
+							}
 						},
 						required: ['date']
 					}
@@ -292,7 +308,11 @@ export class LLMService {
 	async parseTagEdit(
 		currentTags: string[],
 		instruction: string
-	): Promise<{ add: string[]; delete: string[]; rename: { from: string; to: string }[] }> {
+	): Promise<{
+		add: string[]
+		delete: string[]
+		rename: { from: string; to: string }[]
+	}> {
 		const response = await this.openai.chat.completions.create({
 			model: 'gpt-4o-mini',
 			temperature: 0,

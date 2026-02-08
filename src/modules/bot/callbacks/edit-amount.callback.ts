@@ -20,4 +20,3 @@ export const editAmountCallback = (bot: Bot<BotContext>) => {
 		ctx.session.editMessageId = msg.message_id
 	})
 }
-

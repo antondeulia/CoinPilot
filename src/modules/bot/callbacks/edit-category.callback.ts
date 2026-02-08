@@ -81,10 +81,7 @@ export const editCategoryCallback = (
 
 		const userId = ctx.state.user.id
 		const categories = await categoriesService.getSelectableByUserId(userId)
-		const totalPages = Math.max(
-			1,
-			Math.ceil(categories.length / CATEGORY_PAGE_SIZE)
-		)
+		const totalPages = Math.max(1, Math.ceil(categories.length / CATEGORY_PAGE_SIZE))
 		let page = ctx.session.categoriesPage ?? 0
 
 		const action = ctx.callbackQuery.data.split(':')[1]
@@ -108,9 +105,13 @@ export const editCategoryCallback = (
 		)
 
 		try {
-			await ctx.api.editMessageReplyMarkup(ctx.chat!.id, ctx.session.tempMessageId!, {
-				reply_markup: kb
-			})
+			await ctx.api.editMessageReplyMarkup(
+				ctx.chat!.id,
+				ctx.session.tempMessageId!,
+				{
+					reply_markup: kb
+				}
+			)
 		} catch {}
 	})
 
@@ -124,10 +125,7 @@ export const editCategoryCallback = (
 		}
 
 		const categoryId = ctx.callbackQuery.data.split(':')[1]
-		const category = await categoriesService.findById(
-			categoryId,
-			ctx.state.user.id
-		)
+		const category = await categoriesService.findById(categoryId, ctx.state.user.id)
 		if (!category) return
 
 		if (current.category === category.name) {
@@ -152,13 +150,23 @@ export const editCategoryCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.tempMessageId,
-				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+				renderConfirmMessage(
+					current,
+					index,
+					drafts.length,
+					user.defaultAccountId
+				),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+					reply_markup: confirmKeyboard(
+						drafts.length,
+						index,
+						showConversion,
+						current?.direction === 'transfer',
+						!!ctx.session.editingTransactionId
+					)
 				}
 			)
 		} catch {}
 	})
 }
-

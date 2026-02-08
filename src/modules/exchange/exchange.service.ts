@@ -5,13 +5,32 @@ const FIAT_CACHE_MS = 24 * 60 * 60 * 1000
 const CRYPTO_CACHE_MS = 3 * 60 * 60 * 1000
 
 const FIAT_SYMBOLS = new Set([
-	'USD', 'EUR', 'UAH', 'RUB', 'GBP', 'PLN', 'SEK', 'NOK', 'DKK', 'CHF', 'JPY', 'CNY', 'CAD', 'AUD', 'CZK', 'BRL', 'INR', 'MXN', 'KRW'
+	'USD',
+	'EUR',
+	'UAH',
+	'RUB',
+	'GBP',
+	'PLN',
+	'SEK',
+	'NOK',
+	'DKK',
+	'CHF',
+	'JPY',
+	'CNY',
+	'CAD',
+	'AUD',
+	'CZK',
+	'BRL',
+	'INR',
+	'MXN',
+	'KRW'
 ])
 
 @Injectable()
 export class ExchangeService {
 	private cache: { rates: Record<string, number>; fetchedAt: number } | null = null
-	private cryptoCache: { prices: Record<string, number>; fetchedAt: number } | null = null
+	private cryptoCache: { prices: Record<string, number>; fetchedAt: number } | null =
+		null
 
 	constructor(private readonly config: ConfigService) {}
 
@@ -35,7 +54,10 @@ export class ExchangeService {
 	}
 
 	async getCryptoRates(): Promise<Record<string, number>> {
-		if (this.cryptoCache && Date.now() - this.cryptoCache.fetchedAt < CRYPTO_CACHE_MS) {
+		if (
+			this.cryptoCache &&
+			Date.now() - this.cryptoCache.fetchedAt < CRYPTO_CACHE_MS
+		) {
 			return this.cryptoCache.prices
 		}
 		const key = this.config.get<string>('COINMARKETCAP_API_KEY')
@@ -66,7 +88,11 @@ export class ExchangeService {
 		return FIAT_SYMBOLS.has(symbol.toUpperCase())
 	}
 
-	async convert(amount: number, fromCurrency: string, toCurrency: string): Promise<number> {
+	async convert(
+		amount: number,
+		fromCurrency: string,
+		toCurrency: string
+	): Promise<number> {
 		if (fromCurrency === toCurrency) return amount
 		const fromFiat = this.isFiat(fromCurrency)
 		const toFiat = this.isFiat(toCurrency)

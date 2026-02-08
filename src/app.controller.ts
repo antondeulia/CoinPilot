@@ -7,10 +7,10 @@ export class AppController {
 
 	@Get('clear-db')
 	async clearDatabase() {
-			await this.prisma.transaction.deleteMany(),
+		;(await this.prisma.transaction.deleteMany(),
 			await this.prisma.account.deleteMany(),
 			await this.prisma.category.deleteMany(),
-			await this.prisma.user.deleteMany()
+			await this.prisma.user.deleteMany())
 
 		return { message: 'Database cleared' }
 	}

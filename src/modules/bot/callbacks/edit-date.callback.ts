@@ -18,4 +18,3 @@ export const editDateCallback = (bot: Bot<BotContext>) => {
 		ctx.session.editMessageId = msg.message_id
 	})
 }
-

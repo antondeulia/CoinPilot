@@ -40,10 +40,14 @@ export const saveDeleteAccountsCallback = (
 			const user = await usersService.getOrCreateByTelegramId(String(ctx.from!.id))
 			const account = user.accounts.find(a => a.id === user.activeAccountId)
 			if (account) {
-				const balance = await accountsService.getBalance({ userId: user.id })
+				const mainCurrency = (user as any).mainCurrency ?? 'USD'
+				const balance = await accountsService.getBalance({
+					userId: user.id,
+					mainCurrency
+				})
 				const homeMsg = await ctx.reply(homeText(account, balance), {
 					parse_mode: 'HTML',
-					reply_markup: homeKeyboard(account, balance)
+					reply_markup: homeKeyboard(account, balance, mainCurrency)
 				})
 				ctx.session.homeMessageId = homeMsg.message_id
 			}
@@ -110,10 +114,14 @@ export const saveDeleteAccountsCallback = (
 		const user = await usersService.getOrCreateByTelegramId(String(ctx.from!.id))
 		const account = user.accounts.find(a => a.id === user.activeAccountId)
 		if (account) {
-			const balance = await accountsService.getBalance({ userId: user.id })
+			const mainCurrency = (user as any).mainCurrency ?? 'USD'
+			const balance = await accountsService.getBalance({
+				userId: user.id,
+				mainCurrency
+			})
 			const homeMsg = await ctx.reply(homeText(account, balance), {
 				parse_mode: 'HTML',
-				reply_markup: homeKeyboard(account, balance)
+				reply_markup: homeKeyboard(account, balance, mainCurrency)
 			})
 			ctx.session.homeMessageId = homeMsg.message_id
 		}
@@ -132,4 +140,3 @@ export const saveDeleteAccountsCallback = (
 		}
 	})
 }
-

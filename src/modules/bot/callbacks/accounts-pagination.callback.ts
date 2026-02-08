@@ -35,4 +35,3 @@ export const accountsPaginationCallback = (bot: Bot<BotContext>) => {
 		})
 	})
 }
-

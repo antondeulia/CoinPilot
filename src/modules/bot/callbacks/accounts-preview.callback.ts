@@ -5,7 +5,9 @@ import { formatAmount, formatAccountName } from 'src/utils/format'
 function renderAccountPreview(account, index: number, total: number, isDefault: boolean) {
 	const lines: string[] = []
 
-	lines.push(`Счёт: ${formatAccountName(account.name, isDefault)}\t\t\t${total > 1 ? `${index + 1}/${total}` : ''}`)
+	lines.push(
+		`Счёт: ${formatAccountName(account.name, isDefault)}\t\t\t${total > 1 ? `${index + 1}/${total}` : ''}`
+	)
 
 	account.assets.forEach((asset, i) => {
 		lines.push(
@@ -19,10 +21,7 @@ function renderAccountPreview(account, index: number, total: number, isDefault: 
 function accountPreviewKeyboard(total: number, index: number) {
 	const hasPagination = total > 1
 
-	const kb = new InlineKeyboard().text(
-		'Jarvis-редактирование',
-		'accounts_jarvis_edit'
-	)
+	const kb = new InlineKeyboard().text('Jarvis-редактирование', 'accounts_jarvis_edit')
 
 	if (total > 1) {
 		kb.row()
@@ -31,15 +30,13 @@ function accountPreviewKeyboard(total: number, index: number) {
 	}
 
 	if (hasPagination) {
-		kb
-			.row()
+		kb.row()
 			.text('« Назад', 'pagination_back_accounts')
 			.text(`${index + 1}/${total}`, 'pagination_preview_accounts')
 			.text('Вперёд »', 'pagination_forward_accounts')
 	}
 
-	kb
-		.row()
+	kb.row()
 		.text('Сохранить все', 'confirm_all_accounts')
 		.text('Удалить все', 'cancel_all_accounts')
 
@@ -67,15 +64,10 @@ export async function refreshAccountsPreview(ctx: BotContext) {
 			})
 			ctx.session.tempMessageId = msg.message_id
 		} else {
-			await ctx.api.editMessageText(
-				ctx.chat!.id,
-				ctx.session.tempMessageId,
-				text,
-				{
-					parse_mode: 'HTML',
-					reply_markup: replyMarkup
-				}
-			)
+			await ctx.api.editMessageText(ctx.chat!.id, ctx.session.tempMessageId, text, {
+				parse_mode: 'HTML',
+				reply_markup: replyMarkup
+			})
 		}
 	} catch {}
 }
@@ -107,4 +99,3 @@ export const accountsPreviewCallbacks = (bot: Bot<BotContext>) => {
 
 	bot.callbackQuery('pagination_preview_accounts', async () => {})
 }
-

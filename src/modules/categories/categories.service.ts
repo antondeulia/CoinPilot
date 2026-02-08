@@ -65,7 +65,8 @@ export class CategoriesService {
 	async update(id: string, userId: string, name: string) {
 		const cat = await this.findById(id, userId)
 		if (!cat) throw new Error('Категория не найдена')
-		if (cat.name === 'Не выбрано') throw new Error('Эту категорию нельзя переименовать')
+		if (cat.name === 'Не выбрано')
+			throw new Error('Эту категорию нельзя переименовать')
 		const trimmed = name.trim().slice(0, 20)
 		if (!trimmed) throw new Error('Название не может быть пустым')
 		const existing = await this.prisma.category.findFirst({
@@ -92,4 +93,3 @@ export class CategoriesService {
 		return s[0].toUpperCase() + s.slice(1).toLowerCase()
 	}
 }
-

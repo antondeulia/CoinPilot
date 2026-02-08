@@ -31,4 +31,3 @@ export const START_TEXT = `
 export const FIAT_CURRENCIES = ['USD', 'EUR', 'UAH', 'GBP', 'PLN', 'SEK', 'RUB']
 
 export const CRYPTO_CURRENCIES = ['BTC', 'ETH', 'USDT', 'USDC', 'BNB']
-

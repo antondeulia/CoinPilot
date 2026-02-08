@@ -63,12 +63,12 @@ export const editAccountCallback = (
 
 		ctx.session.accountsPage = 0
 
-	const kb = buildAccountsKeyboard(
-		accounts.map(a => ({ id: a.id, name: a.name })),
-		0,
-		current?.accountId ?? null,
-		ctx.state.user.defaultAccountId ?? undefined
-	)
+		const kb = buildAccountsKeyboard(
+			accounts.map(a => ({ id: a.id, name: a.name })),
+			0,
+			current?.accountId ?? null,
+			ctx.state.user.defaultAccountId ?? undefined
+		)
 
 		if (ctx.session.tempMessageId != null) {
 			try {
@@ -109,9 +109,13 @@ export const editAccountCallback = (
 		)
 
 		try {
-			await ctx.api.editMessageReplyMarkup(ctx.chat!.id, ctx.session.tempMessageId!, {
-				reply_markup: kb
-			})
+			await ctx.api.editMessageReplyMarkup(
+				ctx.chat!.id,
+				ctx.session.tempMessageId!,
+				{
+					reply_markup: kb
+				}
+			)
 		} catch {}
 	})
 
@@ -138,13 +142,23 @@ export const editAccountCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.tempMessageId,
-				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+				renderConfirmMessage(
+					current,
+					index,
+					drafts.length,
+					user.defaultAccountId
+				),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+					reply_markup: confirmKeyboard(
+						drafts.length,
+						index,
+						showConversion,
+						current?.direction === 'transfer',
+						!!ctx.session.editingTransactionId
+					)
 				}
 			)
 		} catch {}
 	})
 }
-

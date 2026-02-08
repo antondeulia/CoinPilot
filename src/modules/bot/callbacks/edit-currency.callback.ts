@@ -107,9 +107,13 @@ export const editCurrencyCallback = (
 		const kb = buildCurrencyKeyboard(codes, page, current.currency ?? null)
 
 		try {
-			await ctx.api.editMessageReplyMarkup(ctx.chat!.id, ctx.session.tempMessageId!, {
-				reply_markup: kb
-			})
+			await ctx.api.editMessageReplyMarkup(
+				ctx.chat!.id,
+				ctx.session.tempMessageId!,
+				{
+					reply_markup: kb
+				}
+			)
 		} catch {}
 	})
 
@@ -134,12 +138,23 @@ export const editCurrencyCallback = (
 			accountsService
 		)
 		if (showConversion && accountId && typeof current.amount === 'number') {
-			const account = await accountsService.getOneWithAssets(accountId, ctx.state.user.id)
+			const account = await accountsService.getOneWithAssets(
+				accountId,
+				ctx.state.user.id
+			)
 			if (account?.assets?.length) {
-				const codes = Array.from(new Set(account.assets.map((a: any) => a.currency || account.currency)))
+				const codes = Array.from(
+					new Set(
+						account.assets.map((a: any) => a.currency || account.currency)
+					)
+				)
 				if (codes.length) {
 					current.convertToCurrency = codes[0]
-					current.convertedAmount = await exchangeService.convert(current.amount, current.currency, codes[0])
+					current.convertedAmount = await exchangeService.convert(
+						current.amount,
+						current.currency,
+						codes[0]
+					)
 				}
 			}
 		}
@@ -148,10 +163,21 @@ export const editCurrencyCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.tempMessageId,
-				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+				renderConfirmMessage(
+					current,
+					index,
+					drafts.length,
+					user.defaultAccountId
+				),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+					reply_markup: confirmKeyboard(
+						drafts.length,
+						index,
+						showConversion,
+						current?.direction === 'transfer',
+						!!ctx.session.editingTransactionId
+					)
 				}
 			)
 		} catch {}
@@ -159,4 +185,3 @@ export const editCurrencyCallback = (
 		;(ctx.session as any).editingCurrency = false
 	})
 }
-

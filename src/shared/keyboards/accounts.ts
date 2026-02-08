@@ -26,8 +26,7 @@ export function accountSwitchKeyboard(
 		kb.row()
 	}
 
-	kb
-		.text('« Назад', 'accounts_page_prev')
+	kb.text('« Назад', 'accounts_page_prev')
 		.text(`${page + 1}/${totalPages}`, 'accounts_page_current')
 		.text('Вперёд »', 'accounts_page_next')
 		.row()

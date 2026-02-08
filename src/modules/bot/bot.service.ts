@@ -125,7 +125,12 @@ export class BotService implements OnModuleInit {
 
 		// Callbacks
 		addTxCallback(this.bot)
-		confirmTxCallback(this.bot, this.transactionsService, this.accountsService, this.tagsService)
+		confirmTxCallback(
+			this.bot,
+			this.transactionsService,
+			this.accountsService,
+			this.tagsService
+		)
 		cancelTxCallback(this.bot, this.accountsService)
 		editTxCallback(this.bot, this.accountsService)
 		editTypeCallback(this.bot, this.accountsService)
@@ -141,14 +146,24 @@ export class BotService implements OnModuleInit {
 		paginationTransactionsCallback(this.bot, this.accountsService)
 		closeEditCallback(this.bot, this.accountsService)
 		repeatParseCallback(this.bot)
-		saveDeleteCallback(this.bot, this.transactionsService, this.accountsService, this.tagsService)
+		saveDeleteCallback(
+			this.bot,
+			this.transactionsService,
+			this.accountsService,
+			this.tagsService
+		)
 		editAccountCallback(this.bot, this.accountsService)
 		accountsPaginationCallback(this.bot)
 		addAccountCallback(this.bot)
 		accountsPreviewCallbacks(this.bot)
 		accountsJarvisEditCallback(this.bot, this.llmService)
 		saveDeleteAccountsCallback(this.bot, this.accountsService, this.usersService)
-		viewTransactionsCallback(this.bot, this.prisma, this.transactionsService, this.accountsService)
+		viewTransactionsCallback(
+			this.bot,
+			this.prisma,
+			this.transactionsService,
+			this.accountsService
+		)
 		viewCategoriesCallback(this.bot, this.categoriesService)
 		viewTagsCallback(this.bot, this.tagsService)
 		analyticsMainCallback(this.bot, this.analyticsService)
@@ -157,7 +172,12 @@ export class BotService implements OnModuleInit {
 		analyticsTypeCallback(this.bot, this.analyticsService)
 		analyticsFilterCallback(this.bot)
 		analyticsSavedCallback(this.bot, this.prisma)
-		analyticsChartCallback(this.bot, this.chartsService, this.prisma, this.exchangeService)
+		analyticsChartCallback(
+			this.bot,
+			this.chartsService,
+			this.prisma,
+			this.exchangeService
+		)
 		analyticsExportCallback(this.bot, this.prisma)
 		analyticsAlertsCallback(this.bot)
 
@@ -173,9 +193,10 @@ export class BotService implements OnModuleInit {
 
 			const account = ctx.state.activeAccount
 			if (!account) return
-
+			const mainCurrency = (ctx.state.user as any).mainCurrency ?? 'USD'
 			const balance = await this.accountsService.getBalance({
-				userId: ctx.state.user.id
+				userId: ctx.state.user.id,
+				mainCurrency
 			})
 
 			await ctx.api.editMessageText(
@@ -186,7 +207,7 @@ export class BotService implements OnModuleInit {
 				homeText(account, balance),
 				{
 					parse_mode: 'HTML',
-					reply_markup: homeKeyboard(account, balance)
+					reply_markup: homeKeyboard(account, balance, mainCurrency)
 				}
 			)
 		})
@@ -201,9 +222,10 @@ export class BotService implements OnModuleInit {
 
 			const account = ctx.state.activeAccount
 			if (!account) return
-
+			const mainCurrency = (ctx.state.user as any).mainCurrency ?? 'USD'
 			const balance = await this.accountsService.getBalance({
-				userId: ctx.state.user.id
+				userId: ctx.state.user.id,
+				mainCurrency
 			})
 
 			await ctx.api.editMessageText(
@@ -214,7 +236,7 @@ export class BotService implements OnModuleInit {
 				homeText(account, balance),
 				{
 					parse_mode: 'HTML',
-					reply_markup: homeKeyboard(account, balance)
+					reply_markup: homeKeyboard(account, balance, mainCurrency)
 				}
 			)
 		})
@@ -229,7 +251,9 @@ export class BotService implements OnModuleInit {
 			ctx.session.accountsViewPage = 0
 			ctx.session.accountsViewSelectedId = null
 
-			const accountsWithAssets = await this.accountsService.getAllWithAssets(user.id)
+			const accountsWithAssets = await this.accountsService.getAllWithAssets(
+				user.id
+			)
 			const text = await viewAccountsListText(
 				accountsWithAssets,
 				user.mainCurrency ?? 'USD',
@@ -246,13 +270,13 @@ export class BotService implements OnModuleInit {
 				{
 					parse_mode: 'HTML',
 					// @ts-ignore
-				reply_markup: accountSwitchKeyboard(
-					user.accounts,
-					user.activeAccountId,
-					0,
-					null,
-					user.defaultAccountId
-				)
+					reply_markup: accountSwitchKeyboard(
+						user.accounts,
+						user.activeAccountId,
+						0,
+						null,
+						user.defaultAccountId
+					)
 				}
 			)
 		})
@@ -269,7 +293,13 @@ export class BotService implements OnModuleInit {
 			await ctx.editMessageText(accountInfoText(account), {
 				parse_mode: 'HTML',
 				// @ts-ignore
-				reply_markup: accountSwitchKeyboard(user.accounts, user.activeAccountId, 0, undefined, user.defaultAccountId)
+				reply_markup: accountSwitchKeyboard(
+					user.accounts,
+					user.activeAccountId,
+					0,
+					undefined,
+					user.defaultAccountId || ""
+				)
 			})
 		})
 
@@ -304,18 +334,21 @@ export class BotService implements OnModuleInit {
 			const user: any = ctx.state.user
 			if (!user) return
 			const accountId = ctx.callbackQuery.data.split(':')[1]
-			const account = await this.accountsService.getOneWithAssets(accountId, user.id)
+			const account = await this.accountsService.getOneWithAssets(
+				accountId,
+				user.id
+			)
 			if (!account) return
 
-		ctx.session.accountsViewSelectedId = accountId
-		const page = ctx.session.accountsViewPage ?? 0
-		const mainCurrency = user.mainCurrency ?? 'USD'
-		const text = await accountDetailsText(
-			account,
-			mainCurrency,
-			this.exchangeService,
-			account.id === user.defaultAccountId
-		)
+			ctx.session.accountsViewSelectedId = accountId
+			const page = ctx.session.accountsViewPage ?? 0
+			const mainCurrency = user.mainCurrency ?? 'USD'
+			const text = await accountDetailsText(
+				account,
+				mainCurrency,
+				this.exchangeService,
+				account.id === user.defaultAccountId
+			)
 
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
@@ -338,7 +371,9 @@ export class BotService implements OnModuleInit {
 			if (!user) return
 			ctx.session.accountsViewSelectedId = null
 			const page = ctx.session.accountsViewPage ?? 0
-			const accountsWithAssets = await this.accountsService.getAllWithAssets(user.id)
+			const accountsWithAssets = await this.accountsService.getAllWithAssets(
+				user.id
+			)
 			const text = await viewAccountsListText(
 				accountsWithAssets,
 				user.mainCurrency ?? 'USD',
@@ -369,7 +404,10 @@ export class BotService implements OnModuleInit {
 				'Режим Jarvis-редактирования счёта.\n\nОпишите, что изменить: название, добавить/удалить валюты, изменить суммы.',
 				{
 					parse_mode: 'HTML',
-					reply_markup: new InlineKeyboard().text('Закрыть', 'close_jarvis_details_edit')
+					reply_markup: new InlineKeyboard().text(
+						'Закрыть',
+						'close_jarvis_details_edit'
+					)
 				}
 			)
 			ctx.session.editMessageId = msg.message_id
@@ -477,7 +515,6 @@ export class BotService implements OnModuleInit {
 			)
 		})
 
-
 		this.bot.callbackQuery('default_account_open', async ctx => {
 			const user: any = ctx.state.user
 			if (!user) return
@@ -499,8 +536,7 @@ export class BotService implements OnModuleInit {
 				}
 				kb.row()
 			}
-			kb
-				.text('« Назад', 'default_account_page_prev')
+			kb.text('« Назад', 'default_account_page_prev')
 				.text(`1/${totalPages}`, 'default_account_page_current')
 				.text('Вперёд »', 'default_account_page_next')
 				.row()
@@ -542,8 +578,7 @@ export class BotService implements OnModuleInit {
 				}
 				kb.row()
 			}
-			kb
-				.text('« Назад', 'default_account_page_prev')
+			kb.text('« Назад', 'default_account_page_prev')
 				.text(`${page + 1}/${totalPages}`, 'default_account_page_current')
 				.text('Вперёд »', 'default_account_page_next')
 				.row()
@@ -594,18 +629,29 @@ export class BotService implements OnModuleInit {
 				if (raw.length > 15) {
 					await ctx.reply(
 						'Название тега не должно превышать 15 символов. Введите короче.',
-						{ reply_markup: new InlineKeyboard().text('Закрыть', 'back_to_preview') }
+						{
+							reply_markup: new InlineKeyboard().text(
+								'Закрыть',
+								'back_to_preview'
+							)
+						}
 					)
 					return
 				}
 				const normalized = this.tagsService.normalizeTag(raw)
 				if (!normalized) {
 					await ctx.reply('Введите корректное название тега.', {
-						reply_markup: new InlineKeyboard().text('Закрыть', 'back_to_preview')
+						reply_markup: new InlineKeyboard().text(
+							'Закрыть',
+							'back_to_preview'
+						)
 					})
 					return
 				}
-				const similar = await this.tagsService.findSimilar(ctx.state.user.id, normalized)
+				const similar = await this.tagsService.findSimilar(
+					ctx.state.user.id,
+					normalized
+				)
 				const best = similar[0]
 				if (best && best.similarity >= 0.85) {
 					current.tagId = best.tag.id
@@ -636,10 +682,21 @@ export class BotService implements OnModuleInit {
 						await ctx.api.editMessageText(
 							ctx.chat!.id,
 							ctx.session.tempMessageId,
-							renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+							renderConfirmMessage(
+								current,
+								index,
+								drafts.length,
+								user.defaultAccountId
+							),
 							{
 								parse_mode: 'HTML',
-								reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!(ctx.session as any).editingTransactionId)
+								reply_markup: confirmKeyboard(
+									drafts.length,
+									index,
+									showConversion,
+									current?.direction === 'transfer',
+									!!(ctx.session as any).editingTransactionId
+								)
 							}
 						)
 					} catch {}
@@ -656,28 +713,28 @@ export class BotService implements OnModuleInit {
 				const value = text
 				const upper = value.trim().toUpperCase()
 				const map: Record<string, string> = {
-					'USD': 'USD',
-					'ДОЛЛАР': 'USD',
-					'$': 'USD',
-					'EUR': 'EUR',
-					'ЕВРО': 'EUR',
+					USD: 'USD',
+					ДОЛЛАР: 'USD',
+					$: 'USD',
+					EUR: 'EUR',
+					ЕВРО: 'EUR',
 					'€': 'EUR',
-					'UAH': 'UAH',
-					'ГРН': 'UAH',
-					'ГРИВНА': 'UAH',
+					UAH: 'UAH',
+					ГРН: 'UAH',
+					ГРИВНА: 'UAH',
 					'₴': 'UAH',
-					'RUB': 'RUB',
-					'РУБЛЬ': 'RUB',
+					RUB: 'RUB',
+					РУБЛЬ: 'RUB',
 					'₽': 'RUB',
-					'GBP': 'GBP',
-					'ФУНТ': 'GBP',
+					GBP: 'GBP',
+					ФУНТ: 'GBP',
 					'£': 'GBP',
-					'PLN': 'PLN',
-					'ЗЛОТЫЙ': 'PLN',
-					'SEK': 'SEK',
-					'КРОНА': 'SEK',
-					'USDT': 'USDT',
-					'ТЕТЕР': 'USDT'
+					PLN: 'PLN',
+					ЗЛОТЫЙ: 'PLN',
+					SEK: 'SEK',
+					КРОНА: 'SEK',
+					USDT: 'USDT',
+					ТЕТЕР: 'USDT'
 				}
 				const normalized = upper.replace(/\s+/g, '')
 				const code =
@@ -706,12 +763,25 @@ export class BotService implements OnModuleInit {
 					this.accountsService
 				)
 				if (showConversion && accountId && typeof current.amount === 'number') {
-					const account = await this.accountsService.getOneWithAssets(accountId, ctx.state.user.id)
+					const account = await this.accountsService.getOneWithAssets(
+						accountId,
+						ctx.state.user.id
+					)
 					if (account?.assets?.length) {
-						const codes = Array.from(new Set(account.assets.map((a: any) => a.currency || account.currency)))
+						const codes = Array.from(
+							new Set(
+								account.assets.map(
+									(a: any) => a.currency || account.currency
+								)
+							)
+						)
 						if (codes.length) {
 							current.convertToCurrency = codes[0]
-							current.convertedAmount = await this.exchangeService.convert(current.amount, current.currency, codes[0])
+							current.convertedAmount = await this.exchangeService.convert(
+								current.amount,
+								current.currency,
+								codes[0]
+							)
 						}
 					}
 				}
@@ -725,7 +795,12 @@ export class BotService implements OnModuleInit {
 						await ctx.api.editMessageText(
 							ctx.chat!.id,
 							ctx.session.tempMessageId,
-							renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+							renderConfirmMessage(
+								current,
+								index,
+								drafts.length,
+								user.defaultAccountId
+							),
 							{
 								parse_mode: 'HTML',
 								reply_markup: confirmKeyboard(
@@ -779,7 +854,9 @@ export class BotService implements OnModuleInit {
 					case 'date': {
 						const parsedDate = await this.llmService.parseDate(value)
 						if (!parsedDate) {
-							await ctx.reply('Не удалось распознать дату, попробуйте ещё раз')
+							await ctx.reply(
+								'Не удалось распознать дату, попробуйте ещё раз'
+							)
 							return
 						}
 						current.transactionDate = parsedDate.toISOString()
@@ -795,7 +872,10 @@ export class BotService implements OnModuleInit {
 
 				if (ctx.session.editMessageId) {
 					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+						await ctx.api.deleteMessage(
+							ctx.chat!.id,
+							ctx.session.editMessageId
+						)
 					} catch {}
 					ctx.session.editMessageId = undefined
 				}
@@ -821,7 +901,12 @@ export class BotService implements OnModuleInit {
 						await ctx.api.editMessageText(
 							ctx.chat!.id,
 							ctx.session.tempMessageId,
-							renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+							renderConfirmMessage(
+								current,
+								index,
+								drafts.length,
+								user.defaultAccountId
+							),
 							{
 								parse_mode: 'HTML',
 								reply_markup: confirmKeyboard(
@@ -843,28 +928,28 @@ export class BotService implements OnModuleInit {
 				const value = text
 				const upper = value.trim().toUpperCase()
 				const map: Record<string, string> = {
-					'USD': 'USD',
-					'ДОЛЛАР': 'USD',
-					'$': 'USD',
-					'EUR': 'EUR',
-					'ЕВРО': 'EUR',
+					USD: 'USD',
+					ДОЛЛАР: 'USD',
+					$: 'USD',
+					EUR: 'EUR',
+					ЕВРО: 'EUR',
 					'€': 'EUR',
-					'UAH': 'UAH',
-					'ГРН': 'UAH',
-					'ГРИВНА': 'UAH',
+					UAH: 'UAH',
+					ГРН: 'UAH',
+					ГРИВНА: 'UAH',
 					'₴': 'UAH',
-					'RUB': 'RUB',
-					'РУБЛЬ': 'RUB',
+					RUB: 'RUB',
+					РУБЛЬ: 'RUB',
 					'₽': 'RUB',
-					'GBP': 'GBP',
-					'ФУНТ': 'GBP',
+					GBP: 'GBP',
+					ФУНТ: 'GBP',
 					'£': 'GBP',
-					'PLN': 'PLN',
-					'ЗЛОТЫЙ': 'PLN',
-					'SEK': 'SEK',
-					'КРОНА': 'SEK',
-					'USDT': 'USDT',
-					'ТЕТЕР': 'USDT'
+					PLN: 'PLN',
+					ЗЛОТЫЙ: 'PLN',
+					SEK: 'SEK',
+					КРОНА: 'SEK',
+					USDT: 'USDT',
+					ТЕТЕР: 'USDT'
 				}
 				const normalized = upper.replace(/\s+/g, '')
 				const code =
@@ -881,7 +966,10 @@ export class BotService implements OnModuleInit {
 
 				if (ctx.session.editMessageId) {
 					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+						await ctx.api.deleteMessage(
+							ctx.chat!.id,
+							ctx.session.editMessageId
+						)
 					} catch {}
 					ctx.session.editMessageId = undefined
 				}
@@ -911,7 +999,6 @@ export class BotService implements OnModuleInit {
 					settingsText,
 					{ parse_mode: 'HTML', reply_markup: kb }
 				)
-
 				;(ctx.session as any).editingMainCurrency = false
 				return
 			}
@@ -920,40 +1007,58 @@ export class BotService implements OnModuleInit {
 				const accountId = ctx.session.editingAccountDetailsId
 				const user: any = ctx.state.user
 				if (!user) return
-				const account = await this.accountsService.getOneWithAssets(accountId, user.id)
+				const account = await this.accountsService.getOneWithAssets(
+					accountId,
+					user.id
+				)
 				if (!account) {
 					ctx.session.editingAccountDetailsId = undefined
 					return
 				}
 				const current = {
 					name: account.name,
-					assets: account.assets.map(a => ({ currency: a.currency, amount: a.amount }))
+					assets: account.assets.map(a => ({
+						currency: a.currency,
+						amount: a.amount
+					}))
 				}
 				try {
 					const updated = await this.llmService.parseAccountEdit(current, text)
-					await this.accountsService.updateAccountWithAssets(accountId, user.id, updated)
+					await this.accountsService.updateAccountWithAssets(
+						accountId,
+						user.id,
+						updated
+					)
 				} catch {
-					await ctx.reply('Не удалось применить изменения, попробуйте сформулировать иначе.')
+					await ctx.reply(
+						'Не удалось применить изменения, попробуйте сформулировать иначе.'
+					)
 					return
 				}
 				if (ctx.session.editMessageId) {
 					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+						await ctx.api.deleteMessage(
+							ctx.chat!.id,
+							ctx.session.editMessageId
+						)
 					} catch {}
 					ctx.session.editMessageId = undefined
 				}
 				try {
 					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
 				} catch {}
-				const freshAccount = await this.accountsService.getOneWithAssets(accountId, user.id)
-				if (freshAccount) {
-			const mainCurrency = user.mainCurrency ?? 'USD'
-				const detailsText = await accountDetailsText(
-					freshAccount,
-					mainCurrency,
-					this.exchangeService,
-					freshAccount.id === user.defaultAccountId
+				const freshAccount = await this.accountsService.getOneWithAssets(
+					accountId,
+					user.id
 				)
+				if (freshAccount) {
+					const mainCurrency = user.mainCurrency ?? 'USD'
+					const detailsText = await accountDetailsText(
+						freshAccount,
+						mainCurrency,
+						this.exchangeService,
+						freshAccount.id === user.defaultAccountId
+					)
 					const page = ctx.session.accountsViewPage ?? 0
 					const freshUser = await this.usersService.getOrCreateByTelegramId(
 						String(ctx.from!.id)
@@ -977,7 +1082,10 @@ export class BotService implements OnModuleInit {
 				return
 			}
 
-			if (ctx.session.editingAccountField === 'jarvis' && ctx.session.draftAccounts) {
+			if (
+				ctx.session.editingAccountField === 'jarvis' &&
+				ctx.session.draftAccounts
+			) {
 				const drafts = ctx.session.draftAccounts
 				if (!drafts.length) return
 
@@ -996,7 +1104,10 @@ export class BotService implements OnModuleInit {
 
 				if (ctx.session.editMessageId) {
 					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+						await ctx.api.deleteMessage(
+							ctx.chat!.id,
+							ctx.session.editMessageId
+						)
 					} catch {}
 					ctx.session.editMessageId = undefined
 				}
@@ -1016,7 +1127,11 @@ export class BotService implements OnModuleInit {
 				const userId = ctx.state.user.id
 				let tags = await this.tagsService.getAllByUserId(userId)
 				const currentTagNames = tags.map(t => t.name)
-				let result: { add: string[]; delete: string[]; rename: { from: string; to: string }[] }
+				let result: {
+					add: string[]
+					delete: string[]
+					rename: { from: string; to: string }[]
+				}
 				try {
 					result = await this.llmService.parseTagEdit(currentTagNames, text)
 					for (const name of result.delete) {
@@ -1041,7 +1156,10 @@ export class BotService implements OnModuleInit {
 				}
 				if (ctx.session.tagsSettingsHintMessageId != null) {
 					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tagsSettingsHintMessageId)
+						await ctx.api.deleteMessage(
+							ctx.chat!.id,
+							ctx.session.tagsSettingsHintMessageId
+						)
 					} catch {}
 					ctx.session.tagsSettingsHintMessageId = undefined
 				}
@@ -1069,7 +1187,10 @@ export class BotService implements OnModuleInit {
 				}
 				const summaryLines: string[] = []
 				if (result.rename?.length) {
-					summaryLines.push('Переименовано: ' + result.rename.map(r => `«${r.from}» → «${r.to}»`).join(', '))
+					summaryLines.push(
+						'Переименовано: ' +
+							result.rename.map(r => `«${r.from}» → «${r.to}»`).join(', ')
+					)
 				}
 				if (result.delete?.length) {
 					summaryLines.push('Удалено: ' + result.delete.join(', '))
@@ -1077,9 +1198,10 @@ export class BotService implements OnModuleInit {
 				if (result.add?.length) {
 					summaryLines.push('Создано: ' + result.add.join(', '))
 				}
-				const summaryText = summaryLines.length > 0
-					? '✅ Изменения применены.\n\n' + summaryLines.join('\n')
-					: '✅ Изменения применены.'
+				const summaryText =
+					summaryLines.length > 0
+						? '✅ Изменения применены.\n\n' + summaryLines.join('\n')
+						: '✅ Изменения применены.'
 				await ctx.reply(summaryText, {
 					parse_mode: 'HTML',
 					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
@@ -1097,7 +1219,10 @@ export class BotService implements OnModuleInit {
 				let createdName: string | null = null
 				try {
 					if (ctx.session.editingCategory === 'create') {
-						const created = await this.categoriesService.create(userId, nameInput)
+						const created = await this.categoriesService.create(
+							userId,
+							nameInput
+						)
 						createdName = created.name
 					} else {
 						const selectedId = ctx.session.categoriesSelectedId
@@ -1110,7 +1235,10 @@ export class BotService implements OnModuleInit {
 				}
 				if (ctx.session.categoriesHintMessageId != null) {
 					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.categoriesHintMessageId)
+						await ctx.api.deleteMessage(
+							ctx.chat!.id,
+							ctx.session.categoriesHintMessageId
+						)
 					} catch {}
 					ctx.session.categoriesHintMessageId = undefined
 				}
@@ -1120,20 +1248,35 @@ export class BotService implements OnModuleInit {
 				ctx.session.awaitingCategoryName = false
 				ctx.session.editingCategory = undefined
 				if (createdName != null) {
-					const successKb = { inline_keyboard: [[{ text: 'Закрыть', callback_data: 'close_category_success' }]] }
-					await ctx.reply(`Успешное добавление новой категории под названием «${createdName}».`, {
-						reply_markup: successKb
-					})
+					const successKb = {
+						inline_keyboard: [
+							[{ text: 'Закрыть', callback_data: 'close_category_success' }]
+						]
+					}
+					await ctx.reply(
+						`Успешное добавление новой категории под названием «${createdName}».`,
+						{
+							reply_markup: successKb
+						}
+					)
 				}
 				ctx.session.categoriesSelectedId = null
 				const mid = ctx.session.categoriesMessageId
 				if (mid != null) {
-					const categories = await this.categoriesService.getSelectableByUserId(userId)
-					const page = Math.min(ctx.session.categoriesPage ?? 0, Math.max(0, Math.ceil(categories.length / 9) - 1))
+					const categories =
+						await this.categoriesService.getSelectableByUserId(userId)
+					const page = Math.min(
+						ctx.session.categoriesPage ?? 0,
+						Math.max(0, Math.ceil(categories.length / 9) - 1)
+					)
 					ctx.session.categoriesPage = page
 					await ctx.api.editMessageText(ctx.chat!.id, mid, '<b>Категории</b>', {
 						parse_mode: 'HTML',
-						reply_markup: categoriesListKb(categories.map(c => ({ id: c.id, name: c.name })), page, null)
+						reply_markup: categoriesListKb(
+							categories.map(c => ({ id: c.id, name: c.name })),
+							page,
+							null
+						)
 					})
 				}
 				return
@@ -1147,7 +1290,8 @@ export class BotService implements OnModuleInit {
 				)
 				const categoryNames = userCategories.map(c => c.name)
 				const existingTags = await this.tagsService.getNamesAndAliases(user.id)
-				const userAccounts = await this.accountsService.getAllByUserIdIncludingHidden(user.id)
+				const userAccounts =
+					await this.accountsService.getAllByUserIdIncludingHidden(user.id)
 				const accountNames = userAccounts.map((a: any) => a.name)
 
 				try {
@@ -1182,37 +1326,52 @@ export class BotService implements OnModuleInit {
 				const defaultAccountId =
 					user.defaultAccountId || ctx.state.activeAccount?.id || null
 				const defaultAccount = defaultAccountId
-					? await this.accountsService.getOneWithAssets(defaultAccountId, user.id)
+					? await this.accountsService.getOneWithAssets(
+							defaultAccountId,
+							user.id
+						)
 					: null
 
-				if (defaultAccount && (!defaultAccount.assets || defaultAccount.assets.length === 0)) {
+				if (
+					defaultAccount &&
+					(!defaultAccount.assets || defaultAccount.assets.length === 0)
+				) {
 					await ctx.reply(
 						'В связанном счёте отсутствуют активы. Добавьте валюты в счёт.',
-						{ reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message') }
+						{
+							reply_markup: new InlineKeyboard().text(
+								'Закрыть',
+								'hide_message'
+							)
+						}
 					)
 					return
 				}
 
 				for (const tx of parsed as any[]) {
-					const parsedAccountStr = (tx.account && String(tx.account).trim()) || ''
+					const parsedAccountStr =
+						(tx.account && String(tx.account).trim()) || ''
 					let matchedAccountId: string | null = null
 					if (parsedAccountStr && userAccounts.length) {
 						const lower = parsedAccountStr.toLowerCase()
 						for (const acc of userAccounts as any[]) {
 							const accLower = acc.name.toLowerCase()
-							if (accLower === lower || accLower.includes(lower) || lower.includes(accLower)) {
+							if (
+								accLower === lower ||
+								accLower.includes(lower) ||
+								lower.includes(accLower)
+							) {
 								matchedAccountId = acc.id
 								break
 							}
 						}
 					}
 					tx.accountId = matchedAccountId ?? defaultAccountId
-					const acc = matchedAccountId ? userAccounts.find((a: any) => a.id === matchedAccountId) : defaultAccount
-					tx.account = acc?.name ?? (defaultAccount?.name ?? null)
-					if (
-						!tx.category ||
-						!categoryNames.includes(tx.category)
-					) {
+					const acc = matchedAccountId
+						? userAccounts.find((a: any) => a.id === matchedAccountId)
+						: defaultAccount
+					tx.account = acc?.name ?? defaultAccount?.name ?? null
+					if (!tx.category || !categoryNames.includes(tx.category)) {
 						tx.category = 'Не выбрано'
 					}
 					if (tx.accountId && tx.currency && typeof tx.amount === 'number') {
@@ -1223,7 +1382,9 @@ export class BotService implements OnModuleInit {
 						if (account && account.assets.length) {
 							const codes = Array.from(
 								new Set(
-									account.assets.map(a => a.currency || account.currency)
+									account.assets.map(
+										a => a.currency || account.currency
+									)
 								)
 							)
 							if (!codes.includes(tx.currency) && codes.length) {
@@ -1288,14 +1449,23 @@ export class BotService implements OnModuleInit {
 
 				if (ctx.session.tempMessageId != null) {
 					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
+						await ctx.api.deleteMessage(
+							ctx.chat!.id,
+							ctx.session.tempMessageId
+						)
 					} catch {}
 				}
 				const msg = await ctx.reply(
 					renderConfirmMessage(first, 0, parsed.length, user.defaultAccountId),
 					{
 						parse_mode: 'HTML',
-						reply_markup: confirmKeyboard(parsed.length, 0, showConversion, first?.direction === 'transfer', false)
+						reply_markup: confirmKeyboard(
+							parsed.length,
+							0,
+							showConversion,
+							first?.direction === 'transfer',
+							false
+						)
 					}
 				)
 

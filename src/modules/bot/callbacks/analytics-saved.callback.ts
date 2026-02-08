@@ -2,10 +2,7 @@ import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { PrismaService } from 'src/modules/prisma/prisma.service'
 
-export const analyticsSavedCallback = (
-	bot: Bot<BotContext>,
-	prisma: PrismaService
-) => {
+export const analyticsSavedCallback = (bot: Bot<BotContext>, prisma: PrismaService) => {
 	bot.callbackQuery('analytics_save_view', async ctx => {
 		const userId = ctx.state.user.id
 		const period = (ctx.session as any).analyticsPeriod ?? 30

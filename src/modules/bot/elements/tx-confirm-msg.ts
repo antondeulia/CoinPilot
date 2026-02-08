@@ -53,8 +53,7 @@ export function renderConfirmMessage(
 	}
 
 	const isTransfer = tx.direction === 'transfer'
-	const categoryLine =
-		isTransfer ? '' : `Категория: ${tx.category ?? '—'}\n`
+	const categoryLine = isTransfer ? '' : `Категория: ${tx.category ?? '—'}\n`
 	const targetAccountLine = isTransfer
 		? `На счёт: ${formatAccountName((draft.toAccount as string) ?? '—', false)}\n`
 		: ''

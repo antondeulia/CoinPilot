@@ -1,6 +1,9 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { AnalyticsService, type AnalyticsPeriod } from 'src/modules/analytics/analytics.service'
+import {
+	AnalyticsService,
+	type AnalyticsPeriod
+} from 'src/modules/analytics/analytics.service'
 import { getCurrencySymbol } from 'src/utils/format'
 
 const ANOMALY_THRESHOLD = 100
@@ -17,17 +20,19 @@ function analyticsKeyboard(period: AnalyticsPeriod) {
 		.text(period === 30 ? '✅ 30d' : '30d', 'analytics_30d')
 		.text(period === 90 ? '✅ 90d' : '90d', 'analytics_90d')
 		.row()
-	kb.text('По категориям', 'analytics_by_category')
-		.text('По тегам', 'analytics_by_tag')
-		.text('По типу', 'analytics_by_type')
-		.row()
-	kb.text('Фильтр', 'analytics_filter')
-		.text('Сохранить вид', 'analytics_save_view')
-		.text('Экспорт', 'analytics_export')
-		.row()
+	// kb.text('По категориям', 'analytics_by_category')
+	// 	.text('По тегам', 'analytics_by_tag')
+	// 	.text('По типу', 'analytics_by_type')
+	// 	.row()
 	kb.text('График', 'analytics_chart')
+		// kb.text('Фильтр', 'analytics_filter')
+		// 	.text('Сохранить вид', 'analytics_save_view')
+		.text('Экспорт', 'analytics_export')
 		.text('Уведомления', 'analytics_alerts')
 		.row()
+	// kb.text('График', 'analytics_chart')
+	// 	.text('Уведомления', 'analytics_alerts')
+	// 	.row()
 	kb.text('← Назад', 'go_home')
 	return kb
 }
@@ -130,7 +135,10 @@ export const analyticsMainCallback = (
 	}
 
 	bot.callbackQuery('view_analytics', async ctx => {
-		;(ctx.session as any).navigationStack = [...(ctx.session.navigationStack ?? []), 'home']
+		;(ctx.session as any).navigationStack = [
+			...(ctx.session.navigationStack ?? []),
+			'home'
+		]
 		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
 		await sendOrEdit(ctx, period)
 	})

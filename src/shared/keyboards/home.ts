@@ -32,12 +32,14 @@ WalletBot – CoinPilot
 `
 }
 
-export function homeKeyboard(account, balance: number) {
+export function homeKeyboard(
+	account: { currency: string } | null,
+	balance: number,
+	balanceCurrency?: string
+) {
+	const currency = balanceCurrency ?? account?.currency ?? 'USD'
 	return new InlineKeyboard()
-		.text(
-			`💰 Общий баланс: ${balance.toFixed(2)} ${account.currency}`,
-			'view_balance'
-		)
+		.text(`💲 Денежный поток: ${balance.toFixed(2)} ${currency}`, 'view_balance')
 		.row()
 		.text('+ Запись', 'add_transaction')
 		.text('Счета', 'view_accounts')

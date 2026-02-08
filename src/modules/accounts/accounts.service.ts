@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { ExchangeService } from '../exchange/exchange.service'
 import { LlmAccount } from '../llm/schemas/account.schema'
 
 @Injectable()
 export class AccountsService {
-	constructor(private readonly prisma: PrismaService) {}
+	constructor(
+		private readonly prisma: PrismaService,
+		private readonly exchangeService: ExchangeService
+	) {}
 
 	async createAccount(userId: string, name: string, currency: string) {
 		return this.prisma.account.create({
@@ -81,30 +85,80 @@ export class AccountsService {
 		})
 	}
 
-	async getBalance({ userId }: { userId: string }): Promise<number> {
-		const income = await this.prisma.transaction.aggregate({
-			_sum: { amount: true },
+	/**
+	 * Cashflow за текущий календарный месяц (1-е число — сегодня).
+	 * Только income/expense, без внутренних переводов; валюта нормализуется в mainCurrency.
+	 */
+	async getBalance({
+		userId,
+		mainCurrency
+	}: {
+		userId: string
+		mainCurrency?: string
+	}): Promise<number> {
+		const main =
+			mainCurrency ??
+			(
+				await this.prisma.user.findUnique({
+					where: { id: userId },
+					select: { mainCurrency: true }
+				})
+			)?.mainCurrency ??
+			'USD'
+
+		const now = new Date()
+		const startOfMonth = new Date(
+			Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
+		)
+		const endOfToday = new Date(
+			Date.UTC(
+				now.getUTCFullYear(),
+				now.getUTCMonth(),
+				now.getUTCDate(),
+				23,
+				59,
+				59,
+				999
+			)
+		)
+
+		const txs = await this.prisma.transaction.findMany({
 			where: {
-				direction: 'income',
-				account: { userId, isHidden: false }
+				userId,
+				direction: { in: ['income', 'expense'] },
+				account: { userId, isHidden: false },
+				transactionDate: { gte: startOfMonth, lte: endOfToday }
+			},
+			select: {
+				direction: true,
+				amount: true,
+				currency: true,
+				convertedAmount: true,
+				convertToCurrency: true
 			}
 		})
 
-		const expense = await this.prisma.transaction.aggregate({
-			_sum: { amount: true },
-			where: {
-				direction: 'expense',
-				account: { userId, isHidden: false }
-			}
-		})
-
-		return (income._sum.amount ?? 0) - (expense._sum.amount ?? 0)
+		let inflowsMain = 0
+		let outflowsMain = 0
+		for (const tx of txs) {
+			const useConverted =
+				tx.convertedAmount != null &&
+				tx.convertToCurrency != null &&
+				tx.convertToCurrency === main
+			const amountMain = useConverted
+				? tx.convertedAmount!
+				: await this.exchangeService.convert(tx.amount, tx.currency, main)
+			if (tx.direction === 'income') inflowsMain += amountMain
+			else outflowsMain += amountMain
+		}
+		return inflowsMain - outflowsMain
 	}
 
 	async createAccountWithAssets(userId: string, draft: LlmAccount) {
 		const [firstWord, ...rest] = draft.name.trim().split(/\s+/)
 		const formattedName =
-			firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase() +
+			firstWord.charAt(0).toUpperCase() +
+			firstWord.slice(1).toLowerCase() +
 			(rest.length ? ' ' + rest.join(' ') : '')
 
 		return this.prisma.$transaction(async tx => {

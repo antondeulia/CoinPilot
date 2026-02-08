@@ -37,9 +37,7 @@ export const confirmTxCallback = (
 
 		for (const draft of drafts as any[]) {
 			const accountId =
-				draft.accountId ||
-				user.defaultAccountId ||
-				ctx.state.activeAccount?.id
+				draft.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
 			if (!accountId) continue
 
 			let tagId = draft.tagId
@@ -69,7 +67,9 @@ export const confirmTxCallback = (
 				tagId: tagId ?? undefined,
 				convertedAmount: draft.convertedAmount,
 				convertToCurrency: draft.convertToCurrency,
-				transactionDate: draft.transactionDate ? new Date(draft.transactionDate) : undefined
+				transactionDate: draft.transactionDate
+					? new Date(draft.transactionDate)
+					: undefined
 			})
 		}
 
@@ -142,8 +142,7 @@ export function confirmKeyboard(
 	if (!isTransfer) {
 		kb.text('Категория', 'edit:category')
 	}
-	kb.row()
-		.text('Валюта', 'edit:currency')
+	kb.row().text('Валюта', 'edit:currency')
 
 	if (showConversion) {
 		kb.text('Конвертация', 'edit:conversion')
@@ -165,14 +164,10 @@ export function confirmKeyboard(
 		kb.row()
 			.text('Сохранить изменения', 'save_edit_transaction')
 			.text('Удалить транзакцию', 'delete_transaction')
-		kb.row()
-			.text('← Назад к списку', 'back_to_transactions')
+		kb.row().text('← Назад к списку', 'back_to_transactions')
 	} else {
-		kb.row()
-			.text('Сохранить все', 'confirm_tx')
-			.text('Удалить все', 'cancel_tx')
-		kb.row()
-			.text('Повторить', 'repeat_parse')
+		kb.row().text('Сохранить все', 'confirm_tx').text('Удалить все', 'cancel_tx')
+		kb.row().text('Повторить', 'repeat_parse')
 	}
 	return kb
 }

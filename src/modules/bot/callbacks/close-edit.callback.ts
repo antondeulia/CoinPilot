@@ -77,9 +77,7 @@ export const closeEditCallback = (
 
 		const user = ctx.state.user as any
 		const accountId =
-			current.accountId ||
-			user.defaultAccountId ||
-			ctx.state.activeAccount?.id
+			current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
 		const showConversion = await getShowConversion(
 			current,
 			accountId ?? null,
@@ -91,13 +89,23 @@ export const closeEditCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.tempMessageId,
-				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+				renderConfirmMessage(
+					current,
+					index,
+					drafts.length,
+					user.defaultAccountId
+				),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+					reply_markup: confirmKeyboard(
+						drafts.length,
+						index,
+						showConversion,
+						current?.direction === 'transfer',
+						!!ctx.session.editingTransactionId
+					)
 				}
 			)
 		} catch {}
 	})
 }
-

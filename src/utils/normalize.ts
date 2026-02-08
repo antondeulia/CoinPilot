@@ -17,11 +17,7 @@ export function levenshtein(a: string, b: string): number {
 	for (let j = 1; j <= n; j++) {
 		for (let i = 1; i <= m; i++) {
 			const cost = a[i - 1] === b[j - 1] ? 0 : 1
-			d[i][j] = Math.min(
-				d[i - 1][j] + 1,
-				d[i][j - 1] + 1,
-				d[i - 1][j - 1] + cost
-			)
+			d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
 		}
 	}
 	return d[m][n]

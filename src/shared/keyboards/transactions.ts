@@ -2,7 +2,14 @@ import { InlineKeyboard } from 'grammy'
 
 const PAGE_SIZE = 9
 
-function txLabel(tx: { direction: string; amount: number; currency: string; transactionDate: Date; description?: string | null; category?: string | null }) {
+function txLabel(tx: {
+	direction: string
+	amount: number
+	currency: string
+	transactionDate: Date
+	description?: string | null
+	category?: string | null
+}) {
 	const isExpense = tx.direction === 'expense'
 	const emoji = isExpense ? '🔴' : '🟢'
 	const sign = isExpense ? '-' : '+'
@@ -15,7 +22,15 @@ function txLabel(tx: { direction: string; amount: number; currency: string; tran
 }
 
 export function transactionsListKeyboard(
-	txs: Array<{ id: string; direction: string; amount: number; currency: string; transactionDate: Date; description?: string | null; category?: string | null }>,
+	txs: Array<{
+		id: string
+		direction: string
+		amount: number
+		currency: string
+		transactionDate: Date
+		description?: string | null
+		category?: string | null
+	}>,
 	page: number,
 	totalCount: number
 ) {
@@ -28,8 +43,7 @@ export function transactionsListKeyboard(
 		kb.row()
 	}
 	const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-	kb
-		.text('« Назад', 'transactions_page:prev')
+	kb.text('« Назад', 'transactions_page:prev')
 		.text(`${page + 1}/${totalPages}`, 'transactions_page:noop')
 		.text('Вперёд »', 'transactions_page:next')
 		.row()

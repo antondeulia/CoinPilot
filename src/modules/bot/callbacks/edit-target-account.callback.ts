@@ -34,7 +34,10 @@ function buildTargetAccountsKeyboard(
 	if (accounts.length > pageSize) {
 		rows.push([
 			{ text: '« Назад', callback_data: 'target_accounts_page:prev' },
-			{ text: `${page + 1}/${totalPages}`, callback_data: 'target_accounts_page:noop' },
+			{
+				text: `${page + 1}/${totalPages}`,
+				callback_data: 'target_accounts_page:noop'
+			},
 			{ text: 'Вперёд »', callback_data: 'target_accounts_page:next' }
 		])
 	}
@@ -55,7 +58,6 @@ export const editTargetAccountCallback = (
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index] as any
 		if (!drafts || !current || current.direction !== 'transfer') return
-
 		;(ctx.session as any).targetAccountsPage = 0
 		const kb = buildTargetAccountsKeyboard(
 			accounts.map(a => ({ id: a.id, name: a.name })),
@@ -98,9 +100,13 @@ export const editTargetAccountCallback = (
 			ctx.state.user.defaultAccountId ?? undefined
 		)
 		try {
-			await ctx.api.editMessageReplyMarkup(ctx.chat!.id, ctx.session.tempMessageId!, {
-				reply_markup: kb
-			})
+			await ctx.api.editMessageReplyMarkup(
+				ctx.chat!.id,
+				ctx.session.tempMessageId!,
+				{
+					reply_markup: kb
+				}
+			)
 		} catch {}
 	})
 
@@ -127,10 +133,21 @@ export const editTargetAccountCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.tempMessageId,
-				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+				renderConfirmMessage(
+					current,
+					index,
+					drafts.length,
+					user.defaultAccountId
+				),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, true, !!ctx.session.editingTransactionId)
+					reply_markup: confirmKeyboard(
+						drafts.length,
+						index,
+						showConversion,
+						true,
+						!!ctx.session.editingTransactionId
+					)
 				}
 			)
 		} catch {}

@@ -1,6 +1,9 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { AnalyticsService, type AnalyticsPeriod } from 'src/modules/analytics/analytics.service'
+import {
+	AnalyticsService,
+	type AnalyticsPeriod
+} from 'src/modules/analytics/analytics.service'
 import { getCurrencySymbol } from 'src/utils/format'
 
 const PAGE_SIZE = 9
@@ -36,7 +39,10 @@ export const analyticsTagsCallback = (
 		for (let i = 0; i < slice.length; i += 3) {
 			const row = slice.slice(i, i + 3)
 			for (const t of row) {
-				kb.text(`${t.tagName} ${t.sum.toFixed(0)}${symbol}`, `analytics_tag:${t.tagId}`)
+				kb.text(
+					`${t.tagName} ${t.sum.toFixed(0)}${symbol}`,
+					`analytics_tag:${t.tagId}`
+				)
 			}
 			kb.row()
 		}
@@ -44,7 +50,10 @@ export const analyticsTagsCallback = (
 			.text(`1/${totalPages}`, 'analytics_tags_page:noop')
 			.text('Вперёд »', 'analytics_tags_page:next')
 			.row()
-		kb.text('7d', 'analytics_7d').text('30d', 'analytics_30d').text('90d', 'analytics_90d').row()
+		kb.text('7d', 'analytics_7d')
+			.text('30d', 'analytics_30d')
+			.text('90d', 'analytics_90d')
+			.row()
 		kb.text('← Назад', 'analytics_back_to_main')
 
 		const msgId = (ctx.session as any).homeMessageId
@@ -84,7 +93,10 @@ export const analyticsTagsCallback = (
 		for (let i = 0; i < slice.length; i += 3) {
 			const row = slice.slice(i, i + 3)
 			for (const t of row) {
-				kb.text(`${t.tagName} ${t.sum.toFixed(0)}${symbol}`, `analytics_tag:${t.tagId}`)
+				kb.text(
+					`${t.tagName} ${t.sum.toFixed(0)}${symbol}`,
+					`analytics_tag:${t.tagId}`
+				)
 			}
 			kb.row()
 		}
@@ -92,13 +104,18 @@ export const analyticsTagsCallback = (
 			.text(`${page + 1}/${totalPages}`, 'analytics_tags_page:noop')
 			.text('Вперёд »', 'analytics_tags_page:next')
 			.row()
-		kb.text('7d', 'analytics_7d').text('30d', 'analytics_30d').text('90d', 'analytics_90d').row()
+		kb.text('7d', 'analytics_7d')
+			.text('30d', 'analytics_30d')
+			.text('90d', 'analytics_90d')
+			.row()
 		kb.text('← Назад', 'analytics_back_to_main')
 
 		const msgId = (ctx.session as any).homeMessageId
 		if (msgId != null) {
 			try {
-				await ctx.api.editMessageReplyMarkup(ctx.chat!.id, msgId, { reply_markup: kb })
+				await ctx.api.editMessageReplyMarkup(ctx.chat!.id, msgId, {
+					reply_markup: kb
+				})
 			} catch {}
 		}
 	})
@@ -133,7 +150,10 @@ export const analyticsTagsCallback = (
 			.text(`1/${totalPages}`, 'analytics_tag_detail_page:noop')
 			.text('Вперёд »', 'analytics_tag_detail_page:next')
 			.row()
-		kb.text('7d', 'analytics_7d').text('30d', 'analytics_30d').text('90d', 'analytics_90d').row()
+		kb.text('7d', 'analytics_7d')
+			.text('30d', 'analytics_30d')
+			.text('90d', 'analytics_90d')
+			.row()
 		kb.text('← К тегам', 'analytics_by_tag')
 
 		const msgId = (ctx.session as any).homeMessageId

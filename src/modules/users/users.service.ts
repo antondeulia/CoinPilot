@@ -26,7 +26,12 @@ export class UsersService {
 				accounts: {
 					create: [
 						{ name: 'Наличные', type: 'cash', currency: 'EUR' },
-						{ name: 'Вне Wallet', type: 'cash', currency: 'USD', isHidden: true }
+						{
+							name: 'Вне Wallet',
+							type: 'cash',
+							currency: 'USD',
+							isHidden: true
+						}
 					]
 				}
 			},

@@ -17,7 +17,11 @@ function settingsKeyboard() {
 		.text('🠐 Назад', 'go_home')
 }
 
-function settingsText(user: { mainCurrency?: string; defaultAccountId?: string; accounts: { id: string; name: string }[] }) {
+function settingsText(user: {
+	mainCurrency?: string
+	defaultAccountId?: string
+	accounts: { id: string; name: string }[]
+}) {
 	const mainCode = user?.mainCurrency ?? 'USD'
 	const defaultAccount =
 		user.accounts.find((a: any) => a.id === user.defaultAccountId) ?? user.accounts[0]
@@ -44,14 +48,12 @@ export function categoriesListKb(
 		}
 		kb.row()
 	}
-	kb
-		.text('« Назад', SETTINGS_CAT_PAGE_PREFIX + 'prev')
+	kb.text('« Назад', SETTINGS_CAT_PAGE_PREFIX + 'prev')
 		.text(`${page + 1}/${totalPages}`, SETTINGS_CAT_PAGE_PREFIX + 'noop')
 		.text('Вперёд »', SETTINGS_CAT_PAGE_PREFIX + 'next')
 		.row()
 	if (selectedId) {
-		kb
-			.text('🗑 Удалить', 'delete_category')
+		kb.text('🗑 Удалить', 'delete_category')
 			.text('✍️ Переименовать', 'rename_category')
 			.row()
 			.text('Снять выделение', 'deselect_category')
@@ -75,37 +77,44 @@ export const viewCategoriesCallback = (
 		ctx.session.categoriesMessageId = msgId
 		ctx.session.categoriesPage = 0
 		ctx.session.categoriesSelectedId = null
-		const kb = categoriesListKb(categories.map(c => ({ id: c.id, name: c.name })), 0, null)
+		const kb = categoriesListKb(
+			categories.map(c => ({ id: c.id, name: c.name })),
+			0,
+			null
+		)
 		await ctx.api.editMessageText(ctx.chat!.id, msgId, '<b>Категории</b>', {
 			parse_mode: 'HTML',
 			reply_markup: kb
 		})
 	})
 
-	bot.callbackQuery(new RegExp(`^${SETTINGS_CAT_PAGE_PREFIX}(prev|next|noop)$`), async ctx => {
-		if (ctx.session.categoriesMessageId == null) return
-		const dir = ctx.callbackQuery.data.replace(SETTINGS_CAT_PAGE_PREFIX, '')
-		if (dir === 'noop') return
-		const userId = ctx.state.user.id
-		const categories = await categoriesService.getSelectableByUserId(userId)
-		const totalPages = Math.max(1, Math.ceil(categories.length / PAGE_SIZE))
-		let page = ctx.session.categoriesPage ?? 0
-		if (dir === 'prev') page = page <= 0 ? totalPages - 1 : page - 1
-		else page = page >= totalPages - 1 ? 0 : page + 1
-		ctx.session.categoriesPage = page
-		const selectedId = ctx.session.categoriesSelectedId ?? null
-		const kb = categoriesListKb(
-			categories.map(c => ({ id: c.id, name: c.name })),
-			page,
-			selectedId
-		)
-		await ctx.api.editMessageText(
-			ctx.chat!.id,
-			ctx.session.categoriesMessageId,
-			'<b>Категории</b>',
-			{ parse_mode: 'HTML', reply_markup: kb }
-		)
-	})
+	bot.callbackQuery(
+		new RegExp(`^${SETTINGS_CAT_PAGE_PREFIX}(prev|next|noop)$`),
+		async ctx => {
+			if (ctx.session.categoriesMessageId == null) return
+			const dir = ctx.callbackQuery.data.replace(SETTINGS_CAT_PAGE_PREFIX, '')
+			if (dir === 'noop') return
+			const userId = ctx.state.user.id
+			const categories = await categoriesService.getSelectableByUserId(userId)
+			const totalPages = Math.max(1, Math.ceil(categories.length / PAGE_SIZE))
+			let page = ctx.session.categoriesPage ?? 0
+			if (dir === 'prev') page = page <= 0 ? totalPages - 1 : page - 1
+			else page = page >= totalPages - 1 ? 0 : page + 1
+			ctx.session.categoriesPage = page
+			const selectedId = ctx.session.categoriesSelectedId ?? null
+			const kb = categoriesListKb(
+				categories.map(c => ({ id: c.id, name: c.name })),
+				page,
+				selectedId
+			)
+			await ctx.api.editMessageText(
+				ctx.chat!.id,
+				ctx.session.categoriesMessageId,
+				'<b>Категории</b>',
+				{ parse_mode: 'HTML', reply_markup: kb }
+			)
+		}
+	)
 
 	bot.callbackQuery(/^category:/, async ctx => {
 		if (ctx.session.categoriesMessageId == null) return
@@ -114,7 +123,11 @@ export const viewCategoriesCallback = (
 		const userId = ctx.state.user.id
 		const categories = await categoriesService.getSelectableByUserId(userId)
 		const page = ctx.session.categoriesPage ?? 0
-		const kb = categoriesListKb(categories.map(c => ({ id: c.id, name: c.name })), page, id)
+		const kb = categoriesListKb(
+			categories.map(c => ({ id: c.id, name: c.name })),
+			page,
+			id
+		)
 		await ctx.api.editMessageText(
 			ctx.chat!.id,
 			ctx.session.categoriesMessageId,
@@ -129,7 +142,11 @@ export const viewCategoriesCallback = (
 		const userId = ctx.state.user.id
 		const categories = await categoriesService.getSelectableByUserId(userId)
 		const page = ctx.session.categoriesPage ?? 0
-		const kb = categoriesListKb(categories.map(c => ({ id: c.id, name: c.name })), page, null)
+		const kb = categoriesListKb(
+			categories.map(c => ({ id: c.id, name: c.name })),
+			page,
+			null
+		)
 		await ctx.api.editMessageText(
 			ctx.chat!.id,
 			ctx.session.categoriesMessageId,
@@ -152,7 +169,10 @@ export const viewCategoriesCallback = (
 	bot.callbackQuery('close_category_hint', async ctx => {
 		if (ctx.session.categoriesHintMessageId != null) {
 			try {
-				await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.categoriesHintMessageId)
+				await ctx.api.deleteMessage(
+					ctx.chat!.id,
+					ctx.session.categoriesHintMessageId
+				)
 			} catch {}
 			ctx.session.categoriesHintMessageId = undefined
 		}
@@ -174,7 +194,7 @@ export const viewCategoriesCallback = (
 			`Удалить категорию «${cat.name}»?\n\nВы уверены?`,
 			{ reply_markup: kb }
 		)
-	});
+	})
 
 	bot.callbackQuery('back_from_delete_category', async ctx => {
 		if (ctx.session.categoriesMessageId == null) return
@@ -182,7 +202,11 @@ export const viewCategoriesCallback = (
 		const categories = await categoriesService.getSelectableByUserId(userId)
 		const page = ctx.session.categoriesPage ?? 0
 		const selectedId = ctx.session.categoriesSelectedId ?? null
-		const kb = categoriesListKb(categories.map(c => ({ id: c.id, name: c.name })), page, selectedId)
+		const kb = categoriesListKb(
+			categories.map(c => ({ id: c.id, name: c.name })),
+			page,
+			selectedId
+		)
 		await ctx.api.editMessageText(
 			ctx.chat!.id,
 			ctx.session.categoriesMessageId,
@@ -197,15 +221,25 @@ export const viewCategoriesCallback = (
 		try {
 			await categoriesService.delete(selectedId, ctx.state.user.id)
 		} catch {
-			await ctx.answerCallbackQuery({ text: 'Не удалось удалить', show_alert: true })
+			await ctx.answerCallbackQuery({
+				text: 'Не удалось удалить',
+				show_alert: true
+			})
 			return
 		}
 		ctx.session.categoriesSelectedId = null
 		const userId = ctx.state.user.id
 		const categories = await categoriesService.getSelectableByUserId(userId)
-		const page = Math.min(ctx.session.categoriesPage ?? 0, Math.max(0, Math.ceil(categories.length / PAGE_SIZE) - 1))
+		const page = Math.min(
+			ctx.session.categoriesPage ?? 0,
+			Math.max(0, Math.ceil(categories.length / PAGE_SIZE) - 1)
+		)
 		ctx.session.categoriesPage = page
-		const kb = categoriesListKb(categories.map(c => ({ id: c.id, name: c.name })), page, null)
+		const kb = categoriesListKb(
+			categories.map(c => ({ id: c.id, name: c.name })),
+			page,
+			null
+		)
 		await ctx.api.editMessageText(
 			ctx.chat!.id,
 			ctx.session.categoriesMessageId,
@@ -229,7 +263,10 @@ export const viewCategoriesCallback = (
 
 	bot.callbackQuery('close_category_success', async ctx => {
 		try {
-			await ctx.api.deleteMessage(ctx.chat!.id, ctx.callbackQuery.message!.message_id)
+			await ctx.api.deleteMessage(
+				ctx.chat!.id,
+				ctx.callbackQuery.message!.message_id
+			)
 		} catch {}
 	})
 
@@ -237,12 +274,10 @@ export const viewCategoriesCallback = (
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		const user: any = ctx.state.user
-		await ctx.api.editMessageText(
-			ctx.chat!.id,
-			msgId,
-			settingsText(user),
-			{ parse_mode: 'HTML', reply_markup: settingsKeyboard() }
-		)
+		await ctx.api.editMessageText(ctx.chat!.id, msgId, settingsText(user), {
+			parse_mode: 'HTML',
+			reply_markup: settingsKeyboard()
+		})
 		ctx.session.categoriesMessageId = undefined
 	})
 }

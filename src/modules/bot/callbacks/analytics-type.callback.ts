@@ -1,6 +1,9 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { AnalyticsService, type AnalyticsPeriod } from 'src/modules/analytics/analytics.service'
+import {
+	AnalyticsService,
+	type AnalyticsPeriod
+} from 'src/modules/analytics/analytics.service'
 import { getCurrencySymbol } from 'src/utils/format'
 
 export const analyticsTypeCallback = (

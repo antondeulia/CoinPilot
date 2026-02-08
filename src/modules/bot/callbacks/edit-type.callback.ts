@@ -4,7 +4,11 @@ import { AccountsService } from 'src/modules/accounts/accounts.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 
-function typeLabel(current: string | undefined, value: 'expense' | 'income' | 'transfer', text: string) {
+function typeLabel(
+	current: string | undefined,
+	value: 'expense' | 'income' | 'transfer',
+	text: string
+) {
 	const isCurrent = current === value
 	return `${isCurrent ? '✅ ' : ''}${text}`
 }
@@ -25,7 +29,10 @@ export const editTypeCallback = (
 		const kb = new InlineKeyboard()
 			.text(typeLabel(current.direction, 'expense', 'Расход'), 'set_type:expense')
 			.text(typeLabel(current.direction, 'income', 'Доход'), 'set_type:income')
-			.text(typeLabel(current.direction, 'transfer', 'Перевод'), 'set_type:transfer')
+			.text(
+				typeLabel(current.direction, 'transfer', 'Перевод'),
+				'set_type:transfer'
+			)
 			.row()
 			.text('🠐 Назад', 'back_to_preview')
 
@@ -59,9 +66,7 @@ export const editTypeCallback = (
 
 		const user = ctx.state.user as any
 		const accountId =
-			current.accountId ||
-			user.defaultAccountId ||
-			ctx.state.activeAccount?.id
+			current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
 		const showConversion = await getShowConversion(
 			current,
 			accountId ?? null,
@@ -73,13 +78,23 @@ export const editTypeCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.tempMessageId,
-				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+				renderConfirmMessage(
+					current,
+					index,
+					drafts.length,
+					user.defaultAccountId
+				),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+					reply_markup: confirmKeyboard(
+						drafts.length,
+						index,
+						showConversion,
+						current?.direction === 'transfer',
+						!!ctx.session.editingTransactionId
+					)
 				}
 			)
 		} catch {}
 	})
 }
-

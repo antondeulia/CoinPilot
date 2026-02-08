@@ -1,6 +1,9 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { AnalyticsService, type AnalyticsPeriod } from 'src/modules/analytics/analytics.service'
+import {
+	AnalyticsService,
+	type AnalyticsPeriod
+} from 'src/modules/analytics/analytics.service'
 import { PrismaService } from 'src/modules/prisma/prisma.service'
 import { getCurrencySymbol } from 'src/utils/format'
 
@@ -25,7 +28,9 @@ export const analyticsCategoriesCallback = (
 			accountId
 		)
 		if (!categories.length) {
-			await ctx.answerCallbackQuery({ text: 'Нет расходов по категориям за период' })
+			await ctx.answerCallbackQuery({
+				text: 'Нет расходов по категориям за период'
+			})
 			return
 		}
 
@@ -39,7 +44,10 @@ export const analyticsCategoriesCallback = (
 			const row = slice.slice(i, i + 3)
 			for (const c of row) {
 				const label = `${c.categoryName} ${c.sum.toFixed(0)}${symbol}`
-				kb.text(label.slice(0, 60), `analytics_category:${c.categoryId ?? c.categoryName}`)
+				kb.text(
+					label.slice(0, 60),
+					`analytics_category:${c.categoryId ?? c.categoryName}`
+				)
 			}
 			kb.row()
 		}
@@ -47,7 +55,10 @@ export const analyticsCategoriesCallback = (
 			.text(`1/${totalPages}`, 'analytics_categories_page:noop')
 			.text('Вперёд »', 'analytics_categories_page:next')
 			.row()
-		kb.text('7d', 'analytics_7d').text('30d', 'analytics_30d').text('90d', 'analytics_90d').row()
+		kb.text('7d', 'analytics_7d')
+			.text('30d', 'analytics_30d')
+			.text('90d', 'analytics_90d')
+			.row()
 		kb.text('← Назад', 'analytics_back_to_main')
 
 		const msgId = (ctx.session as any).homeMessageId
@@ -88,7 +99,10 @@ export const analyticsCategoriesCallback = (
 			const row = slice.slice(i, i + 3)
 			for (const c of row) {
 				const label = `${c.categoryName} ${c.sum.toFixed(0)}${symbol}`
-				kb.text(label.slice(0, 60), `analytics_category:${c.categoryId ?? c.categoryName}`)
+				kb.text(
+					label.slice(0, 60),
+					`analytics_category:${c.categoryId ?? c.categoryName}`
+				)
 			}
 			kb.row()
 		}
@@ -96,13 +110,18 @@ export const analyticsCategoriesCallback = (
 			.text(`${page + 1}/${totalPages}`, 'analytics_categories_page:noop')
 			.text('Вперёд »', 'analytics_categories_page:next')
 			.row()
-		kb.text('7d', 'analytics_7d').text('30d', 'analytics_30d').text('90d', 'analytics_90d').row()
+		kb.text('7d', 'analytics_7d')
+			.text('30d', 'analytics_30d')
+			.text('90d', 'analytics_90d')
+			.row()
 		kb.text('← Назад', 'analytics_back_to_main')
 
 		const msgId = (ctx.session as any).homeMessageId
 		if (msgId != null) {
 			try {
-				await ctx.api.editMessageReplyMarkup(ctx.chat!.id, msgId, { reply_markup: kb })
+				await ctx.api.editMessageReplyMarkup(ctx.chat!.id, msgId, {
+					reply_markup: kb
+				})
 			} catch {}
 		}
 	})
@@ -146,7 +165,10 @@ export const analyticsCategoriesCallback = (
 			.text(`1/${totalPages}`, 'analytics_category_detail_page:noop')
 			.text('Вперёд »', 'analytics_category_detail_page:next')
 			.row()
-		kb.text('7d', 'analytics_7d').text('30d', 'analytics_30d').text('90d', 'analytics_90d').row()
+		kb.text('7d', 'analytics_7d')
+			.text('30d', 'analytics_30d')
+			.text('90d', 'analytics_90d')
+			.row()
 		kb.text('← К категориям', 'analytics_by_category')
 
 		const msgId = (ctx.session as any).homeMessageId
@@ -205,7 +227,10 @@ export const analyticsCategoriesCallback = (
 			.text(`${page + 1}/${totalPages}`, 'analytics_category_detail_page:noop')
 			.text('Вперёд »', 'analytics_category_detail_page:next')
 			.row()
-		kb.text('7d', 'analytics_7d').text('30d', 'analytics_30d').text('90d', 'analytics_90d').row()
+		kb.text('7d', 'analytics_7d')
+			.text('30d', 'analytics_30d')
+			.text('90d', 'analytics_90d')
+			.row()
 		kb.text('← К категориям', 'analytics_by_category')
 
 		const msgId = (ctx.session as any).homeMessageId

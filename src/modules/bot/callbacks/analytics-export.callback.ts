@@ -32,7 +32,14 @@ export const analyticsExportCallback = (bot: Bot<BotContext>, prisma: PrismaServ
 			return
 		}
 		const parser = new Parser({
-			fields: ['transactionDate', 'direction', 'amount', 'currency', 'category', 'description']
+			fields: [
+				'transactionDate',
+				'direction',
+				'amount',
+				'currency',
+				'category',
+				'description'
+			]
 		})
 		const csv = parser.parse(txs)
 		const buffer = Buffer.from(csv, 'utf-8')

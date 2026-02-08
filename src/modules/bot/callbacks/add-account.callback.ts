@@ -22,4 +22,3 @@ monobank 3k EUR 500k UAH and 30k usd, Wise 1000 GBP`,
 		ctx.session.tempMessageId = msg.message_id
 	})
 }
-

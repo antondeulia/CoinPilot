@@ -68,7 +68,9 @@ export class ChartsService {
 				datasets: [
 					{
 						data: categories.map(c => c.sum),
-						backgroundColor: categories.map((_, i) => colors[i % colors.length]),
+						backgroundColor: categories.map(
+							(_, i) => colors[i % colors.length]
+						),
 						borderWidth: 1
 					}
 				]

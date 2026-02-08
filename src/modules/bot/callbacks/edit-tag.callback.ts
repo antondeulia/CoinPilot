@@ -15,10 +15,15 @@ function buildTagsKeyboard(
 	currentTagId?: string | null
 ) {
 	const rows: { text: string; callback_data: string }[][] = []
-	rows.push([{
-		text: currentTagId == null || currentTagId === '' ? '✅ Не выбрано' : 'Не выбрано',
-		callback_data: `set_tag:${TAG_NONE}`
-	}])
+	rows.push([
+		{
+			text:
+				currentTagId == null || currentTagId === ''
+					? '✅ Не выбрано'
+					: 'Не выбрано',
+			callback_data: `set_tag:${TAG_NONE}`
+		}
+	])
 	const start = page * TAG_PAGE_SIZE
 	const slice = tags.slice(start, start + TAG_PAGE_SIZE)
 	for (let i = 0; i < slice.length; i += 3) {
@@ -103,9 +108,13 @@ export const editTagCallback = (
 		)
 
 		try {
-			await ctx.api.editMessageReplyMarkup(ctx.chat!.id, ctx.session.tempMessageId, {
-				reply_markup: kb
-			})
+			await ctx.api.editMessageReplyMarkup(
+				ctx.chat!.id,
+				ctx.session.tempMessageId,
+				{
+					reply_markup: kb
+				}
+			)
 		} catch {}
 	})
 
@@ -124,9 +133,7 @@ export const editTagCallback = (
 			ctx.session.awaitingTagInput = false
 			const user = ctx.state.user as any
 			const accountId =
-				current.accountId ||
-				user.defaultAccountId ||
-				ctx.state.activeAccount?.id
+				current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
 			const showConversion = await getShowConversion(
 				current,
 				accountId ?? null,
@@ -137,10 +144,21 @@ export const editTagCallback = (
 				await ctx.api.editMessageText(
 					ctx.chat!.id,
 					ctx.session.tempMessageId,
-					renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+					renderConfirmMessage(
+						current,
+						index,
+						drafts.length,
+						user.defaultAccountId
+					),
 					{
 						parse_mode: 'HTML',
-						reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+						reply_markup: confirmKeyboard(
+							drafts.length,
+							index,
+							showConversion,
+							current?.direction === 'transfer',
+							!!ctx.session.editingTransactionId
+						)
 					}
 				)
 			} catch {}
@@ -156,9 +174,7 @@ export const editTagCallback = (
 
 		const user = ctx.state.user as any
 		const accountId =
-			current.accountId ||
-			user.defaultAccountId ||
-			ctx.state.activeAccount?.id
+			current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
 		const showConversion = await getShowConversion(
 			current,
 			accountId ?? null,
@@ -170,10 +186,21 @@ export const editTagCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.tempMessageId,
-				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+				renderConfirmMessage(
+					current,
+					index,
+					drafts.length,
+					user.defaultAccountId
+				),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+					reply_markup: confirmKeyboard(
+						drafts.length,
+						index,
+						showConversion,
+						current?.direction === 'transfer',
+						!!ctx.session.editingTransactionId
+					)
 				}
 			)
 		} catch {}

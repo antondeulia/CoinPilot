@@ -7,10 +7,7 @@ import { renderHome } from '../utils/render-home'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard } from './confirm-tx'
 
-async function refreshPreview(
-	ctx: BotContext,
-	accountsService: AccountsService
-) {
+async function refreshPreview(ctx: BotContext, accountsService: AccountsService) {
 	const drafts = ctx.session.draftTransactions
 	const index = ctx.session.currentTransactionIndex ?? 0
 
@@ -41,7 +38,13 @@ async function refreshPreview(
 			renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
 			{
 				parse_mode: 'HTML',
-				reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+				reply_markup: confirmKeyboard(
+					drafts.length,
+					index,
+					showConversion,
+					current?.direction === 'transfer',
+					!!ctx.session.editingTransactionId
+				)
 			}
 		)
 	} catch {}
@@ -86,7 +89,9 @@ export const saveDeleteCallback = (
 			transactionDate: draft.transactionDate
 				? new Date(draft.transactionDate)
 				: undefined,
-			fromAccountId: isTransfer ? draft.accountId || account.id : draft.fromAccountId,
+			fromAccountId: isTransfer
+				? draft.accountId || account.id
+				: draft.fromAccountId,
 			toAccountId: draft.toAccountId,
 			tagId: tagId ?? undefined,
 			convertedAmount: draft.convertedAmount,
@@ -157,4 +162,3 @@ export const saveDeleteCallback = (
 		await refreshPreview(ctx, accountsService)
 	})
 }
-

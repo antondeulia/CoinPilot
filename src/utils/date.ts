@@ -16,4 +16,3 @@ export function formatTransactionDate(date: Date): string {
 
 	return date.toLocaleDateString('ru-RU')
 }
-

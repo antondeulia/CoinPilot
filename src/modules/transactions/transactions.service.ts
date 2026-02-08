@@ -30,8 +30,7 @@ export class TransactionsService {
 	}
 
 	async applyBalanceEffect(tx: TransactionModel) {
-		const useConverted =
-			tx.convertedAmount != null && tx.convertToCurrency != null
+		const useConverted = tx.convertedAmount != null && tx.convertToCurrency != null
 		const amountToUse = useConverted ? tx.convertedAmount! : tx.amount
 		const currencyToUse = useConverted ? tx.convertToCurrency! : tx.currency
 
@@ -47,8 +46,7 @@ export class TransactionsService {
 	}
 
 	async reverseBalanceEffect(tx: TransactionModel) {
-		const useConverted =
-			tx.convertedAmount != null && tx.convertToCurrency != null
+		const useConverted = tx.convertedAmount != null && tx.convertToCurrency != null
 		const amountToUse = useConverted ? tx.convertedAmount! : tx.amount
 		const currencyToUse = useConverted ? tx.convertToCurrency! : tx.currency
 
@@ -95,12 +93,22 @@ export class TransactionsService {
 				...(params.direction != null && { direction: params.direction }),
 				...(params.category != null && { category: params.category }),
 				...(params.description != null && { description: params.description }),
-				...(params.transactionDate != null && { transactionDate: params.transactionDate }),
+				...(params.transactionDate != null && {
+					transactionDate: params.transactionDate
+				}),
 				...(params.tagId !== undefined && { tagId: params.tagId }),
-				...(params.convertedAmount !== undefined && { convertedAmount: params.convertedAmount }),
-				...(params.convertToCurrency !== undefined && { convertToCurrency: params.convertToCurrency }),
-				...(params.fromAccountId !== undefined && { fromAccountId: params.fromAccountId }),
-				...(params.toAccountId !== undefined && { toAccountId: params.toAccountId })
+				...(params.convertedAmount !== undefined && {
+					convertedAmount: params.convertedAmount
+				}),
+				...(params.convertToCurrency !== undefined && {
+					convertToCurrency: params.convertToCurrency
+				}),
+				...(params.fromAccountId !== undefined && {
+					fromAccountId: params.fromAccountId
+				}),
+				...(params.toAccountId !== undefined && {
+					toAccountId: params.toAccountId
+				})
 			}
 		})
 		await this.applyBalanceEffect(updated as TransactionModel)
@@ -117,11 +125,7 @@ export class TransactionsService {
 		return tx
 	}
 
-	private async upsertAssetDelta(
-		accountId: string,
-		currency: string,
-		delta: number
-	) {
+	private async upsertAssetDelta(accountId: string, currency: string, delta: number) {
 		await this.prisma.accountAsset.upsert({
 			where: {
 				accountId_currency: { accountId, currency }

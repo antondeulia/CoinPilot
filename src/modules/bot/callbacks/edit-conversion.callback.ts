@@ -128,16 +128,16 @@ export const editConversionCallback = (
 		if (action === 'next') page = page >= totalPages - 1 ? 0 : page + 1
 		ctx.session.accountsPage = page
 
-		const kb = buildConversionKeyboard(
-			codes,
-			page,
-			current.convertToCurrency ?? null
-		)
+		const kb = buildConversionKeyboard(codes, page, current.convertToCurrency ?? null)
 
 		try {
-			await ctx.api.editMessageReplyMarkup(ctx.chat!.id, ctx.session.tempMessageId!, {
-				reply_markup: kb
-			})
+			await ctx.api.editMessageReplyMarkup(
+				ctx.chat!.id,
+				ctx.session.tempMessageId!,
+				{
+					reply_markup: kb
+				}
+			)
 		} catch {}
 	})
 
@@ -171,13 +171,23 @@ export const editConversionCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.tempMessageId,
-				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+				renderConfirmMessage(
+					current,
+					index,
+					drafts.length,
+					user.defaultAccountId
+				),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+					reply_markup: confirmKeyboard(
+						drafts.length,
+						index,
+						showConversion,
+						current?.direction === 'transfer',
+						!!ctx.session.editingTransactionId
+					)
 				}
 			)
 		} catch {}
 	})
 }
-

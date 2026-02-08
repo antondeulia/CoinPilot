@@ -76,10 +76,7 @@ export class AnalyticsService {
 		private readonly exchange: ExchangeService
 	) {}
 
-	private baseWhere(
-		userId: string,
-		filters: AnalyticsFilters
-	) {
+	private baseWhere(userId: string, filters: AnalyticsFilters) {
 		const { from, to } = dateRange(filters.period)
 		const where: any = {
 			userId,
@@ -116,67 +113,97 @@ export class AnalyticsService {
 		const { from, to } = dateRange(period)
 		const prev = prevDateRange(period)
 
-		const accountFilter = accountId ? { accountId } : { account: { userId, isHidden: false } }
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
 
-		const [incomeRows, expenseRows, incomePrevRows, expensePrevRows, assets] = await Promise.all([
-			this.prisma.transaction.findMany({
-				where: {
-					userId,
-					direction: 'income',
-					transactionDate: { gte: from, lte: to },
-					...accountFilter
-				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
-			}),
-			this.prisma.transaction.findMany({
-				where: {
-					userId,
-					direction: 'expense',
-					transactionDate: { gte: from, lte: to },
-					...accountFilter
-				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
-			}),
-			this.prisma.transaction.findMany({
-				where: {
-					userId,
-					direction: 'income',
-					transactionDate: { gte: prev.from, lte: prev.to },
-					...accountFilter
-				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
-			}),
-			this.prisma.transaction.findMany({
-				where: {
-					userId,
-					direction: 'expense',
-					transactionDate: { gte: prev.from, lte: prev.to },
-					...accountFilter
-				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
-			}),
-			accountId
-				? this.prisma.accountAsset.findMany({
-						where: { accountId },
-						select: { currency: true, amount: true }
-					})
-				: this.prisma.accountAsset.findMany({
-						where: { account: { userId, isHidden: false } },
-						select: { currency: true, amount: true }
-					})
-		])
+		const [incomeRows, expenseRows, incomePrevRows, expensePrevRows, assets] =
+			await Promise.all([
+				this.prisma.transaction.findMany({
+					where: {
+						userId,
+						direction: 'income',
+						transactionDate: { gte: from, lte: to },
+						...accountFilter
+					},
+					select: {
+						amount: true,
+						currency: true,
+						convertedAmount: true,
+						convertToCurrency: true
+					}
+				}),
+				this.prisma.transaction.findMany({
+					where: {
+						userId,
+						direction: 'expense',
+						transactionDate: { gte: from, lte: to },
+						...accountFilter
+					},
+					select: {
+						amount: true,
+						currency: true,
+						convertedAmount: true,
+						convertToCurrency: true
+					}
+				}),
+				this.prisma.transaction.findMany({
+					where: {
+						userId,
+						direction: 'income',
+						transactionDate: { gte: prev.from, lte: prev.to },
+						...accountFilter
+					},
+					select: {
+						amount: true,
+						currency: true,
+						convertedAmount: true,
+						convertToCurrency: true
+					}
+				}),
+				this.prisma.transaction.findMany({
+					where: {
+						userId,
+						direction: 'expense',
+						transactionDate: { gte: prev.from, lte: prev.to },
+						...accountFilter
+					},
+					select: {
+						amount: true,
+						currency: true,
+						convertedAmount: true,
+						convertToCurrency: true
+					}
+				}),
+				accountId
+					? this.prisma.accountAsset.findMany({
+							where: { accountId },
+							select: { currency: true, amount: true }
+						})
+					: this.prisma.accountAsset.findMany({
+							where: { account: { userId, isHidden: false } },
+							select: { currency: true, amount: true }
+						})
+			])
 
 		const sumInMain = async (
-			rows: { amount: number; currency: string; convertedAmount: number | null; convertToCurrency: string | null }[]
+			rows: {
+				amount: number
+				currency: string
+				convertedAmount: number | null
+				convertToCurrency: string | null
+			}[]
 		) => {
 			let total = 0
 			for (const r of rows) {
-				const amt = r.convertedAmount != null && r.convertToCurrency
-					? r.convertedAmount
-					: r.amount
-				const cur = r.convertedAmount != null && r.convertToCurrency
-					? r.convertToCurrency
-					: r.currency
+				const amt =
+					r.convertedAmount != null && r.convertToCurrency
+						? r.convertedAmount
+						: r.amount
+				const cur =
+					r.convertedAmount != null && r.convertToCurrency
+						? r.convertToCurrency
+						: r.currency
 				total += await this.toMainCurrency(amt, cur, mainCurrency)
 			}
 			return total
@@ -222,7 +249,9 @@ export class AnalyticsService {
 		accountId?: string
 	): Promise<CategorySum[]> {
 		const { from, to } = dateRange(period)
-		const accountFilter = accountId ? { accountId } : { account: { userId, isHidden: false } }
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
 
 		const rows = await this.prisma.transaction.groupBy({
 			by: ['category'],
@@ -248,16 +277,23 @@ export class AnalyticsService {
 					category: r.category,
 					...accountFilter
 				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
+				select: {
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true
+				}
 			})
 			let sum = 0
 			for (const t of txs) {
-				const amt = t.convertedAmount != null && t.convertToCurrency
-					? t.convertedAmount
-					: t.amount
-				const cur = t.convertedAmount != null && t.convertToCurrency
-					? t.convertToCurrency!
-					: t.currency
+				const amt =
+					t.convertedAmount != null && t.convertToCurrency
+						? t.convertedAmount
+						: t.amount
+				const cur =
+					t.convertedAmount != null && t.convertToCurrency
+						? t.convertToCurrency!
+						: t.currency
 				sum += await this.toMainCurrency(amt, cur, mainCurrency)
 			}
 			totalExpenses += sum
@@ -286,7 +322,9 @@ export class AnalyticsService {
 		accountId?: string
 	): Promise<TagSum[]> {
 		const { from, to } = dateRange(period)
-		const accountFilter = accountId ? { accountId } : { account: { userId, isHidden: false } }
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
 
 		const rows = await this.prisma.transaction.groupBy({
 			by: ['tagId'],
@@ -312,16 +350,23 @@ export class AnalyticsService {
 					tagId: r.tagId,
 					...accountFilter
 				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
+				select: {
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true
+				}
 			})
 			let sum = 0
 			for (const t of txs) {
-				const amt = t.convertedAmount != null && t.convertToCurrency
-					? t.convertedAmount
-					: t.amount
-				const cur = t.convertedAmount != null && t.convertToCurrency
-					? t.convertToCurrency!
-					: t.currency
+				const amt =
+					t.convertedAmount != null && t.convertToCurrency
+						? t.convertedAmount
+						: t.amount
+				const cur =
+					t.convertedAmount != null && t.convertToCurrency
+						? t.convertToCurrency!
+						: t.currency
 				sum += await this.toMainCurrency(amt, cur, mainCurrency)
 			}
 			totalExpenses += sum
@@ -350,7 +395,9 @@ export class AnalyticsService {
 		accountId?: string
 	): Promise<ByTypeResult> {
 		const { from, to } = dateRange(period)
-		const accountFilter = accountId ? { accountId } : { account: { userId, isHidden: false } }
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
 
 		const [expenseRows, incomeRows, transferRows] = await Promise.all([
 			this.prisma.transaction.findMany({
@@ -360,7 +407,12 @@ export class AnalyticsService {
 					transactionDate: { gte: from, lte: to },
 					...accountFilter
 				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
+				select: {
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true
+				}
 			}),
 			this.prisma.transaction.findMany({
 				where: {
@@ -369,7 +421,12 @@ export class AnalyticsService {
 					transactionDate: { gte: from, lte: to },
 					...accountFilter
 				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
+				select: {
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true
+				}
 			}),
 			this.prisma.transaction.findMany({
 				where: {
@@ -378,21 +435,33 @@ export class AnalyticsService {
 					transactionDate: { gte: from, lte: to },
 					...accountFilter
 				},
-				select: { amount: true, currency: true, convertedAmount: true, convertToCurrency: true }
+				select: {
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true
+				}
 			})
 		])
 
 		const sum = async (
-			rows: { amount: number; currency: string; convertedAmount: number | null; convertToCurrency: string | null }[]
+			rows: {
+				amount: number
+				currency: string
+				convertedAmount: number | null
+				convertToCurrency: string | null
+			}[]
 		) => {
 			let total = 0
 			for (const r of rows) {
-				const amt = r.convertedAmount != null && r.convertToCurrency
-					? r.convertedAmount
-					: r.amount
-				const cur = r.convertedAmount != null && r.convertToCurrency
-					? r.convertToCurrency
-					: r.currency
+				const amt =
+					r.convertedAmount != null && r.convertToCurrency
+						? r.convertedAmount
+						: r.amount
+				const cur =
+					r.convertedAmount != null && r.convertToCurrency
+						? r.convertToCurrency
+						: r.currency
 				total += await this.toMainCurrency(amt, cur, mainCurrency)
 			}
 			return total
@@ -414,7 +483,9 @@ export class AnalyticsService {
 		accountId?: string
 	): Promise<AnomalyRow[]> {
 		const { from, to } = dateRange(period)
-		const accountFilter = accountId ? { accountId } : { account: { userId, isHidden: false } }
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
 
 		const txs = await this.prisma.transaction.findMany({
 			where: {
@@ -437,9 +508,14 @@ export class AnalyticsService {
 
 		const result: AnomalyRow[] = []
 		for (const t of txs) {
-			const amt = t.convertedAmount != null && t.convertToCurrency
-				? await this.toMainCurrency(t.convertedAmount, t.convertToCurrency, mainCurrency)
-				: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
+			const amt =
+				t.convertedAmount != null && t.convertToCurrency
+					? await this.toMainCurrency(
+							t.convertedAmount,
+							t.convertToCurrency,
+							mainCurrency
+						)
+					: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
 			if (amt >= threshold) {
 				result.push({
 					transactionId: t.id,
@@ -473,7 +549,9 @@ export class AnalyticsService {
 		accountId?: string
 	): Promise<{ transactions: AnomalyRow[]; total: number }> {
 		const { from, to } = dateRange(period)
-		const accountFilter = accountId ? { accountId } : { account: { userId, isHidden: false } }
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
 
 		const [total, txs] = await Promise.all([
 			this.prisma.transaction.count({
@@ -510,9 +588,14 @@ export class AnalyticsService {
 
 		const transactions: AnomalyRow[] = []
 		for (const t of txs) {
-			const amt = t.convertedAmount != null && t.convertToCurrency
-				? await this.toMainCurrency(t.convertedAmount, t.convertToCurrency, mainCurrency)
-				: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
+			const amt =
+				t.convertedAmount != null && t.convertToCurrency
+					? await this.toMainCurrency(
+							t.convertedAmount,
+							t.convertToCurrency,
+							mainCurrency
+						)
+					: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
 			transactions.push({
 				transactionId: t.id,
 				amount: amt,
@@ -534,7 +617,9 @@ export class AnalyticsService {
 		accountId?: string
 	): Promise<{ transactions: AnomalyRow[]; total: number }> {
 		const { from, to } = dateRange(period)
-		const accountFilter = accountId ? { accountId } : { account: { userId, isHidden: false } }
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
 
 		const [total, txs] = await Promise.all([
 			this.prisma.transaction.count({
@@ -571,9 +656,14 @@ export class AnalyticsService {
 
 		const transactions: AnomalyRow[] = []
 		for (const t of txs) {
-			const amt = t.convertedAmount != null && t.convertToCurrency
-				? await this.toMainCurrency(t.convertedAmount, t.convertToCurrency, mainCurrency)
-				: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
+			const amt =
+				t.convertedAmount != null && t.convertToCurrency
+					? await this.toMainCurrency(
+							t.convertedAmount,
+							t.convertToCurrency,
+							mainCurrency
+						)
+					: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
 			transactions.push({
 				transactionId: t.id,
 				amount: amt,
@@ -590,11 +680,6 @@ export class AnalyticsService {
 		filters: AnalyticsFilters,
 		mainCurrency: string
 	): Promise<SummaryResult> {
-		return this.getSummary(
-			userId,
-			filters.period,
-			mainCurrency,
-			filters.accountId
-		)
+		return this.getSummary(userId, filters.period, mainCurrency, filters.accountId)
 	}
 }
