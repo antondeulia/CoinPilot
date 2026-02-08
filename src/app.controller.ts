@@ -5,6 +5,11 @@ import { PrismaService } from './modules/prisma/prisma.service'
 export class AppController {
 	constructor(private prisma: PrismaService) {}
 
+	@Get('health')
+	healthCheck() {
+		return { status: 'ok' }
+	}
+	
 	@Get('clear-db')
 	async clearDatabase() {
 		;(await this.prisma.transaction.deleteMany(),
