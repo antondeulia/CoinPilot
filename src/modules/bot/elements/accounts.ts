@@ -1,8 +1,7 @@
 import { Account } from 'generated/prisma/client'
 import { InlineKeyboard } from 'grammy'
-import { getCurrencySymbol, formatAccountName } from 'src/utils/format'
+import { getCurrencySymbol, formatAccountName, formatAmount, isCryptoCurrency } from 'src/utils/format'
 import { ExchangeService } from 'src/modules/exchange/exchange.service'
-import { CRYPTO_CURRENCIES, FIAT_CURRENCIES } from 'src/shared/data'
 
 type AccountWithAssets = Account & {
 	assets: { currency: string; amount: number }[]
@@ -33,9 +32,9 @@ export async function viewAccountsListText(
 		for (const a of acc.assets) {
 			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
 			accountTotalMain += converted
-			if (CRYPTO_CURRENCIES.includes(a.currency)) {
+			if (isCryptoCurrency(a.currency)) {
 				accountCrypto += converted
-			} else if (FIAT_CURRENCIES.includes(a.currency)) {
+			} else {
 				accountFiat += converted
 			}
 		}
@@ -47,6 +46,8 @@ export async function viewAccountsListText(
 	const totalStr = fmt(totalMain)
 	const pctFiat = totalMain > 0 ? Math.round((totalFiat / totalMain) * 100) : 0
 	const pctCrypto = totalMain > 0 ? Math.round((totalCrypto / totalMain) * 100) : 0
+	const fiatStr = fmt(totalFiat)
+	const cryptoStr = fmt(totalCrypto)
 
 	return `<b>Список счетов</b>
 
@@ -55,7 +56,7 @@ ${totalStr} ${mainSym}
 
 Счетов: ${accounts.length}
 
-Фиат: ${pctFiat}% · Крипто: ${pctCrypto}%
+Фиат: ${fiatStr} ${mainSym} (${pctFiat}%) · Крипто: ${cryptoStr} ${mainSym} (${pctCrypto}%)
 
 <i>Все суммы приведены к основной валюте (${mainCurrency})</i>`
 }
@@ -73,8 +74,7 @@ export async function accountDetailsText(
 	for (const a of account.assets) {
 		const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
 		balanceMain += converted
-		const sym = getCurrencySymbol(a.currency)
-		const amountStr = `${fmt(a.amount)} ${sym}`
+		const amountStr = formatAmount(a.amount, a.currency)
 		if (a.currency === mainCurrency) {
 			lines.push(`${a.currency} — ${amountStr}`)
 		} else {
@@ -110,8 +110,7 @@ export async function viewAccountsText(
 		for (const a of acc.assets) {
 			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
 			accountTotalMain += converted
-			const sym = getCurrencySymbol(a.currency)
-			const amountStr = `${fmt(a.amount)} ${sym}`
+			const amountStr = formatAmount(a.amount, a.currency)
 			if (a.currency === mainCurrency) {
 				lines.push(`• ${a.currency} — ${amountStr}`)
 			} else {

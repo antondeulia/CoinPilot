@@ -52,6 +52,7 @@ export type BotContext = Context & {
 		editingCategory?: 'create' | 'rename' | null
 		categoriesMessageId?: number
 		categoriesHintMessageId?: number
+		editingTransactionId?: string
 	}
 	chat: {
 		id: string

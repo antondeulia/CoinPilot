@@ -68,7 +68,8 @@ export const confirmTxCallback = (
 				userId: ctx.state.user.id,
 				tagId: tagId ?? undefined,
 				convertedAmount: draft.convertedAmount,
-				convertToCurrency: draft.convertToCurrency
+				convertToCurrency: draft.convertToCurrency,
+				transactionDate: draft.transactionDate ? new Date(draft.transactionDate) : undefined
 			})
 		}
 
@@ -86,6 +87,12 @@ export const confirmTxCallback = (
 				await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
 			} catch {}
 			ctx.session.tempMessageId = undefined
+		}
+		if (ctx.session.editMessageId) {
+			try {
+				await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+			} catch {}
+			ctx.session.editMessageId = undefined
 		}
 
 		;(ctx.session as any).homeMessageId = undefined
@@ -117,9 +124,10 @@ export function confirmKeyboard(
 	total: number,
 	currentIndex: number,
 	showConversion: boolean = true,
-	isTransfer: boolean = false
+	isTransfer: boolean = false,
+	isEditingExisting: boolean = false
 ): InlineKeyboard {
-	const hasPagination = total > 1
+	const hasPagination = total > 1 && !isEditingExisting
 
 	const kb = new InlineKeyboard()
 		.text('Тип', 'edit:type')
@@ -142,7 +150,7 @@ export function confirmKeyboard(
 	}
 	kb.text('Теги', 'edit:tag')
 
-	if (total > 1) {
+	if (!isEditingExisting && total > 1) {
 		kb.row()
 			.text('Сохранить 1', 'confirm_1_transactions')
 			.text('Удалить 1', 'cancel_1_transactions')
@@ -153,10 +161,18 @@ export function confirmKeyboard(
 			.text(`${currentIndex + 1}/${total}`, 'pagination_preview_transactions')
 			.text('Вперёд »', 'pagination_forward_transactions')
 	}
-	kb.row()
-		.text('Сохранить все', 'confirm_tx')
-		.text('Удалить все', 'cancel_tx')
-	kb.row()
-		.text('Повторить', 'repeat_parse')
+	if (isEditingExisting) {
+		kb.row()
+			.text('Сохранить изменения', 'save_edit_transaction')
+			.text('Удалить транзакцию', 'delete_transaction')
+		kb.row()
+			.text('← Назад к списку', 'back_to_transactions')
+	} else {
+		kb.row()
+			.text('Сохранить все', 'confirm_tx')
+			.text('Удалить все', 'cancel_tx')
+		kb.row()
+			.text('Повторить', 'repeat_parse')
+	}
 	return kb
 }

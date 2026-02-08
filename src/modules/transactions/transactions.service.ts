@@ -46,6 +46,77 @@ export class TransactionsService {
 		}
 	}
 
+	async reverseBalanceEffect(tx: TransactionModel) {
+		const useConverted =
+			tx.convertedAmount != null && tx.convertToCurrency != null
+		const amountToUse = useConverted ? tx.convertedAmount! : tx.amount
+		const currencyToUse = useConverted ? tx.convertToCurrency! : tx.currency
+
+		if (tx.direction === 'expense') {
+			await this.upsertAssetDelta(tx.accountId, currencyToUse, amountToUse)
+		} else if (tx.direction === 'income') {
+			await this.upsertAssetDelta(tx.accountId, currencyToUse, -amountToUse)
+		} else if (tx.direction === 'transfer' && tx.toAccountId) {
+			const fromId = tx.fromAccountId ?? tx.accountId
+			await this.upsertAssetDelta(fromId, tx.currency, tx.amount)
+			await this.upsertAssetDelta(tx.toAccountId, currencyToUse, -amountToUse)
+		}
+	}
+
+	async update(
+		id: string,
+		userId: string,
+		params: {
+			accountId?: string
+			amount?: number
+			currency?: string
+			direction?: 'income' | 'expense' | 'transfer'
+			category?: string
+			description?: string
+			transactionDate?: Date
+			tagId?: string | null
+			convertedAmount?: number | null
+			convertToCurrency?: string | null
+			fromAccountId?: string | null
+			toAccountId?: string | null
+		}
+	) {
+		const existing = await this.prisma.transaction.findFirst({
+			where: { id, userId }
+		})
+		if (!existing) return null
+		await this.reverseBalanceEffect(existing as TransactionModel)
+		const updated = await this.prisma.transaction.update({
+			where: { id },
+			data: {
+				...(params.accountId != null && { accountId: params.accountId }),
+				...(params.amount != null && { amount: params.amount }),
+				...(params.currency != null && { currency: params.currency }),
+				...(params.direction != null && { direction: params.direction }),
+				...(params.category != null && { category: params.category }),
+				...(params.description != null && { description: params.description }),
+				...(params.transactionDate != null && { transactionDate: params.transactionDate }),
+				...(params.tagId !== undefined && { tagId: params.tagId }),
+				...(params.convertedAmount !== undefined && { convertedAmount: params.convertedAmount }),
+				...(params.convertToCurrency !== undefined && { convertToCurrency: params.convertToCurrency }),
+				...(params.fromAccountId !== undefined && { fromAccountId: params.fromAccountId }),
+				...(params.toAccountId !== undefined && { toAccountId: params.toAccountId })
+			}
+		})
+		await this.applyBalanceEffect(updated as TransactionModel)
+		return updated
+	}
+
+	async delete(id: string, userId: string) {
+		const tx = await this.prisma.transaction.findFirst({
+			where: { id, userId }
+		})
+		if (!tx) return null
+		await this.reverseBalanceEffect(tx as TransactionModel)
+		await this.prisma.transaction.delete({ where: { id } })
+		return tx
+	}
+
 	private async upsertAssetDelta(
 		accountId: string,
 		currency: string,

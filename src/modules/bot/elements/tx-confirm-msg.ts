@@ -14,7 +14,8 @@ export function renderConfirmMessage(
 	index?: number,
 	total?: number,
 	defaultAccountId?: string,
-	tagInfo?: { name: string; isNew: boolean }
+	tagInfo?: { name: string; isNew: boolean },
+	title: string = 'Предпросмотр транзакции'
 ) {
 	const draft = tx as any
 	const tagName = tagInfo?.name ?? draft?.tagName ?? ''
@@ -59,7 +60,7 @@ export function renderConfirmMessage(
 		: ''
 
 	return `
-<b>Предпросмотр транзакции${headerIndex}</b>
+<b>${title}${headerIndex}</b>
 
 Тип: ${formatDirection(tx.direction)}
 Название: ${tx.description ?? '—'}

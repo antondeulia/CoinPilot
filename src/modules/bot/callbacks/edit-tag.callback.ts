@@ -7,15 +7,20 @@ import { confirmKeyboard, getShowConversion } from './confirm-tx'
 
 const TAG_PAGE_SIZE = 9
 
+const TAG_NONE = 'none'
+
 function buildTagsKeyboard(
 	tags: { id: string; name: string }[],
 	page: number,
 	currentTagId?: string | null
 ) {
+	const rows: { text: string; callback_data: string }[][] = []
+	rows.push([{
+		text: currentTagId == null || currentTagId === '' ? '✅ Не выбрано' : 'Не выбрано',
+		callback_data: `set_tag:${TAG_NONE}`
+	}])
 	const start = page * TAG_PAGE_SIZE
 	const slice = tags.slice(start, start + TAG_PAGE_SIZE)
-	const rows: { text: string; callback_data: string }[][] = []
-
 	for (let i = 0; i < slice.length; i += 3) {
 		const chunk = slice.slice(i, i + 3)
 		rows.push(
@@ -26,7 +31,7 @@ function buildTagsKeyboard(
 		)
 	}
 
-	const totalPages = Math.max(1, Math.ceil(tags.length / TAG_PAGE_SIZE))
+	const totalPages = Math.max(1, Math.ceil((tags.length || 1) / TAG_PAGE_SIZE))
 	rows.push([
 		{ text: '« Назад', callback_data: 'tags_page:prev' },
 		{ text: `${page + 1}/${totalPages}`, callback_data: 'tags_page:noop' },
@@ -112,6 +117,35 @@ export const editTagCallback = (
 		if (!drafts || !current || ctx.session.tempMessageId == null) return
 
 		const tagId = ctx.callbackQuery.data.split(':')[1]
+		if (tagId === TAG_NONE) {
+			current.tagId = undefined
+			current.tagName = undefined
+			current.tagIsNew = false
+			ctx.session.awaitingTagInput = false
+			const user = ctx.state.user as any
+			const accountId =
+				current.accountId ||
+				user.defaultAccountId ||
+				ctx.state.activeAccount?.id
+			const showConversion = await getShowConversion(
+				current,
+				accountId ?? null,
+				ctx.state.user.id,
+				accountsService
+			)
+			try {
+				await ctx.api.editMessageText(
+					ctx.chat!.id,
+					ctx.session.tempMessageId,
+					renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+					{
+						parse_mode: 'HTML',
+						reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
+					}
+				)
+			} catch {}
+			return
+		}
 		const tag = await tagsService.findById(tagId, ctx.state.user.id)
 		if (!tag) return
 
@@ -139,7 +173,7 @@ export const editTagCallback = (
 				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer')
+					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
 				}
 			)
 		} catch {}

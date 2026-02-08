@@ -5,6 +5,11 @@ import { renderHome } from '../utils/render-home'
 
 export const startCommand = (bot: Bot<BotContext>, accountsService: AccountsService) => {
 	bot.command('start', async ctx => {
+		if (ctx.session.tempMessageId != null) {
+			try {
+				await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
+			} catch {}
+		}
 		;(ctx.session as any).editingCurrency = false
 		;(ctx.session as any).editingMainCurrency = false
 		ctx.session.editingField = undefined
@@ -16,6 +21,24 @@ export const startCommand = (bot: Bot<BotContext>, accountsService: AccountsServ
 		ctx.session.editingAccountDetailsId = undefined
 		ctx.session.categoriesPage = undefined
 		ctx.session.categoriesSelectedId = undefined
+		ctx.session.awaitingTransaction = false
+		;(ctx.session as any).awaitingTagInput = false
+		;(ctx.session as any).awaitingTagsJarvisEdit = false
+		ctx.session.awaitingAccountInput = false
+		;(ctx.session as any).awaitingCategoryName = false
+		ctx.session.confirmingTransaction = false
+		;(ctx.session as any).confirmingAccounts = false
+		ctx.session.draftTransactions = undefined
+		;(ctx.session as any).draftAccounts = undefined
+		ctx.session.currentTransactionIndex = undefined
+		;(ctx.session as any).currentAccountIndex = undefined
+		ctx.session.tempMessageId = undefined
+		ctx.session.navigationStack = undefined
+		ctx.session.tagsPage = undefined
+		;(ctx.session as any).editingCategory = undefined
+		;(ctx.session as any).tagsSettingsMessageId = undefined
+		;(ctx.session as any).tagsSettingsHintMessageId = undefined
+		;(ctx.session as any).editingTransactionId = undefined
 		await renderHome(ctx, accountsService)
 	})
 }

@@ -1,6 +1,7 @@
-import { Bot, InlineKeyboard } from 'grammy'
+import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from 'src/modules/accounts/accounts.service'
+import { ExchangeService } from 'src/modules/exchange/exchange.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 
@@ -40,7 +41,8 @@ function buildCurrencyKeyboard(
 
 export const editCurrencyCallback = (
 	bot: Bot<BotContext>,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	exchangeService: ExchangeService
 ) => {
 	bot.callbackQuery('edit:currency', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -131,6 +133,16 @@ export const editCurrencyCallback = (
 			ctx.state.user.id,
 			accountsService
 		)
+		if (showConversion && accountId && typeof current.amount === 'number') {
+			const account = await accountsService.getOneWithAssets(accountId, ctx.state.user.id)
+			if (account?.assets?.length) {
+				const codes = Array.from(new Set(account.assets.map((a: any) => a.currency || account.currency)))
+				if (codes.length) {
+					current.convertToCurrency = codes[0]
+					current.convertedAmount = await exchangeService.convert(current.amount, current.currency, codes[0])
+				}
+			}
+		}
 
 		try {
 			await ctx.api.editMessageText(
@@ -139,7 +151,7 @@ export const editCurrencyCallback = (
 				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer')
+					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
 				}
 			)
 		} catch {}

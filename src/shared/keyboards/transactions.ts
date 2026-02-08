@@ -2,11 +2,11 @@ import { InlineKeyboard } from 'grammy'
 
 const PAGE_SIZE = 9
 
-function txLabel(tx: { direction: string; amount: number; currency: string; createdAt: Date; description?: string | null; category?: string | null }) {
+function txLabel(tx: { direction: string; amount: number; currency: string; transactionDate: Date; description?: string | null; category?: string | null }) {
 	const isExpense = tx.direction === 'expense'
 	const emoji = isExpense ? '🔴' : '🟢'
 	const sign = isExpense ? '-' : '+'
-	const date = new Date(tx.createdAt).toLocaleDateString('ru-RU', {
+	const date = new Date(tx.transactionDate).toLocaleDateString('ru-RU', {
 		day: '2-digit',
 		month: '2-digit'
 	})
@@ -15,7 +15,7 @@ function txLabel(tx: { direction: string; amount: number; currency: string; crea
 }
 
 export function transactionsListKeyboard(
-	txs: Array<{ id: string; direction: string; amount: number; currency: string; createdAt: Date; description?: string | null; category?: string | null }>,
+	txs: Array<{ id: string; direction: string; amount: number; currency: string; transactionDate: Date; description?: string | null; category?: string | null }>,
 	page: number,
 	totalCount: number
 ) {

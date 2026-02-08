@@ -17,7 +17,8 @@ export class LLMService {
 	async parseTransaction(
 		text: string,
 		categoryNames: string[] = [],
-		existingTags: string[] = []
+		existingTags: string[] = [],
+		accountNames: string[] = []
 	) {
 		const categoryList =
 			categoryNames.length > 0
@@ -35,6 +36,14 @@ export class LLMService {
 				? ` Для каждой транзакции укажи ровно один самый точный тег. Всегда сначала проверяй существующие теги: ${tagList}. Если есть подходящий — используй его (tag_text и normalized_tag в lowercase). Выбирай самый конкретный тег по смыслу (например "кофе", а не "напитки"). Если пользователь не разделил суммы (одна общая сумма на несколько позиций) — одна транзакция с одним общим тегом (например "праздник"). Если пользователь явно указал отдельные суммы (вино 3€, торт 4€) — две транзакции с разными тегами (алкоголь, сладости). tag_confidence от 0 до 1 — уверенность в выборе тега.`
 				: ' Тег не обязателен; если указываешь — один точный тег, normalized_tag в lowercase, tag_confidence 0–1.'
 
+		const accountInstruction =
+			accountNames.length > 0
+				? ` У пользователя есть счета: ${accountNames.join(', ')}. Если в тексте упоминается счёт (предлог "с", "из", "на" + название) — укажи в поле account соответствующее название из списка. Сопоставляй слова даже при неточном написании (например "с революта" → Revolut).`
+				: ''
+
+		const cryptoInstruction =
+			' Распознавай криптовалюты по коду: BTC, ETH, USDT, USDC, BNB, SOL, XRP, ADA, DOGE и другие популярные тикеры. Указывай currency в верхнем регистре (BTC, ETH).'
+
 		const response = await this.openai.chat.completions.create({
 			model: 'gpt-4o-mini',
 			temperature: 0,
@@ -44,7 +53,9 @@ export class LLMService {
 					content:
 						'Ты парсер финансовых операций. Верни только JSON согласно схеме.' +
 						categoryInstruction +
-						tagInstruction
+						tagInstruction +
+						accountInstruction +
+						cryptoInstruction
 				},
 				{
 					role: 'user',

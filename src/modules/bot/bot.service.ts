@@ -136,7 +136,7 @@ export class BotService implements OnModuleInit {
 		editDateCallback(this.bot)
 		editCategoryCallback(this.bot, this.categoriesService, this.accountsService)
 		editTagCallback(this.bot, this.tagsService, this.accountsService)
-		editCurrencyCallback(this.bot, this.accountsService)
+		editCurrencyCallback(this.bot, this.accountsService, this.exchangeService)
 		editConversionCallback(this.bot, this.accountsService, this.exchangeService)
 		paginationTransactionsCallback(this.bot, this.accountsService)
 		closeEditCallback(this.bot, this.accountsService)
@@ -148,7 +148,7 @@ export class BotService implements OnModuleInit {
 		accountsPreviewCallbacks(this.bot)
 		accountsJarvisEditCallback(this.bot, this.llmService)
 		saveDeleteAccountsCallback(this.bot, this.accountsService, this.usersService)
-		viewTransactionsCallback(this.bot, this.prisma)
+		viewTransactionsCallback(this.bot, this.prisma, this.transactionsService, this.accountsService)
 		viewCategoriesCallback(this.bot, this.categoriesService)
 		viewTagsCallback(this.bot, this.tagsService)
 		analyticsMainCallback(this.bot, this.analyticsService)
@@ -639,7 +639,7 @@ export class BotService implements OnModuleInit {
 							renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
 							{
 								parse_mode: 'HTML',
-								reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer')
+								reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!(ctx.session as any).editingTransactionId)
 							}
 						)
 					} catch {}
@@ -705,6 +705,16 @@ export class BotService implements OnModuleInit {
 					ctx.state.user.id,
 					this.accountsService
 				)
+				if (showConversion && accountId && typeof current.amount === 'number') {
+					const account = await this.accountsService.getOneWithAssets(accountId, ctx.state.user.id)
+					if (account?.assets?.length) {
+						const codes = Array.from(new Set(account.assets.map((a: any) => a.currency || account.currency)))
+						if (codes.length) {
+							current.convertToCurrency = codes[0]
+							current.convertedAmount = await this.exchangeService.convert(current.amount, current.currency, codes[0])
+						}
+					}
+				}
 
 				try {
 					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
@@ -722,7 +732,8 @@ export class BotService implements OnModuleInit {
 									drafts.length,
 									index,
 									showConversion,
-									(current as any)?.direction === 'transfer'
+									(current as any)?.direction === 'transfer',
+									!!(ctx.session as any).editingTransactionId
 								)
 							}
 						)
@@ -817,7 +828,8 @@ export class BotService implements OnModuleInit {
 									drafts.length,
 									index,
 									showConversion,
-									(current as any)?.direction === 'transfer'
+									(current as any)?.direction === 'transfer',
+									!!(ctx.session as any).editingTransactionId
 								)
 							}
 						)
@@ -1004,8 +1016,9 @@ export class BotService implements OnModuleInit {
 				const userId = ctx.state.user.id
 				let tags = await this.tagsService.getAllByUserId(userId)
 				const currentTagNames = tags.map(t => t.name)
+				let result: { add: string[]; delete: string[]; rename: { from: string; to: string }[] }
 				try {
-					const result = await this.llmService.parseTagEdit(currentTagNames, text)
+					result = await this.llmService.parseTagEdit(currentTagNames, text)
 					for (const name of result.delete) {
 						const normalized = this.tagsService.normalizeTag(name)
 						const tag = tags.find(t => t.name === normalized)
@@ -1054,6 +1067,23 @@ export class BotService implements OnModuleInit {
 						)
 					} catch {}
 				}
+				const summaryLines: string[] = []
+				if (result.rename?.length) {
+					summaryLines.push('Переименовано: ' + result.rename.map(r => `«${r.from}» → «${r.to}»`).join(', '))
+				}
+				if (result.delete?.length) {
+					summaryLines.push('Удалено: ' + result.delete.join(', '))
+				}
+				if (result.add?.length) {
+					summaryLines.push('Создано: ' + result.add.join(', '))
+				}
+				const summaryText = summaryLines.length > 0
+					? '✅ Изменения применены.\n\n' + summaryLines.join('\n')
+					: '✅ Изменения применены.'
+				await ctx.reply(summaryText, {
+					parse_mode: 'HTML',
+					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+				})
 				return
 			}
 
@@ -1117,12 +1147,15 @@ export class BotService implements OnModuleInit {
 				)
 				const categoryNames = userCategories.map(c => c.name)
 				const existingTags = await this.tagsService.getNamesAndAliases(user.id)
+				const userAccounts = await this.accountsService.getAllByUserIdIncludingHidden(user.id)
+				const accountNames = userAccounts.map((a: any) => a.name)
 
 				try {
 					parsed = await this.llmService.parseTransaction(
 						text,
 						categoryNames,
-						existingTags
+						existingTags,
+						accountNames
 					)
 				} catch {
 					await ctx.reply(
@@ -1152,11 +1185,30 @@ export class BotService implements OnModuleInit {
 					? await this.accountsService.getOneWithAssets(defaultAccountId, user.id)
 					: null
 
+				if (defaultAccount && (!defaultAccount.assets || defaultAccount.assets.length === 0)) {
+					await ctx.reply(
+						'В связанном счёте отсутствуют активы. Добавьте валюты в счёт.',
+						{ reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message') }
+					)
+					return
+				}
+
 				for (const tx of parsed as any[]) {
-					if (!tx.accountId) {
-						tx.accountId = defaultAccountId
-						if (defaultAccount) tx.account = defaultAccount.name
+					const parsedAccountStr = (tx.account && String(tx.account).trim()) || ''
+					let matchedAccountId: string | null = null
+					if (parsedAccountStr && userAccounts.length) {
+						const lower = parsedAccountStr.toLowerCase()
+						for (const acc of userAccounts as any[]) {
+							const accLower = acc.name.toLowerCase()
+							if (accLower === lower || accLower.includes(lower) || lower.includes(accLower)) {
+								matchedAccountId = acc.id
+								break
+							}
+						}
 					}
+					tx.accountId = matchedAccountId ?? defaultAccountId
+					const acc = matchedAccountId ? userAccounts.find((a: any) => a.id === matchedAccountId) : defaultAccount
+					tx.account = acc?.name ?? (defaultAccount?.name ?? null)
 					if (
 						!tx.category ||
 						!categoryNames.includes(tx.category)
@@ -1234,11 +1286,16 @@ export class BotService implements OnModuleInit {
 					first.currency && accountCurrencies.includes(first.currency)
 				)
 
+				if (ctx.session.tempMessageId != null) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
+					} catch {}
+				}
 				const msg = await ctx.reply(
 					renderConfirmMessage(first, 0, parsed.length, user.defaultAccountId),
 					{
 						parse_mode: 'HTML',
-						reply_markup: confirmKeyboard(parsed.length, 0, showConversion, first?.direction === 'transfer')
+						reply_markup: confirmKeyboard(parsed.length, 0, showConversion, first?.direction === 'transfer', false)
 					}
 				)
 

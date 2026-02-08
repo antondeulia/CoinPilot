@@ -130,7 +130,7 @@ export const editTargetAccountCallback = (
 				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, true)
+					reply_markup: confirmKeyboard(drafts.length, index, showConversion, true, !!ctx.session.editingTransactionId)
 				}
 			)
 		} catch {}

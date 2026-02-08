@@ -174,7 +174,7 @@ export const editConversionCallback = (
 				renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
 				{
 					parse_mode: 'HTML',
-					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer')
+					reply_markup: confirmKeyboard(drafts.length, index, showConversion, current?.direction === 'transfer', !!ctx.session.editingTransactionId)
 				}
 			)
 		} catch {}
