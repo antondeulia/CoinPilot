@@ -12,7 +12,6 @@ import { CategoriesService } from '../categories/categories.service'
 import { TagsService } from '../tags/tags.service'
 import { ExchangeService } from '../exchange/exchange.service'
 import { AnalyticsService } from '../analytics/analytics.service'
-import { ChartsService } from '../analytics/charts.service'
 import { accountInfoText } from '../../utils'
 import { accountSwitchKeyboard } from '../../shared/keyboards'
 import { viewAccountsListText, accountDetailsText } from './elements/accounts'
@@ -78,8 +77,7 @@ export class BotService implements OnModuleInit {
 		private readonly categoriesService: CategoriesService,
 		private readonly tagsService: TagsService,
 		private readonly exchangeService: ExchangeService,
-		private readonly analyticsService: AnalyticsService,
-		private readonly chartsService: ChartsService
+		private readonly analyticsService: AnalyticsService
 	) {
 		const token = this.config.getOrThrow<string>('BOT_TOKEN')
 		this.bot = new Bot<BotContext>(token)
@@ -168,12 +166,7 @@ export class BotService implements OnModuleInit {
 		analyticsTypeCallback(this.bot, this.analyticsService)
 		analyticsFilterCallback(this.bot)
 		analyticsSavedCallback(this.bot, this.prisma)
-		analyticsChartCallback(
-			this.bot,
-			this.chartsService,
-			this.prisma,
-			this.exchangeService
-		)
+		analyticsChartCallback(this.bot, this.prisma, this.exchangeService)
 		analyticsExportCallback(this.bot, this.prisma)
 		analyticsAlertsCallback(this.bot)
 

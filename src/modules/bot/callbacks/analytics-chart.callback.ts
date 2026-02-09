@@ -1,13 +1,11 @@
 import { Bot, InputFile } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { type AnalyticsPeriod } from '../../../modules/analytics/analytics.service'
-import { ChartsService } from '../../../modules/analytics/charts.service'
 import { ExchangeService } from '../../../modules/exchange/exchange.service'
 import { PrismaService } from '../../../modules/prisma/prisma.service'
 
 export const analyticsChartCallback = (
 	bot: Bot<BotContext>,
-	chartsService: ChartsService,
 	prisma: PrismaService,
 	exchangeService: ExchangeService
 ) => {
@@ -55,8 +53,7 @@ export const analyticsChartCallback = (
 			await ctx.answerCallbackQuery({ text: 'Нет данных для графика' })
 			return
 		}
-		const buffer = await chartsService.generateTrendChart(data, period)
-		await ctx.replyWithPhoto(new InputFile(buffer, 'chart.png'), {
+		await ctx.replyWithPhoto(new InputFile('', 'chart.png'), {
 			caption: 'Расходы по дням'
 		})
 	})

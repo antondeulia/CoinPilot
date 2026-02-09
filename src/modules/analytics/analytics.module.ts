@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common'
 import { AnalyticsService } from './analytics.service'
-import { ChartsService } from './charts.service'
 
 @Module({
-	providers: [AnalyticsService, ChartsService],
-	exports: [AnalyticsService, ChartsService]
+	providers: [AnalyticsService],
+	exports: [AnalyticsService]
 })
 export class AnalyticsModule {}
