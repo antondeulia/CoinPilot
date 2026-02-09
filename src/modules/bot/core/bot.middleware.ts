@@ -1,9 +1,9 @@
 import { Context, MiddlewareFn } from 'grammy'
 import { PrismaService } from '../../prisma/prisma.service'
 import { UsersService } from '../../users/users.service'
-import { Account, User } from 'generated/prisma/client'
 import { LlmTransaction } from 'src/modules/llm/schemas/transaction.schema'
 import { LlmAccount } from 'src/modules/llm/schemas/account.schema'
+import { Account, User } from 'src/generated/prisma/client'
 
 export interface BotState {
 	user: User & { accounts: Account[] }

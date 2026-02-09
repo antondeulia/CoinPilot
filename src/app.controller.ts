@@ -1,15 +1,15 @@
 import { Controller, Get, Post } from '@nestjs/common'
 import { PrismaService } from './modules/prisma/prisma.service'
 
-@Controller('app')
+@Controller()
 export class AppController {
 	constructor(private prisma: PrismaService) {}
 
-	@Get('health')
-	healthCheck() {
-		return { status: 'ok' }
+	@Get()
+	async healthCheck() {
+		return await this.prisma.user.findMany()
 	}
-	
+
 	@Get('clear-db')
 	async clearDatabase() {
 		;(await this.prisma.transaction.deleteMany(),
