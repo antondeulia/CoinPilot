@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { CategoriesService } from 'src/modules/categories/categories.service'
+import { CategoriesService } from '../../../modules/categories/categories.service'
 
 const PAGE_SIZE = 9
 

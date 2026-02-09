@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { TagsService } from 'src/modules/tags/tags.service'
+import { TagsService } from '../../../modules/tags/tags.service'
 
 function tagsSettingsKeyboard() {
 	return new InlineKeyboard()

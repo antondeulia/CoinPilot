@@ -1,6 +1,6 @@
-import { Bot, InlineKeyboard } from 'grammy'
+import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { PrismaService } from 'src/modules/prisma/prisma.service'
+import { PrismaService } from '../../../modules/prisma/prisma.service'
 
 export const analyticsSavedCallback = (bot: Bot<BotContext>, prisma: PrismaService) => {
 	bot.callbackQuery('analytics_save_view', async ctx => {

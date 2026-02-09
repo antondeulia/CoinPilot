@@ -1,7 +1,7 @@
-import { Bot, InlineKeyboard } from 'grammy'
+import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { CategoriesService } from 'src/modules/categories/categories.service'
-import { AccountsService } from 'src/modules/accounts/accounts.service'
+import { CategoriesService } from '../../../modules/categories/categories.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 

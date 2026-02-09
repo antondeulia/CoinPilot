@@ -1,6 +1,6 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { accountSwitchKeyboard } from 'src/shared/keyboards'
+import { accountSwitchKeyboard } from '../../../shared/keyboards'
 
 export const accountsPaginationCallback = (bot: Bot<BotContext>) => {
 	bot.callbackQuery('accounts_page_current', async () => {})

@@ -4,9 +4,9 @@ import {
 	formatAccountName,
 	formatAmount,
 	isCryptoCurrency
-} from 'src/utils/format'
-import { ExchangeService } from 'src/modules/exchange/exchange.service'
-import { Account } from 'src/generated/prisma/client'
+} from '../../../utils/format'
+import { ExchangeService } from '../../../modules/exchange/exchange.service'
+import { Account } from '../../../generated/prisma/client'
 
 type AccountWithAssets = Account & {
 	assets: { currency: string; amount: number }[]

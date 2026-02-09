@@ -1,6 +1,6 @@
-import { LlmTransaction } from 'src/modules/llm/schemas/transaction.schema'
-import { formatAmount, getCurrencySymbol, formatAccountName } from 'src/utils/format'
-import { formatTransactionDate } from 'src/utils/date'
+import { LlmTransaction } from '../../../modules/llm/schemas/transaction.schema'
+import { formatAmount, getCurrencySymbol, formatAccountName } from '../../../utils/format'
+import { formatTransactionDate } from '../../../utils/date'
 
 function formatDirection(direction: LlmTransaction['direction']) {
 	if (direction === 'expense') return '📉 Расход'

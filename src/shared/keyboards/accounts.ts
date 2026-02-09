@@ -1,5 +1,5 @@
 import { InlineKeyboard } from 'grammy'
-import { formatAccountName } from 'src/utils/format'
+import { formatAccountName } from '../../utils/format'
 
 export function accountSwitchKeyboard(
 	accounts: { id: string; name: string }[],

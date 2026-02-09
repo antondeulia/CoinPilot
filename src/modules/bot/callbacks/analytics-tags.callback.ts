@@ -3,8 +3,8 @@ import { BotContext } from '../core/bot.middleware'
 import {
 	AnalyticsService,
 	type AnalyticsPeriod
-} from 'src/modules/analytics/analytics.service'
-import { getCurrencySymbol } from 'src/utils/format'
+} from '../../../modules/analytics/analytics.service'
+import { getCurrencySymbol } from '../../../utils/format'
 
 const PAGE_SIZE = 9
 

@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { formatAmount, formatAccountName } from 'src/utils/format'
+import { formatAmount, formatAccountName } from '../../../utils/format'
 
 function renderAccountPreview(account, index: number, total: number, isDefault: boolean) {
 	const lines: string[] = []

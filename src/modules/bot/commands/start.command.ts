@@ -1,6 +1,6 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { AccountsService } from 'src/modules/accounts/accounts.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { renderHome } from '../utils/render-home'
 
 export const startCommand = (bot: Bot<BotContext>, accountsService: AccountsService) => {

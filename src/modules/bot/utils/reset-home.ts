@@ -1,4 +1,4 @@
-import { AccountsService } from 'src/modules/accounts/accounts.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { BotContext } from '../core/bot.middleware'
 import { renderHome } from './render-home'
 

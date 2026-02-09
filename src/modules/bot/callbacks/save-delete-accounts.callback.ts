@@ -1,9 +1,9 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { AccountsService } from 'src/modules/accounts/accounts.service'
-import { UsersService } from 'src/modules/users/users.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { UsersService } from '../../../modules/users/users.service'
 import { refreshAccountsPreview } from './accounts-preview.callback'
-import { homeKeyboard, homeText } from 'src/shared/keyboards/home'
+import { homeKeyboard, homeText } from '../../../shared/keyboards/home'
 
 export const saveDeleteAccountsCallback = (
 	bot: Bot<BotContext>,

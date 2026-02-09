@@ -1,7 +1,7 @@
 import { Bot, InputFile } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { Parser } from 'json2csv'
-import { PrismaService } from 'src/modules/prisma/prisma.service'
+import { PrismaService } from '../../../modules/prisma/prisma.service'
 
 export const analyticsExportCallback = (bot: Bot<BotContext>, prisma: PrismaService) => {
 	bot.callbackQuery('analytics_export', async ctx => {

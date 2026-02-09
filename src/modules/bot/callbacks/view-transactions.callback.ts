@@ -1,12 +1,9 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { PrismaService } from '../../prisma/prisma.service'
-import { TransactionsService } from 'src/modules/transactions/transactions.service'
-import { AccountsService } from 'src/modules/accounts/accounts.service'
-import {
-	transactionsListKeyboard,
-	transactionDetailKeyboard
-} from 'src/shared/keyboards/transactions'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { transactionsListKeyboard } from '../../../shared/keyboards/transactions'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 

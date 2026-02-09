@@ -1,6 +1,6 @@
-import { AccountsService } from 'src/modules/accounts/accounts.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { BotContext } from '../core/bot.middleware'
-import { homeKeyboard, homeText } from 'src/shared/keyboards/home'
+import { homeKeyboard, homeText } from '../../../shared/keyboards/home'
 
 export async function renderHome(ctx: BotContext, accountsService: AccountsService) {
 	;(ctx.session as any).editingCurrency = false

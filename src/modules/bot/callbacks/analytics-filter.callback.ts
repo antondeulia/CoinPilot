@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { type AnalyticsPeriod } from 'src/modules/analytics/analytics.service'
+import { type AnalyticsPeriod } from '../../../modules/analytics/analytics.service'
 
 export const analyticsFilterCallback = (bot: Bot<BotContext>) => {
 	bot.callbackQuery('analytics_filter', async ctx => {

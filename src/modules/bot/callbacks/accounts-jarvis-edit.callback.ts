@@ -1,7 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { LLMService } from 'src/modules/llm/llm.service'
-import { refreshAccountsPreview } from './accounts-preview.callback'
+import { LLMService } from '../../../modules/llm/llm.service'
 
 export const accountsJarvisEditCallback = (
 	bot: Bot<BotContext>,

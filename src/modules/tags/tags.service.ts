@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { normalizeTag, tagSimilarity } from 'src/utils/normalize'
+import { normalizeTag, tagSimilarity } from '../../utils/normalize'
 
 const DEFAULT_TAG_NAMES = [
 	'кофе',

@@ -13,14 +13,10 @@ import { TagsService } from '../tags/tags.service'
 import { ExchangeService } from '../exchange/exchange.service'
 import { AnalyticsService } from '../analytics/analytics.service'
 import { ChartsService } from '../analytics/charts.service'
-import { accountInfoText } from 'src/utils'
-import { accountSwitchKeyboard } from 'src/shared/keyboards'
-import {
-	viewAccountsListText,
-	accountDetailsText,
-	viewAccountsText
-} from './elements/accounts'
-import { homeKeyboard, homeText } from 'src/shared/keyboards/home'
+import { accountInfoText } from '../../utils'
+import { accountSwitchKeyboard } from '../../shared/keyboards'
+import { viewAccountsListText, accountDetailsText } from './elements/accounts'
+import { homeKeyboard, homeText } from '../../shared/keyboards/home'
 import { startCommand } from './commands/start.command'
 import {
 	confirmKeyboard,
@@ -298,7 +294,7 @@ export class BotService implements OnModuleInit {
 					user.activeAccountId,
 					0,
 					undefined,
-					user.defaultAccountId || ""
+					user.defaultAccountId || ''
 				)
 			})
 		})

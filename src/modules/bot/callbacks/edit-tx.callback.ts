@@ -1,7 +1,6 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { resetToHome } from '../utils/reset-home'
-import { AccountsService } from 'src/modules/accounts/accounts.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
 
 export const editTxCallback = (
 	bot: Bot<BotContext>,

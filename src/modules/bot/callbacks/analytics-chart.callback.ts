@@ -1,9 +1,9 @@
 import { Bot, InputFile } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { type AnalyticsPeriod } from 'src/modules/analytics/analytics.service'
-import { ChartsService } from 'src/modules/analytics/charts.service'
-import { ExchangeService } from 'src/modules/exchange/exchange.service'
-import { PrismaService } from 'src/modules/prisma/prisma.service'
+import { type AnalyticsPeriod } from '../../../modules/analytics/analytics.service'
+import { ChartsService } from '../../../modules/analytics/charts.service'
+import { ExchangeService } from '../../../modules/exchange/exchange.service'
+import { PrismaService } from '../../../modules/prisma/prisma.service'
 
 export const analyticsChartCallback = (
 	bot: Bot<BotContext>,

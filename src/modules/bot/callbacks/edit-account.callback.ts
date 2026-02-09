@@ -1,9 +1,9 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { AccountsService } from 'src/modules/accounts/accounts.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard } from './confirm-tx'
-import { formatAccountName } from 'src/utils/format'
+import { formatAccountName } from '../../../utils/format'
 
 function buildAccountsKeyboard(
 	accounts: { id: string; name: string }[],
