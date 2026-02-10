@@ -47,5 +47,6 @@ export function homeKeyboard(
 		.text('Записи', 'view_transactions')
 		.text('Аналитика', 'view_analytics')
 		.row()
+		.text('👑 Premium', 'view_premium')
 		.text('⚙️ Настройки', 'view_settings')
 }

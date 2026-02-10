@@ -33,3 +33,37 @@ export const AlertTypeEnum = {
 } as const
 
 export type AlertTypeEnum = (typeof AlertTypeEnum)[keyof typeof AlertTypeEnum]
+
+
+export const SubscriptionPlan = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+  lifetime: 'lifetime',
+  trial: 'trial'
+} as const
+
+export type SubscriptionPlan = (typeof SubscriptionPlan)[keyof typeof SubscriptionPlan]
+
+
+export const SubscriptionStatus = {
+  active: 'active',
+  expired: 'expired',
+  cancelled: 'cancelled'
+} as const
+
+export type SubscriptionStatus = (typeof SubscriptionStatus)[keyof typeof SubscriptionStatus]
+
+
+export const PremiumEventType = {
+  limit_hit: 'limit_hit',
+  premium_page_view: 'premium_page_view',
+  upsell_shown: 'upsell_shown',
+  feature_blocked: 'feature_blocked',
+  trial_start: 'trial_start',
+  trial_end: 'trial_end',
+  purchase: 'purchase',
+  cancellation: 'cancellation',
+  export_blocked: 'export_blocked'
+} as const
+
+export type PremiumEventType = (typeof PremiumEventType)[keyof typeof PremiumEventType]

@@ -1,6 +1,7 @@
 import { Context, MiddlewareFn } from 'grammy'
 import { PrismaService } from '../../prisma/prisma.service'
 import { UsersService } from '../../users/users.service'
+import { SubscriptionService } from '../../subscription/subscription.service'
 import { LlmTransaction } from '../../../modules/llm/schemas/transaction.schema'
 import { LlmAccount } from '../../../modules/llm/schemas/account.schema'
 import { Account, User } from '../../../generated/prisma/client'
@@ -8,6 +9,7 @@ import { Account, User } from '../../../generated/prisma/client'
 export interface BotState {
 	user: User & { accounts: Account[] }
 	activeAccount: Account | null
+	isPremium: boolean
 }
 
 export type BotContext = Context & {
@@ -60,7 +62,11 @@ export type BotContext = Context & {
 }
 
 export const userContextMiddleware =
-	(userService: UsersService, prisma: PrismaService): MiddlewareFn =>
+	(
+		userService: UsersService,
+		prisma: PrismaService,
+		subscriptionService: SubscriptionService
+	): MiddlewareFn =>
 	async (ctx: BotContext, next) => {
 		if (!ctx.from) return next()
 
@@ -71,9 +77,11 @@ export const userContextMiddleware =
 					where: { id: user.activeAccountId }
 				})
 			: null
+		const isPremium = subscriptionService.isPremium(user)
 		ctx.state = {
 			user,
-			activeAccount
+			activeAccount,
+			isPremium
 		}
 
 		await next()

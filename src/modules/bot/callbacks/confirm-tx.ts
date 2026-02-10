@@ -3,6 +3,7 @@ import { BotContext } from '../core/bot.middleware'
 import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { TagsService } from '../../../modules/tags/tags.service'
+import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 import { renderHome } from '../utils/render-home'
 
 export async function getShowConversion(
@@ -24,7 +25,8 @@ export const confirmTxCallback = (
 	bot: Bot<BotContext>,
 	transactionsService: TransactionsService,
 	accountsService: AccountsService,
-	tagsService: TagsService
+	tagsService: TagsService,
+	subscriptionService: SubscriptionService
 ) => {
 	bot.callbackQuery('confirm_tx', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -33,6 +35,44 @@ export const confirmTxCallback = (
 		if (!drafts || drafts.length === 0) {
 			ctx.session.awaitingTransaction = true
 			return
+		}
+
+		// Лимит транзакций для Free
+		const newCount = drafts.length
+		const txLimit = await subscriptionService.canCreateTransaction(user.id)
+		if (!txLimit.allowed || txLimit.current + newCount > txLimit.limit) {
+			await ctx.answerCallbackQuery({
+				text: '👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
+			})
+			await ctx.reply(
+				'👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				{
+					reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+				}
+			)
+			return
+		}
+
+		const newTagCount = (drafts as any[]).filter(
+			(d: any) => d.tagIsNew && d.tagName
+		).length
+		if (newTagCount > 0) {
+			const limit = await subscriptionService.canCreateTag(ctx.state.user.id)
+			if (
+				!limit.allowed ||
+				limit.current + newTagCount > limit.limit
+			) {
+				await ctx.answerCallbackQuery({
+					text: '👑 10 кастомных тегов — лимит Free. Разблокируйте безлимит с Premium!'
+				})
+				await ctx.reply(
+					'👑 10 кастомных тегов использовано. Разблокируйте безлимит с Premium!',
+					{
+						reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+					}
+				)
+				return
+			}
 		}
 
 		for (const draft of drafts as any[]) {

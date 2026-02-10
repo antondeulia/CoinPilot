@@ -87,3 +87,13 @@ export type SavedAnalyticsView = Prisma.SavedAnalyticsViewModel
  * 
  */
 export type AlertConfig = Prisma.AlertConfigModel
+/**
+ * Model Subscription
+ * 
+ */
+export type Subscription = Prisma.SubscriptionModel
+/**
+ * Model PremiumEvent
+ * 
+ */
+export type PremiumEvent = Prisma.PremiumEventModel

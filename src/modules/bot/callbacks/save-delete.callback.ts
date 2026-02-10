@@ -1,8 +1,9 @@
-import { Bot } from 'grammy'
+import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { TagsService } from '../../../modules/tags/tags.service'
+import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 import { renderHome } from '../utils/render-home'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard } from './confirm-tx'
@@ -54,7 +55,8 @@ export const saveDeleteCallback = (
 	bot: Bot<BotContext>,
 	transactionsService: TransactionsService,
 	accountsService: AccountsService,
-	tagsService: TagsService
+	tagsService: TagsService,
+	subscriptionService: SubscriptionService
 ) => {
 	bot.callbackQuery('confirm_1_transactions', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -64,8 +66,36 @@ export const saveDeleteCallback = (
 		if (!drafts || !drafts.length || !account) return
 
 		const draft = drafts[index] as any
+		// Лимит транзакций для Free
+		const limit = await subscriptionService.canCreateTransaction(ctx.state.user.id)
+		if (!limit.allowed || limit.current + 1 > limit.limit) {
+			await ctx.answerCallbackQuery({
+				text: '👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
+			})
+			await ctx.reply(
+				'👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				{
+					reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+				}
+			)
+			return
+		}
+
 		let tagId = draft.tagId
 		if (draft.tagIsNew && draft.tagName) {
+			const limit = await subscriptionService.canCreateTag(ctx.state.user.id)
+			if (!limit.allowed) {
+				await ctx.answerCallbackQuery({
+					text: '👑 10 кастомных тегов — лимит Free. Разблокируйте безлимит с Premium!'
+				})
+				await ctx.reply(
+					'👑 10 кастомных тегов использовано. Разблокируйте безлимит с Premium!',
+					{
+						reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+					}
+				)
+				return
+			}
 			const tag = await tagsService.create(ctx.state.user.id, draft.tagName)
 			tagId = tag.id
 		}

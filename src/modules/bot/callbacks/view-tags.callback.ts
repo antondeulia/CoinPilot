@@ -9,23 +9,44 @@ function tagsSettingsKeyboard() {
 		.text('← Назад', 'back_from_tags')
 }
 
-function tagsListText(tagNames: string[]) {
-	const list = tagNames.length > 0 ? tagNames.join(', ') : '—'
-	return `<b>Теги</b>\n\nСписок ваших тегов:\n<blockquote>${list}</blockquote>`
+export function tagsListText(
+	tags: { id: string; name: string }[],
+	frozenIds: Set<string>
+) {
+	const active = tags.filter(t => !frozenIds.has(t.id)).map(t => t.name)
+	const frozen = tags.filter(t => frozenIds.has(t.id)).map(t => t.name)
+	const activeStr = active.length > 0 ? active.join(', ') : '—'
+	let text = `<b>Теги</b>\n\nСписок ваших тегов:\n<blockquote>${activeStr}</blockquote>`
+	if (frozen.length > 0) {
+		text += `\n\n🔒 Заблокированные: ${frozen.join(', ')}\nДля разблокировки — обновите Premium.`
+	}
+	return text
 }
 
-export const viewTagsCallback = (bot: Bot<BotContext>, tagsService: TagsService) => {
+export const viewTagsCallback = (
+	bot: Bot<BotContext>,
+	tagsService: TagsService,
+	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customTagIdsOverLimit: string[] }> }
+) => {
 	bot.callbackQuery('view_tags', async ctx => {
 		const userId = ctx.state.user.id
-		const tags = await tagsService.getAllByUserId(userId)
-		const tagNames = tags.map(t => t.name)
+		const [tags, frozen] = await Promise.all([
+			tagsService.getAllByUserId(userId),
+			subscriptionService.getFrozenItems(userId)
+		])
+		const frozenSet = new Set(frozen.customTagIdsOverLimit)
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		ctx.session.tagsSettingsMessageId = msgId
-		await ctx.api.editMessageText(ctx.chat!.id, msgId, tagsListText(tagNames), {
-			parse_mode: 'HTML',
-			reply_markup: tagsSettingsKeyboard()
-		})
+		await ctx.api.editMessageText(
+			ctx.chat!.id,
+			msgId,
+			tagsListText(tags.map(t => ({ id: t.id, name: t.name })), frozenSet),
+			{
+				parse_mode: 'HTML',
+				reply_markup: tagsSettingsKeyboard()
+			}
+		)
 	})
 
 	bot.callbackQuery('tags_jarvis_edit', async ctx => {

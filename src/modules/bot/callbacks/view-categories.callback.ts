@@ -34,7 +34,8 @@ const SETTINGS_CAT_PAGE_PREFIX = 'settings_cat_page:'
 export function categoriesListKb(
 	categories: { id: string; name: string }[],
 	page: number,
-	selectedId: string | null
+	selectedId: string | null,
+	frozenIds: Set<string> = new Set()
 ) {
 	const totalCount = categories.length
 	const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
@@ -44,7 +45,12 @@ export function categoriesListKb(
 	for (let i = 0; i < slice.length; i += 3) {
 		const row = slice.slice(i, i + 3)
 		for (const c of row) {
-			kb.text(selectedId === c.id ? `✅ ${c.name}` : c.name, `category:${c.id}`)
+			const label = frozenIds.has(c.id)
+				? `${c.name} (🔒Premium)`
+				: selectedId === c.id
+					? `✅ ${c.name}`
+					: c.name
+			kb.text(label, `category:${c.id}`)
 		}
 		kb.row()
 	}
@@ -67,11 +73,16 @@ export function categoriesListKb(
 
 export const viewCategoriesCallback = (
 	bot: Bot<BotContext>,
-	categoriesService: CategoriesService
+	categoriesService: CategoriesService,
+	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customCategoryIdsOverLimit: string[] }> }
 ) => {
 	bot.callbackQuery('view_categories', async ctx => {
 		const userId = ctx.state.user.id
-		const categories = await categoriesService.getSelectableByUserId(userId)
+		const [categories, frozen] = await Promise.all([
+			categoriesService.getSelectableByUserId(userId),
+			subscriptionService.getFrozenItems(userId)
+		])
+		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		ctx.session.categoriesMessageId = msgId
@@ -80,7 +91,8 @@ export const viewCategoriesCallback = (
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),
 			0,
-			null
+			null,
+			frozenSet
 		)
 		await ctx.api.editMessageText(ctx.chat!.id, msgId, '<b>Категории</b>', {
 			parse_mode: 'HTML',
@@ -95,7 +107,11 @@ export const viewCategoriesCallback = (
 			const dir = ctx.callbackQuery.data.replace(SETTINGS_CAT_PAGE_PREFIX, '')
 			if (dir === 'noop') return
 			const userId = ctx.state.user.id
-			const categories = await categoriesService.getSelectableByUserId(userId)
+			const [categories, frozen] = await Promise.all([
+				categoriesService.getSelectableByUserId(userId),
+				subscriptionService.getFrozenItems(userId)
+			])
+			const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 			const totalPages = Math.max(1, Math.ceil(categories.length / PAGE_SIZE))
 			let page = ctx.session.categoriesPage ?? 0
 			if (dir === 'prev') page = page <= 0 ? totalPages - 1 : page - 1
@@ -105,7 +121,8 @@ export const viewCategoriesCallback = (
 			const kb = categoriesListKb(
 				categories.map(c => ({ id: c.id, name: c.name })),
 				page,
-				selectedId
+				selectedId,
+				frozenSet
 			)
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
@@ -121,12 +138,17 @@ export const viewCategoriesCallback = (
 		const id = ctx.callbackQuery.data.split(':')[1]
 		ctx.session.categoriesSelectedId = id
 		const userId = ctx.state.user.id
-		const categories = await categoriesService.getSelectableByUserId(userId)
+		const [categories, frozen] = await Promise.all([
+			categoriesService.getSelectableByUserId(userId),
+			subscriptionService.getFrozenItems(userId)
+		])
+		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 		const page = ctx.session.categoriesPage ?? 0
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),
 			page,
-			id
+			id,
+			frozenSet
 		)
 		await ctx.api.editMessageText(
 			ctx.chat!.id,
@@ -140,12 +162,17 @@ export const viewCategoriesCallback = (
 		if (ctx.session.categoriesMessageId == null) return
 		ctx.session.categoriesSelectedId = null
 		const userId = ctx.state.user.id
-		const categories = await categoriesService.getSelectableByUserId(userId)
+		const [categories, frozen] = await Promise.all([
+			categoriesService.getSelectableByUserId(userId),
+			subscriptionService.getFrozenItems(userId)
+		])
+		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 		const page = ctx.session.categoriesPage ?? 0
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),
 			page,
-			null
+			null,
+			frozenSet
 		)
 		await ctx.api.editMessageText(
 			ctx.chat!.id,
@@ -199,13 +226,18 @@ export const viewCategoriesCallback = (
 	bot.callbackQuery('back_from_delete_category', async ctx => {
 		if (ctx.session.categoriesMessageId == null) return
 		const userId = ctx.state.user.id
-		const categories = await categoriesService.getSelectableByUserId(userId)
+		const [categories, frozen] = await Promise.all([
+			categoriesService.getSelectableByUserId(userId),
+			subscriptionService.getFrozenItems(userId)
+		])
+		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 		const page = ctx.session.categoriesPage ?? 0
 		const selectedId = ctx.session.categoriesSelectedId ?? null
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),
 			page,
-			selectedId
+			selectedId,
+			frozenSet
 		)
 		await ctx.api.editMessageText(
 			ctx.chat!.id,
@@ -229,7 +261,11 @@ export const viewCategoriesCallback = (
 		}
 		ctx.session.categoriesSelectedId = null
 		const userId = ctx.state.user.id
-		const categories = await categoriesService.getSelectableByUserId(userId)
+		const [categories, frozen] = await Promise.all([
+			categoriesService.getSelectableByUserId(userId),
+			subscriptionService.getFrozenItems(userId)
+		])
+		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 		const page = Math.min(
 			ctx.session.categoriesPage ?? 0,
 			Math.max(0, Math.ceil(categories.length / PAGE_SIZE) - 1)
@@ -238,7 +274,8 @@ export const viewCategoriesCallback = (
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),
 			page,
-			null
+			null,
+			frozenSet
 		)
 		await ctx.api.editMessageText(
 			ctx.chat!.id,

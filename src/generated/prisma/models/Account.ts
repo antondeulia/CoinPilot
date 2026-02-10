@@ -445,10 +445,6 @@ export type EnumAccountTypeEnumFieldUpdateOperationsInput = {
   set?: $Enums.AccountTypeEnum
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type AccountCreateNestedOneWithoutAssetsInput = {
   create?: Prisma.XOR<Prisma.AccountCreateWithoutAssetsInput, Prisma.AccountUncheckedCreateWithoutAssetsInput>
   connectOrCreate?: Prisma.AccountCreateOrConnectWithoutAssetsInput

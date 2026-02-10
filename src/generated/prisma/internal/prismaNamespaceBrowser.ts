@@ -60,7 +60,9 @@ export const ModelName = {
   TagAlias: 'TagAlias',
   TagAuditLog: 'TagAuditLog',
   SavedAnalyticsView: 'SavedAnalyticsView',
-  AlertConfig: 'AlertConfig'
+  AlertConfig: 'AlertConfig',
+  Subscription: 'Subscription',
+  PremiumEvent: 'PremiumEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -85,6 +87,9 @@ export const UserScalarFieldEnum = {
   activeAccountId: 'activeAccountId',
   defaultAccountId: 'defaultAccountId',
   mainCurrency: 'mainCurrency',
+  isPremium: 'isPremium',
+  premiumUntil: 'premiumUntil',
+  trialUsed: 'trialUsed',
   createdAt: 'createdAt'
 } as const
 
@@ -140,6 +145,7 @@ export const CategoryScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   name: 'name',
+  isDefault: 'isDefault',
   createdAt: 'createdAt'
 } as const
 
@@ -151,6 +157,7 @@ export const TagScalarFieldEnum = {
   userId: 'userId',
   name: 'name',
   usageCount: 'usageCount',
+  isDefault: 'isDefault',
   createdAt: 'createdAt'
 } as const
 
@@ -200,6 +207,34 @@ export const AlertConfigScalarFieldEnum = {
 } as const
 
 export type AlertConfigScalarFieldEnum = (typeof AlertConfigScalarFieldEnum)[keyof typeof AlertConfigScalarFieldEnum]
+
+
+export const SubscriptionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  plan: 'plan',
+  status: 'status',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  telegramPaymentChargeId: 'telegramPaymentChargeId',
+  providerPaymentChargeId: 'providerPaymentChargeId',
+  amount: 'amount',
+  currency: 'currency',
+  createdAt: 'createdAt'
+} as const
+
+export type SubscriptionScalarFieldEnum = (typeof SubscriptionScalarFieldEnum)[keyof typeof SubscriptionScalarFieldEnum]
+
+
+export const PremiumEventScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  details: 'details',
+  createdAt: 'createdAt'
+} as const
+
+export type PremiumEventScalarFieldEnum = (typeof PremiumEventScalarFieldEnum)[keyof typeof PremiumEventScalarFieldEnum]
 
 
 export const SortOrder = {

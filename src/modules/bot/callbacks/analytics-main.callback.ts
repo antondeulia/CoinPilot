@@ -24,12 +24,12 @@ function analyticsKeyboard(period: AnalyticsPeriod) {
 	// 	.text('По тегам', 'analytics_by_tag')
 	// 	.text('По типу', 'analytics_by_type')
 	// 	.row()
-	kb.text('График', 'analytics_chart')
+	// kb.text('График', 'analytics_chart')
 		// kb.text('Фильтр', 'analytics_filter')
 		// 	.text('Сохранить вид', 'analytics_save_view')
-		.text('Экспорт', 'analytics_export')
-		.text('Уведомления', 'analytics_alerts')
-		.row()
+		// .text('Экспорт', 'analytics_export')
+		// .text('Уведомления', 'analytics_alerts')
+		// .row()
 	// kb.text('График', 'analytics_chart')
 	// 	.text('Уведомления', 'analytics_alerts')
 	// 	.row()
@@ -119,10 +119,23 @@ export const analyticsMainCallback = (
 ) => {
 	async function sendOrEdit(ctx: BotContext, period: AnalyticsPeriod) {
 		const user = ctx.state.user as any
-		;(ctx.session as any).analyticsPeriod = period
+		// Free: запрещаем периоды > 30 дней
+		let effectivePeriod = period
+		if (!ctx.state.isPremium && period > 30) {
+			effectivePeriod = 30
+		}
+		;(ctx.session as any).analyticsPeriod = effectivePeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
-		const text = await renderAnalyticsMain(ctx, analyticsService, period, accountId)
-		const kb = analyticsKeyboard(period)
+		let text = await renderAnalyticsMain(
+			ctx,
+			analyticsService,
+			effectivePeriod,
+			accountId
+		)
+		if (!ctx.state.isPremium && period > 30) {
+			text += '\n\n📈 Расширенная аналитика и периоды >30 дней доступны в Premium.'
+		}
+		const kb = analyticsKeyboard(effectivePeriod)
 		const msgId = (ctx.session as any).homeMessageId
 		if (msgId != null) {
 			try {

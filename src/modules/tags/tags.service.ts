@@ -94,7 +94,8 @@ export class TagsService {
 	async createDefaults(userId: string) {
 		const data = DEFAULT_TAG_NAMES.map(name => ({
 			userId,
-			name: normalizeTag(name) || name.toLowerCase()
+			name: normalizeTag(name) || name.toLowerCase(),
+			isDefault: true
 		})).filter(({ name }) => name.length > 0)
 		await this.prisma.tag.createMany({
 			data,

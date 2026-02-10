@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
-import { BotModule } from './modules/bot/bot.module'
 import { ConfigModule } from '@nestjs/config'
+import { BotModule } from './modules/bot/bot.module'
 import { PrismaModule } from './modules/prisma/prisma.module'
 import { UsersModule } from './modules/users/users.module'
 import { TransactionsModule } from './modules/transactions/transactions.module'

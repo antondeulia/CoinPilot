@@ -12,6 +12,9 @@ import { CategoriesService } from '../categories/categories.service'
 import { TagsService } from '../tags/tags.service'
 import { ExchangeService } from '../exchange/exchange.service'
 import { AnalyticsService } from '../analytics/analytics.service'
+import { SubscriptionService } from '../subscription/subscription.service'
+import { FREE_LIMITS } from '../subscription/subscription.constants'
+import { PremiumEventType } from '../../generated/prisma/enums'
 import { accountInfoText } from '../../utils'
 import { accountSwitchKeyboard } from '../../shared/keyboards'
 import { viewAccountsListText, accountDetailsText } from './elements/accounts'
@@ -56,12 +59,14 @@ import {
 	analyticsSavedCallback,
 	analyticsChartCallback,
 	analyticsExportCallback,
-	analyticsAlertsCallback
+	analyticsAlertsCallback,
+	premiumCallback
 } from './callbacks'
 import { renderConfirmMessage } from './elements/tx-confirm-msg'
 import { refreshAccountsPreview } from './callbacks/accounts-preview.callback'
 import { hideMessageCallback } from './callbacks/hide-message.callback'
 import { categoriesListKb } from './callbacks/view-categories.callback'
+import { tagsListText } from './callbacks/view-tags.callback'
 
 @Injectable()
 export class BotService implements OnModuleInit {
@@ -77,10 +82,16 @@ export class BotService implements OnModuleInit {
 		private readonly categoriesService: CategoriesService,
 		private readonly tagsService: TagsService,
 		private readonly exchangeService: ExchangeService,
-		private readonly analyticsService: AnalyticsService
+		private readonly analyticsService: AnalyticsService,
+		private readonly subscriptionService: SubscriptionService
 	) {
 		const token = this.config.getOrThrow<string>('BOT_TOKEN')
 		this.bot = new Bot<BotContext>(token)
+	}
+
+	/** Send a text message to a user by Telegram ID (for cron/notifications). */
+	async sendToUser(telegramId: string, text: string): Promise<void> {
+		await this.bot.api.sendMessage(Number(telegramId), text).catch(() => {})
 	}
 
 	async onModuleInit() {
@@ -108,7 +119,13 @@ export class BotService implements OnModuleInit {
 			return next()
 		})
 
-		this.bot.use(userContextMiddleware(this.usersService, this.prisma))
+		this.bot.use(
+			userContextMiddleware(
+				this.usersService,
+				this.prisma,
+				this.subscriptionService
+			)
+		)
 
 		this.bot.catch(err => {
 			console.error('Bot error:', err.message)
@@ -123,7 +140,8 @@ export class BotService implements OnModuleInit {
 			this.bot,
 			this.transactionsService,
 			this.accountsService,
-			this.tagsService
+			this.tagsService,
+			this.subscriptionService
 		)
 		cancelTxCallback(this.bot, this.accountsService)
 		editTxCallback(this.bot, this.accountsService)
@@ -144,22 +162,36 @@ export class BotService implements OnModuleInit {
 			this.bot,
 			this.transactionsService,
 			this.accountsService,
-			this.tagsService
+			this.tagsService,
+			this.subscriptionService
 		)
 		editAccountCallback(this.bot, this.accountsService)
-		accountsPaginationCallback(this.bot)
+		accountsPaginationCallback(this.bot, this.subscriptionService)
 		addAccountCallback(this.bot)
 		accountsPreviewCallbacks(this.bot)
 		accountsJarvisEditCallback(this.bot, this.llmService)
-		saveDeleteAccountsCallback(this.bot, this.accountsService, this.usersService)
+		saveDeleteAccountsCallback(
+			this.bot,
+			this.accountsService,
+			this.usersService,
+			this.subscriptionService
+		)
 		viewTransactionsCallback(
 			this.bot,
 			this.prisma,
 			this.transactionsService,
 			this.accountsService
 		)
-		viewCategoriesCallback(this.bot, this.categoriesService)
-		viewTagsCallback(this.bot, this.tagsService)
+		viewCategoriesCallback(
+			this.bot,
+			this.categoriesService,
+			this.subscriptionService
+		)
+		viewTagsCallback(
+			this.bot,
+			this.tagsService,
+			this.subscriptionService
+		)
 		analyticsMainCallback(this.bot, this.analyticsService)
 		analyticsCategoriesCallback(this.bot, this.analyticsService, this.prisma)
 		analyticsTagsCallback(this.bot, this.analyticsService)
@@ -167,8 +199,13 @@ export class BotService implements OnModuleInit {
 		analyticsFilterCallback(this.bot)
 		analyticsSavedCallback(this.bot, this.prisma)
 		analyticsChartCallback(this.bot, this.prisma, this.exchangeService)
-		analyticsExportCallback(this.bot, this.prisma)
+		analyticsExportCallback(
+			this.bot,
+			this.prisma,
+			this.subscriptionService
+		)
 		analyticsAlertsCallback(this.bot)
+		premiumCallback(this.bot, this.subscriptionService)
 
 		hideMessageCallback(this.bot)
 
@@ -240,9 +277,11 @@ export class BotService implements OnModuleInit {
 			ctx.session.accountsViewPage = 0
 			ctx.session.accountsViewSelectedId = null
 
-			const accountsWithAssets = await this.accountsService.getAllWithAssets(
-				user.id
-			)
+			const [accountsWithAssets, frozen] = await Promise.all([
+				this.accountsService.getAllWithAssets(user.id),
+				this.subscriptionService.getFrozenItems(user.id)
+			])
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 			const text = await viewAccountsListText(
 				accountsWithAssets,
 				user.mainCurrency ?? 'USD',
@@ -264,7 +303,8 @@ export class BotService implements OnModuleInit {
 						user.activeAccountId,
 						0,
 						null,
-						user.defaultAccountId
+						user.defaultAccountId,
+						frozenAccountIds
 					)
 				}
 			)
@@ -279,6 +319,8 @@ export class BotService implements OnModuleInit {
 
 			if (!account) return
 
+			const frozen = await this.subscriptionService.getFrozenItems(user.id)
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 			await ctx.editMessageText(accountInfoText(account), {
 				parse_mode: 'HTML',
 				// @ts-ignore
@@ -287,7 +329,8 @@ export class BotService implements OnModuleInit {
 					user.activeAccountId,
 					0,
 					undefined,
-					user.defaultAccountId || ''
+					user.defaultAccountId || '',
+					frozenAccountIds
 				)
 			})
 		})
@@ -331,6 +374,8 @@ export class BotService implements OnModuleInit {
 
 			ctx.session.accountsViewSelectedId = accountId
 			const page = ctx.session.accountsViewPage ?? 0
+			const frozen = await this.subscriptionService.getFrozenItems(user.id)
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 			const mainCurrency = user.mainCurrency ?? 'USD'
 			const text = await accountDetailsText(
 				account,
@@ -349,7 +394,9 @@ export class BotService implements OnModuleInit {
 						user.accounts,
 						user.activeAccountId,
 						page,
-						accountId
+						accountId,
+						user.defaultAccountId,
+						frozenAccountIds
 					)
 				}
 			)
@@ -360,9 +407,11 @@ export class BotService implements OnModuleInit {
 			if (!user) return
 			ctx.session.accountsViewSelectedId = null
 			const page = ctx.session.accountsViewPage ?? 0
-			const accountsWithAssets = await this.accountsService.getAllWithAssets(
-				user.id
-			)
+			const [accountsWithAssets, frozen] = await Promise.all([
+				this.accountsService.getAllWithAssets(user.id),
+				this.subscriptionService.getFrozenItems(user.id)
+			])
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 			const text = await viewAccountsListText(
 				accountsWithAssets,
 				user.mainCurrency ?? 'USD',
@@ -379,7 +428,9 @@ export class BotService implements OnModuleInit {
 						user.accounts,
 						user.activeAccountId,
 						page,
-						null
+						null,
+						user.defaultAccountId,
+						frozenAccountIds
 					)
 				}
 			)
@@ -417,7 +468,12 @@ export class BotService implements OnModuleInit {
 				user.accounts.find(a => a.id === user.defaultAccountId) ??
 				user.accounts[0]
 			const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-			const settingsText = `<b>⚙️ Настройки</b>\n\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
+			const tariffStr = ctx.state.isPremium
+				? user.premiumUntil
+					? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
+					: 'Premium (навсегда)'
+				: 'Free'
+			const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
 			const kb = new InlineKeyboard()
 				.text('Основная валюта', 'main_currency_open')
 				.row()
@@ -459,7 +515,12 @@ export class BotService implements OnModuleInit {
 				user.accounts.find(a => a.id === user.defaultAccountId) ??
 				user.accounts[0]
 			const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-			const settingsText = `<b>⚙️ Настройки</b>\n\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
+			const tariffStr = ctx.state.isPremium
+				? user.premiumUntil
+					? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
+					: 'Premium (навсегда)'
+				: 'Free'
+			const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
 			const kb = new InlineKeyboard()
 				.text('Основная валюта', 'main_currency_open')
 				.row()
@@ -485,7 +546,12 @@ export class BotService implements OnModuleInit {
 				user.accounts.find(a => a.id === user.defaultAccountId) ??
 				user.accounts[0]
 			const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-			const settingsText = `<b>⚙️ Настройки</b>\n\nОсновная валюта: ${code}\nОсновной счёт: ${defaultAccountName}`
+			const tariffStr = ctx.state.isPremium
+				? user.premiumUntil
+					? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
+					: 'Premium (навсегда)'
+				: 'Free'
+			const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${code}\nОсновной счёт: ${defaultAccountName}`
 			const kb = new InlineKeyboard()
 				.text('Основная валюта', 'main_currency_open')
 				.row()
@@ -591,7 +657,12 @@ export class BotService implements OnModuleInit {
 				user.accounts.find(a => a.id === user.defaultAccountId) ??
 				user.accounts[0]
 			const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-			const settingsText = `<b>⚙️ Настройки</b>\n\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
+			const tariffStr = ctx.state.isPremium
+				? user.premiumUntil
+					? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
+					: 'Premium (навсегда)'
+				: 'Free'
+			const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
 			const kb = new InlineKeyboard()
 				.text('Основная валюта', 'main_currency_open')
 				.row()
@@ -975,7 +1046,15 @@ export class BotService implements OnModuleInit {
 					user.accounts.find(a => a.id === user.defaultAccountId) ??
 					user.accounts[0]
 				const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-				const settingsText = `<b>⚙️ Настройки</b>\n\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
+				const isPrem =
+					user.isPremium &&
+					(!user.premiumUntil || new Date(user.premiumUntil) > new Date())
+				const tariffStr = isPrem
+					? user.premiumUntil
+						? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
+						: 'Premium (навсегда)'
+					: 'Free'
+				const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
 				const kb = new InlineKeyboard()
 					.text('Основная валюта', 'main_currency_open')
 					.row()
@@ -1013,6 +1092,26 @@ export class BotService implements OnModuleInit {
 				}
 				try {
 					const updated = await this.llmService.parseAccountEdit(current, text)
+					if (
+						!ctx.state.isPremium &&
+						updated.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT
+					) {
+						await this.subscriptionService.trackEvent(
+							user.id,
+							PremiumEventType.limit_hit,
+							'assets'
+						)
+						await ctx.reply(
+							`👑 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`,
+							{
+								reply_markup: new InlineKeyboard().text(
+									'👑 Premium',
+									'view_premium'
+								)
+							}
+						)
+						return
+					}
 					await this.accountsService.updateAccountWithAssets(
 						accountId,
 						user.id,
@@ -1049,9 +1148,13 @@ export class BotService implements OnModuleInit {
 						freshAccount.id === user.defaultAccountId
 					)
 					const page = ctx.session.accountsViewPage ?? 0
-					const freshUser = await this.usersService.getOrCreateByTelegramId(
-						String(ctx.from!.id)
-					)
+					const [freshUser, frozen] = await Promise.all([
+						this.usersService.getOrCreateByTelegramId(
+							String(ctx.from!.id)
+						),
+						this.subscriptionService.getFrozenItems(user.id)
+					])
+					const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 					await ctx.api.editMessageText(
 						ctx.chat!.id,
 						ctx.session.homeMessageId,
@@ -1062,7 +1165,9 @@ export class BotService implements OnModuleInit {
 								freshUser.accounts,
 								freshUser.activeAccountId,
 								page,
-								accountId
+								accountId,
+								freshUser.defaultAccountId ?? undefined,
+								frozenAccountIds
 							)
 						}
 					)
@@ -1136,6 +1241,24 @@ export class BotService implements OnModuleInit {
 							tags = await this.tagsService.getAllByUserId(userId)
 						}
 					}
+					if (result.add.length > 0) {
+						const limitTag = await this.subscriptionService.canCreateTag(userId)
+						if (
+							!limitTag.allowed ||
+							limitTag.current + result.add.length > limitTag.limit
+						) {
+							await ctx.reply(
+								'👑 10 кастомных тегов — лимит Free. Разблокируйте безлимит с Premium!',
+								{
+									reply_markup: new InlineKeyboard().text(
+										'👑 Premium',
+										'view_premium'
+									)
+								}
+							)
+							return
+						}
+					}
 					for (const name of result.add) {
 						await this.tagsService.create(userId, name)
 					}
@@ -1156,10 +1279,15 @@ export class BotService implements OnModuleInit {
 					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
 				} catch {}
 				ctx.session.awaitingTagsJarvisEdit = false
-				const freshTags = await this.tagsService.getAllByUserId(userId)
-				const newNames = freshTags.map(t => t.name)
-				const listStr = newNames.length > 0 ? newNames.join(', ') : '—'
-				const tagsListText = `<b>Теги</b>\n\nСписок ваших тегов:\n<blockquote>${listStr}</blockquote>`
+				const [freshTags, frozen] = await Promise.all([
+					this.tagsService.getAllByUserId(userId),
+					this.subscriptionService.getFrozenItems(userId)
+				])
+				const frozenSet = new Set(frozen.customTagIdsOverLimit)
+				const tagsListMsg = tagsListText(
+					freshTags.map(t => ({ id: t.id, name: t.name })),
+					frozenSet
+				)
 				const tagsKb = new InlineKeyboard()
 					.text('Jarvis-редактирование', 'tags_jarvis_edit')
 					.row()
@@ -1169,7 +1297,7 @@ export class BotService implements OnModuleInit {
 						await ctx.api.editMessageText(
 							ctx.chat!.id,
 							ctx.session.tagsSettingsMessageId,
-							tagsListText,
+							tagsListMsg,
 							{ parse_mode: 'HTML', reply_markup: tagsKb }
 						)
 					} catch {}
@@ -1208,6 +1336,24 @@ export class BotService implements OnModuleInit {
 				let createdName: string | null = null
 				try {
 					if (ctx.session.editingCategory === 'create') {
+						const limitCat = await this.subscriptionService.canCreateCategory(userId)
+						if (!limitCat.allowed) {
+							await this.subscriptionService.trackEvent(
+								userId,
+								PremiumEventType.limit_hit,
+								'categories'
+							)
+							await ctx.reply(
+								'👑 3 кастомных категории — это лимит Free. Premium = безлимитная кастомизация!',
+								{
+									reply_markup: new InlineKeyboard().text(
+										'👑 Premium',
+										'view_premium'
+									)
+								}
+							)
+							return
+						}
 						const created = await this.categoriesService.create(
 							userId,
 							nameInput
@@ -1252,8 +1398,11 @@ export class BotService implements OnModuleInit {
 				ctx.session.categoriesSelectedId = null
 				const mid = ctx.session.categoriesMessageId
 				if (mid != null) {
-					const categories =
-						await this.categoriesService.getSelectableByUserId(userId)
+					const [categories, frozen] = await Promise.all([
+						this.categoriesService.getSelectableByUserId(userId),
+						this.subscriptionService.getFrozenItems(userId)
+					])
+					const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 					const page = Math.min(
 						ctx.session.categoriesPage ?? 0,
 						Math.max(0, Math.ceil(categories.length / 9) - 1)
@@ -1264,7 +1413,8 @@ export class BotService implements OnModuleInit {
 						reply_markup: categoriesListKb(
 							categories.map(c => ({ id: c.id, name: c.name })),
 							page,
-							null
+							null,
+							frozenSet
 						)
 					})
 				}

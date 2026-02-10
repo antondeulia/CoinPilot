@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common'
+import { ScheduleModule } from '@nestjs/schedule'
 import { BotService } from './bot.service'
+import { PremiumCronService } from './premium-cron.service'
 import { UsersModule } from '../users/users.module'
 import { TransactionsModule } from '../transactions/transactions.module'
 import { LLMModule } from '../llm/llm.module'
@@ -8,9 +10,11 @@ import { CategoriesModule } from '../categories/categories.module'
 import { TagsModule } from '../tags/tags.module'
 import { ExchangeModule } from '../exchange/exchange.module'
 import { AnalyticsModule } from '../analytics/analytics.module'
+import { SubscriptionModule } from '../subscription/subscription.module'
 
 @Module({
 	imports: [
+		ScheduleModule.forRoot(),
 		UsersModule,
 		TransactionsModule,
 		LLMModule,
@@ -18,8 +22,9 @@ import { AnalyticsModule } from '../analytics/analytics.module'
 		CategoriesModule,
 		TagsModule,
 		ExchangeModule,
-		AnalyticsModule
+		AnalyticsModule,
+		SubscriptionModule
 	],
-	providers: [BotService]
+	providers: [BotService, PremiumCronService]
 })
 export class BotModule {}

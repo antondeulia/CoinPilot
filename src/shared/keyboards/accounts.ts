@@ -6,7 +6,8 @@ export function accountSwitchKeyboard(
 	_activeId: string | null,
 	page = 0,
 	selectedId?: string | null,
-	defaultAccountId?: string
+	defaultAccountId?: string,
+	frozenIds: Set<string> = new Set()
 ) {
 	const kb = new InlineKeyboard()
 	const pageSize = 9
@@ -19,7 +20,8 @@ export function accountSwitchKeyboard(
 		for (const acc of rowAccounts) {
 			const isDefault = acc.id === defaultAccountId
 			const isSelected = acc.id === selectedId
-			const label = isSelected ? `✅ ${acc.name}` : acc.name
+			const nameWithLock = frozenIds.has(acc.id) ? `${acc.name} 🔒` : acc.name
+			const label = isSelected ? `✅ ${nameWithLock}` : nameWithLock
 			const displayName = formatAccountName(label, isDefault)
 			kb.text(displayName, `use_account:${acc.id}`)
 		}

@@ -1,11 +1,34 @@
-import { Bot, InputFile } from 'grammy'
+import { Bot, InputFile, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { Parser } from 'json2csv'
 import { PrismaService } from '../../../modules/prisma/prisma.service'
+import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { PremiumEventType } from '../../../generated/prisma/enums'
 
-export const analyticsExportCallback = (bot: Bot<BotContext>, prisma: PrismaService) => {
+export const analyticsExportCallback = (
+	bot: Bot<BotContext>,
+	prisma: PrismaService,
+	subscriptionService: SubscriptionService
+) => {
 	bot.callbackQuery('analytics_export', async ctx => {
 		const user = ctx.state.user as any
+		const canExport = await subscriptionService.canExport(user.id)
+		if (!canExport) {
+			await subscriptionService.trackEvent(
+				user.id,
+				PremiumEventType.export_blocked
+			)
+			await ctx.answerCallbackQuery({
+				text: '📊 Экспорт доступен в Premium. Выгружайте данные в CSV/Excel одним нажатием!'
+			})
+			await ctx.reply(
+				'📊 Экспорт доступен в Premium. Выгружайте данные в CSV/Excel одним нажатием!',
+				{
+					reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+				}
+			)
+			return
+		}
 		const period = (ctx.session as any).analyticsPeriod ?? 30
 		const from = new Date()
 		from.setDate(from.getDate() - period)

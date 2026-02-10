@@ -1,8 +1,12 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { accountSwitchKeyboard } from '../../../shared/keyboards'
+import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 
-export const accountsPaginationCallback = (bot: Bot<BotContext>) => {
+export const accountsPaginationCallback = (
+	bot: Bot<BotContext>,
+	subscriptionService: SubscriptionService
+) => {
 	bot.callbackQuery('accounts_page_current', async () => {})
 
 	bot.callbackQuery(['accounts_page_prev', 'accounts_page_next'], async ctx => {
@@ -24,13 +28,16 @@ export const accountsPaginationCallback = (bot: Bot<BotContext>) => {
 
 		ctx.session.accountsViewPage = page
 
+		const frozen = await subscriptionService.getFrozenItems(user.id)
+		const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 		await ctx.editMessageReplyMarkup({
 			reply_markup: accountSwitchKeyboard(
 				accounts,
 				user.activeAccountId,
 				page,
 				ctx.session.accountsViewSelectedId ?? undefined,
-				user.defaultAccountId ?? undefined
+				user.defaultAccountId ?? undefined,
+				frozenAccountIds
 			)
 		})
 	})

@@ -24,7 +24,7 @@ export class CategoriesService {
 		]
 
 		await this.prisma.category.createMany({
-			data: names.map(name => ({ userId, name })),
+			data: names.map(name => ({ userId, name, isDefault: true })),
 			skipDuplicates: true
 		})
 	}

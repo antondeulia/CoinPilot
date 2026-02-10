@@ -39,6 +39,7 @@ export type TagMinAggregateOutputType = {
   userId: string | null
   name: string | null
   usageCount: number | null
+  isDefault: boolean | null
   createdAt: Date | null
 }
 
@@ -47,6 +48,7 @@ export type TagMaxAggregateOutputType = {
   userId: string | null
   name: string | null
   usageCount: number | null
+  isDefault: boolean | null
   createdAt: Date | null
 }
 
@@ -55,6 +57,7 @@ export type TagCountAggregateOutputType = {
   userId: number
   name: number
   usageCount: number
+  isDefault: number
   createdAt: number
   _all: number
 }
@@ -73,6 +76,7 @@ export type TagMinAggregateInputType = {
   userId?: true
   name?: true
   usageCount?: true
+  isDefault?: true
   createdAt?: true
 }
 
@@ -81,6 +85,7 @@ export type TagMaxAggregateInputType = {
   userId?: true
   name?: true
   usageCount?: true
+  isDefault?: true
   createdAt?: true
 }
 
@@ -89,6 +94,7 @@ export type TagCountAggregateInputType = {
   userId?: true
   name?: true
   usageCount?: true
+  isDefault?: true
   createdAt?: true
   _all?: true
 }
@@ -184,6 +190,7 @@ export type TagGroupByOutputType = {
   userId: string
   name: string
   usageCount: number
+  isDefault: boolean
   createdAt: Date
   _count: TagCountAggregateOutputType | null
   _avg: TagAvgAggregateOutputType | null
@@ -215,6 +222,7 @@ export type TagWhereInput = {
   userId?: Prisma.StringFilter<"Tag"> | string
   name?: Prisma.StringFilter<"Tag"> | string
   usageCount?: Prisma.IntFilter<"Tag"> | number
+  isDefault?: Prisma.BoolFilter<"Tag"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Tag"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   aliases?: Prisma.TagAliasListRelationFilter
@@ -226,6 +234,7 @@ export type TagOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   usageCount?: Prisma.SortOrder
+  isDefault?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   aliases?: Prisma.TagAliasOrderByRelationAggregateInput
@@ -241,6 +250,7 @@ export type TagWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.StringFilter<"Tag"> | string
   name?: Prisma.StringFilter<"Tag"> | string
   usageCount?: Prisma.IntFilter<"Tag"> | number
+  isDefault?: Prisma.BoolFilter<"Tag"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Tag"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   aliases?: Prisma.TagAliasListRelationFilter
@@ -252,6 +262,7 @@ export type TagOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   usageCount?: Prisma.SortOrder
+  isDefault?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.TagCountOrderByAggregateInput
   _avg?: Prisma.TagAvgOrderByAggregateInput
@@ -268,6 +279,7 @@ export type TagScalarWhereWithAggregatesInput = {
   userId?: Prisma.StringWithAggregatesFilter<"Tag"> | string
   name?: Prisma.StringWithAggregatesFilter<"Tag"> | string
   usageCount?: Prisma.IntWithAggregatesFilter<"Tag"> | number
+  isDefault?: Prisma.BoolWithAggregatesFilter<"Tag"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Tag"> | Date | string
 }
 
@@ -275,6 +287,7 @@ export type TagCreateInput = {
   id?: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutTagsInput
   aliases?: Prisma.TagAliasCreateNestedManyWithoutTagInput
@@ -286,6 +299,7 @@ export type TagUncheckedCreateInput = {
   userId: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
   aliases?: Prisma.TagAliasUncheckedCreateNestedManyWithoutTagInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutTagInput
@@ -295,6 +309,7 @@ export type TagUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutTagsNestedInput
   aliases?: Prisma.TagAliasUpdateManyWithoutTagNestedInput
@@ -306,6 +321,7 @@ export type TagUncheckedUpdateInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   aliases?: Prisma.TagAliasUncheckedUpdateManyWithoutTagNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutTagNestedInput
@@ -316,6 +332,7 @@ export type TagCreateManyInput = {
   userId: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
 }
 
@@ -323,6 +340,7 @@ export type TagUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -331,6 +349,7 @@ export type TagUncheckedUpdateManyInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -359,6 +378,7 @@ export type TagCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   usageCount?: Prisma.SortOrder
+  isDefault?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -371,6 +391,7 @@ export type TagMaxOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   usageCount?: Prisma.SortOrder
+  isDefault?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -379,6 +400,7 @@ export type TagMinOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   usageCount?: Prisma.SortOrder
+  isDefault?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -475,6 +497,7 @@ export type TagCreateWithoutUserInput = {
   id?: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
   aliases?: Prisma.TagAliasCreateNestedManyWithoutTagInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutTagInput
@@ -484,6 +507,7 @@ export type TagUncheckedCreateWithoutUserInput = {
   id?: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
   aliases?: Prisma.TagAliasUncheckedCreateNestedManyWithoutTagInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutTagInput
@@ -523,6 +547,7 @@ export type TagScalarWhereInput = {
   userId?: Prisma.StringFilter<"Tag"> | string
   name?: Prisma.StringFilter<"Tag"> | string
   usageCount?: Prisma.IntFilter<"Tag"> | number
+  isDefault?: Prisma.BoolFilter<"Tag"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Tag"> | Date | string
 }
 
@@ -530,6 +555,7 @@ export type TagCreateWithoutTransactionsInput = {
   id?: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutTagsInput
   aliases?: Prisma.TagAliasCreateNestedManyWithoutTagInput
@@ -540,6 +566,7 @@ export type TagUncheckedCreateWithoutTransactionsInput = {
   userId: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
   aliases?: Prisma.TagAliasUncheckedCreateNestedManyWithoutTagInput
 }
@@ -564,6 +591,7 @@ export type TagUpdateWithoutTransactionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutTagsNestedInput
   aliases?: Prisma.TagAliasUpdateManyWithoutTagNestedInput
@@ -574,6 +602,7 @@ export type TagUncheckedUpdateWithoutTransactionsInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   aliases?: Prisma.TagAliasUncheckedUpdateManyWithoutTagNestedInput
 }
@@ -582,6 +611,7 @@ export type TagCreateWithoutAliasesInput = {
   id?: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutTagsInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutTagInput
@@ -592,6 +622,7 @@ export type TagUncheckedCreateWithoutAliasesInput = {
   userId: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutTagInput
 }
@@ -616,6 +647,7 @@ export type TagUpdateWithoutAliasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutTagsNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutTagNestedInput
@@ -626,6 +658,7 @@ export type TagUncheckedUpdateWithoutAliasesInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutTagNestedInput
 }
@@ -634,6 +667,7 @@ export type TagCreateManyUserInput = {
   id?: string
   name: string
   usageCount?: number
+  isDefault?: boolean
   createdAt?: Date | string
 }
 
@@ -641,6 +675,7 @@ export type TagUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   aliases?: Prisma.TagAliasUpdateManyWithoutTagNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutTagNestedInput
@@ -650,6 +685,7 @@ export type TagUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   aliases?: Prisma.TagAliasUncheckedUpdateManyWithoutTagNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutTagNestedInput
@@ -659,6 +695,7 @@ export type TagUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   usageCount?: Prisma.IntFieldUpdateOperationsInput | number
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -707,6 +744,7 @@ export type TagSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = ru
   userId?: boolean
   name?: boolean
   usageCount?: boolean
+  isDefault?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   aliases?: boolean | Prisma.Tag$aliasesArgs<ExtArgs>
@@ -719,6 +757,7 @@ export type TagSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extension
   userId?: boolean
   name?: boolean
   usageCount?: boolean
+  isDefault?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tag"]>
@@ -728,6 +767,7 @@ export type TagSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extension
   userId?: boolean
   name?: boolean
   usageCount?: boolean
+  isDefault?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tag"]>
@@ -737,10 +777,11 @@ export type TagSelectScalar = {
   userId?: boolean
   name?: boolean
   usageCount?: boolean
+  isDefault?: boolean
   createdAt?: boolean
 }
 
-export type TagOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "name" | "usageCount" | "createdAt", ExtArgs["result"]["tag"]>
+export type TagOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "name" | "usageCount" | "isDefault" | "createdAt", ExtArgs["result"]["tag"]>
 export type TagInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   aliases?: boolean | Prisma.Tag$aliasesArgs<ExtArgs>
@@ -766,6 +807,7 @@ export type $TagPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     userId: string
     name: string
     usageCount: number
+    isDefault: boolean
     createdAt: Date
   }, ExtArgs["result"]["tag"]>
   composites: {}
@@ -1197,6 +1239,7 @@ export interface TagFieldRefs {
   readonly userId: Prisma.FieldRef<"Tag", 'String'>
   readonly name: Prisma.FieldRef<"Tag", 'String'>
   readonly usageCount: Prisma.FieldRef<"Tag", 'Int'>
+  readonly isDefault: Prisma.FieldRef<"Tag", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"Tag", 'DateTime'>
 }
     

@@ -30,6 +30,9 @@ export type UserMinAggregateOutputType = {
   activeAccountId: string | null
   defaultAccountId: string | null
   mainCurrency: string | null
+  isPremium: boolean | null
+  premiumUntil: Date | null
+  trialUsed: boolean | null
   createdAt: Date | null
 }
 
@@ -39,6 +42,9 @@ export type UserMaxAggregateOutputType = {
   activeAccountId: string | null
   defaultAccountId: string | null
   mainCurrency: string | null
+  isPremium: boolean | null
+  premiumUntil: Date | null
+  trialUsed: boolean | null
   createdAt: Date | null
 }
 
@@ -48,6 +54,9 @@ export type UserCountAggregateOutputType = {
   activeAccountId: number
   defaultAccountId: number
   mainCurrency: number
+  isPremium: number
+  premiumUntil: number
+  trialUsed: number
   createdAt: number
   _all: number
 }
@@ -59,6 +68,9 @@ export type UserMinAggregateInputType = {
   activeAccountId?: true
   defaultAccountId?: true
   mainCurrency?: true
+  isPremium?: true
+  premiumUntil?: true
+  trialUsed?: true
   createdAt?: true
 }
 
@@ -68,6 +80,9 @@ export type UserMaxAggregateInputType = {
   activeAccountId?: true
   defaultAccountId?: true
   mainCurrency?: true
+  isPremium?: true
+  premiumUntil?: true
+  trialUsed?: true
   createdAt?: true
 }
 
@@ -77,6 +92,9 @@ export type UserCountAggregateInputType = {
   activeAccountId?: true
   defaultAccountId?: true
   mainCurrency?: true
+  isPremium?: true
+  premiumUntil?: true
+  trialUsed?: true
   createdAt?: true
   _all?: true
 }
@@ -159,6 +177,9 @@ export type UserGroupByOutputType = {
   activeAccountId: string | null
   defaultAccountId: string | null
   mainCurrency: string
+  isPremium: boolean
+  premiumUntil: Date | null
+  trialUsed: boolean
   createdAt: Date
   _count: UserCountAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
@@ -189,6 +210,9 @@ export type UserWhereInput = {
   activeAccountId?: Prisma.StringNullableFilter<"User"> | string | null
   defaultAccountId?: Prisma.StringNullableFilter<"User"> | string | null
   mainCurrency?: Prisma.StringFilter<"User"> | string
+  isPremium?: Prisma.BoolFilter<"User"> | boolean
+  premiumUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  trialUsed?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   accounts?: Prisma.AccountListRelationFilter
   transactions?: Prisma.TransactionListRelationFilter
@@ -196,6 +220,8 @@ export type UserWhereInput = {
   tags?: Prisma.TagListRelationFilter
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewListRelationFilter
   alertConfigs?: Prisma.AlertConfigListRelationFilter
+  subscriptions?: Prisma.SubscriptionListRelationFilter
+  premiumEvents?: Prisma.PremiumEventListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -204,6 +230,9 @@ export type UserOrderByWithRelationInput = {
   activeAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  isPremium?: Prisma.SortOrder
+  premiumUntil?: Prisma.SortOrderInput | Prisma.SortOrder
+  trialUsed?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   accounts?: Prisma.AccountOrderByRelationAggregateInput
   transactions?: Prisma.TransactionOrderByRelationAggregateInput
@@ -211,6 +240,8 @@ export type UserOrderByWithRelationInput = {
   tags?: Prisma.TagOrderByRelationAggregateInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewOrderByRelationAggregateInput
   alertConfigs?: Prisma.AlertConfigOrderByRelationAggregateInput
+  subscriptions?: Prisma.SubscriptionOrderByRelationAggregateInput
+  premiumEvents?: Prisma.PremiumEventOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -222,6 +253,9 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   activeAccountId?: Prisma.StringNullableFilter<"User"> | string | null
   defaultAccountId?: Prisma.StringNullableFilter<"User"> | string | null
   mainCurrency?: Prisma.StringFilter<"User"> | string
+  isPremium?: Prisma.BoolFilter<"User"> | boolean
+  premiumUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  trialUsed?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   accounts?: Prisma.AccountListRelationFilter
   transactions?: Prisma.TransactionListRelationFilter
@@ -229,6 +263,8 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   tags?: Prisma.TagListRelationFilter
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewListRelationFilter
   alertConfigs?: Prisma.AlertConfigListRelationFilter
+  subscriptions?: Prisma.SubscriptionListRelationFilter
+  premiumEvents?: Prisma.PremiumEventListRelationFilter
 }, "id" | "telegramId">
 
 export type UserOrderByWithAggregationInput = {
@@ -237,6 +273,9 @@ export type UserOrderByWithAggregationInput = {
   activeAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  isPremium?: Prisma.SortOrder
+  premiumUntil?: Prisma.SortOrderInput | Prisma.SortOrder
+  trialUsed?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
   _max?: Prisma.UserMaxOrderByAggregateInput
@@ -252,6 +291,9 @@ export type UserScalarWhereWithAggregatesInput = {
   activeAccountId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   defaultAccountId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   mainCurrency?: Prisma.StringWithAggregatesFilter<"User"> | string
+  isPremium?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
+  premiumUntil?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  trialUsed?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
 
@@ -261,6 +303,9 @@ export type UserCreateInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -268,6 +313,8 @@ export type UserCreateInput = {
   tags?: Prisma.TagCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -276,6 +323,9 @@ export type UserUncheckedCreateInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -283,6 +333,8 @@ export type UserUncheckedCreateInput = {
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigUncheckedCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -291,6 +343,9 @@ export type UserUpdateInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -298,6 +353,8 @@ export type UserUpdateInput = {
   tags?: Prisma.TagUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -306,6 +363,9 @@ export type UserUncheckedUpdateInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -313,6 +373,8 @@ export type UserUncheckedUpdateInput = {
   tags?: Prisma.TagUncheckedUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUncheckedUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -321,6 +383,9 @@ export type UserCreateManyInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
 }
 
@@ -330,6 +395,9 @@ export type UserUpdateManyMutationInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -339,6 +407,9 @@ export type UserUncheckedUpdateManyInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -348,6 +419,9 @@ export type UserCountOrderByAggregateInput = {
   activeAccountId?: Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  isPremium?: Prisma.SortOrder
+  premiumUntil?: Prisma.SortOrder
+  trialUsed?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -357,6 +431,9 @@ export type UserMaxOrderByAggregateInput = {
   activeAccountId?: Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  isPremium?: Prisma.SortOrder
+  premiumUntil?: Prisma.SortOrder
+  trialUsed?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -366,6 +443,9 @@ export type UserMinOrderByAggregateInput = {
   activeAccountId?: Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  isPremium?: Prisma.SortOrder
+  premiumUntil?: Prisma.SortOrder
+  trialUsed?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -380,6 +460,14 @@ export type StringFieldUpdateOperationsInput = {
 
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
+}
+
+export type BoolFieldUpdateOperationsInput = {
+  set?: boolean
+}
+
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type DateTimeFieldUpdateOperationsInput = {
@@ -470,18 +558,51 @@ export type UserUpdateOneRequiredWithoutAlertConfigsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAlertConfigsInput, Prisma.UserUpdateWithoutAlertConfigsInput>, Prisma.UserUncheckedUpdateWithoutAlertConfigsInput>
 }
 
+export type UserCreateNestedOneWithoutSubscriptionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSubscriptionsInput, Prisma.UserUncheckedCreateWithoutSubscriptionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSubscriptionsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutSubscriptionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSubscriptionsInput, Prisma.UserUncheckedCreateWithoutSubscriptionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSubscriptionsInput
+  upsert?: Prisma.UserUpsertWithoutSubscriptionsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSubscriptionsInput, Prisma.UserUpdateWithoutSubscriptionsInput>, Prisma.UserUncheckedUpdateWithoutSubscriptionsInput>
+}
+
+export type UserCreateNestedOneWithoutPremiumEventsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPremiumEventsInput, Prisma.UserUncheckedCreateWithoutPremiumEventsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPremiumEventsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutPremiumEventsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPremiumEventsInput, Prisma.UserUncheckedCreateWithoutPremiumEventsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPremiumEventsInput
+  upsert?: Prisma.UserUpsertWithoutPremiumEventsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPremiumEventsInput, Prisma.UserUpdateWithoutPremiumEventsInput>, Prisma.UserUncheckedUpdateWithoutPremiumEventsInput>
+}
+
 export type UserCreateWithoutAccountsInput = {
   id?: string
   telegramId: string
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
   tags?: Prisma.TagCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAccountsInput = {
@@ -490,12 +611,17 @@ export type UserUncheckedCreateWithoutAccountsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigUncheckedCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAccountsInput = {
@@ -520,12 +646,17 @@ export type UserUpdateWithoutAccountsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAccountsInput = {
@@ -534,12 +665,17 @@ export type UserUncheckedUpdateWithoutAccountsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUncheckedUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutTransactionsInput = {
@@ -548,12 +684,17 @@ export type UserCreateWithoutTransactionsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
   tags?: Prisma.TagCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutTransactionsInput = {
@@ -562,12 +703,17 @@ export type UserUncheckedCreateWithoutTransactionsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigUncheckedCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutTransactionsInput = {
@@ -592,12 +738,17 @@ export type UserUpdateWithoutTransactionsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTransactionsInput = {
@@ -606,12 +757,17 @@ export type UserUncheckedUpdateWithoutTransactionsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUncheckedUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutCategoriesInput = {
@@ -620,12 +776,17 @@ export type UserCreateWithoutCategoriesInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
   tags?: Prisma.TagCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCategoriesInput = {
@@ -634,12 +795,17 @@ export type UserUncheckedCreateWithoutCategoriesInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigUncheckedCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCategoriesInput = {
@@ -664,12 +830,17 @@ export type UserUpdateWithoutCategoriesInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCategoriesInput = {
@@ -678,12 +849,17 @@ export type UserUncheckedUpdateWithoutCategoriesInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUncheckedUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutTagsInput = {
@@ -692,12 +868,17 @@ export type UserCreateWithoutTagsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutTagsInput = {
@@ -706,12 +887,17 @@ export type UserUncheckedCreateWithoutTagsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigUncheckedCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutTagsInput = {
@@ -736,12 +922,17 @@ export type UserUpdateWithoutTagsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTagsInput = {
@@ -750,12 +941,17 @@ export type UserUncheckedUpdateWithoutTagsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUncheckedUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSavedAnalyticsViewsInput = {
@@ -764,12 +960,17 @@ export type UserCreateWithoutSavedAnalyticsViewsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
   tags?: Prisma.TagCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSavedAnalyticsViewsInput = {
@@ -778,12 +979,17 @@ export type UserUncheckedCreateWithoutSavedAnalyticsViewsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutUserInput
   alertConfigs?: Prisma.AlertConfigUncheckedCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSavedAnalyticsViewsInput = {
@@ -808,12 +1014,17 @@ export type UserUpdateWithoutSavedAnalyticsViewsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSavedAnalyticsViewsInput = {
@@ -822,12 +1033,17 @@ export type UserUncheckedUpdateWithoutSavedAnalyticsViewsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutUserNestedInput
   alertConfigs?: Prisma.AlertConfigUncheckedUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAlertConfigsInput = {
@@ -836,12 +1052,17 @@ export type UserCreateWithoutAlertConfigsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
   tags?: Prisma.TagCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAlertConfigsInput = {
@@ -850,12 +1071,17 @@ export type UserUncheckedCreateWithoutAlertConfigsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutUserInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAlertConfigsInput = {
@@ -880,12 +1106,17 @@ export type UserUpdateWithoutAlertConfigsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAlertConfigsInput = {
@@ -894,12 +1125,201 @@ export type UserUncheckedUpdateWithoutAlertConfigsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutUserNestedInput
   savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutSubscriptionsInput = {
+  id?: string
+  telegramId: string
+  activeAccountId?: string | null
+  defaultAccountId?: string | null
+  mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
+  createdAt?: Date | string
+  accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
+  transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
+  categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
+  tags?: Prisma.TagCreateNestedManyWithoutUserInput
+  savedAnalyticsViews?: Prisma.SavedAnalyticsViewCreateNestedManyWithoutUserInput
+  alertConfigs?: Prisma.AlertConfigCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutSubscriptionsInput = {
+  id?: string
+  telegramId: string
+  activeAccountId?: string | null
+  defaultAccountId?: string | null
+  mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
+  createdAt?: Date | string
+  accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
+  transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
+  categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
+  tags?: Prisma.TagUncheckedCreateNestedManyWithoutUserInput
+  savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedCreateNestedManyWithoutUserInput
+  alertConfigs?: Prisma.AlertConfigUncheckedCreateNestedManyWithoutUserInput
+  premiumEvents?: Prisma.PremiumEventUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutSubscriptionsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutSubscriptionsInput, Prisma.UserUncheckedCreateWithoutSubscriptionsInput>
+}
+
+export type UserUpsertWithoutSubscriptionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutSubscriptionsInput, Prisma.UserUncheckedUpdateWithoutSubscriptionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutSubscriptionsInput, Prisma.UserUncheckedCreateWithoutSubscriptionsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutSubscriptionsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutSubscriptionsInput, Prisma.UserUncheckedUpdateWithoutSubscriptionsInput>
+}
+
+export type UserUpdateWithoutSubscriptionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
+  transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
+  categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
+  tags?: Prisma.TagUpdateManyWithoutUserNestedInput
+  savedAnalyticsViews?: Prisma.SavedAnalyticsViewUpdateManyWithoutUserNestedInput
+  alertConfigs?: Prisma.AlertConfigUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutSubscriptionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
+  transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
+  categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
+  tags?: Prisma.TagUncheckedUpdateManyWithoutUserNestedInput
+  savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedUpdateManyWithoutUserNestedInput
+  alertConfigs?: Prisma.AlertConfigUncheckedUpdateManyWithoutUserNestedInput
+  premiumEvents?: Prisma.PremiumEventUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutPremiumEventsInput = {
+  id?: string
+  telegramId: string
+  activeAccountId?: string | null
+  defaultAccountId?: string | null
+  mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
+  createdAt?: Date | string
+  accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
+  transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
+  categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
+  tags?: Prisma.TagCreateNestedManyWithoutUserInput
+  savedAnalyticsViews?: Prisma.SavedAnalyticsViewCreateNestedManyWithoutUserInput
+  alertConfigs?: Prisma.AlertConfigCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutPremiumEventsInput = {
+  id?: string
+  telegramId: string
+  activeAccountId?: string | null
+  defaultAccountId?: string | null
+  mainCurrency?: string
+  isPremium?: boolean
+  premiumUntil?: Date | string | null
+  trialUsed?: boolean
+  createdAt?: Date | string
+  accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
+  transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
+  categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
+  tags?: Prisma.TagUncheckedCreateNestedManyWithoutUserInput
+  savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedCreateNestedManyWithoutUserInput
+  alertConfigs?: Prisma.AlertConfigUncheckedCreateNestedManyWithoutUserInput
+  subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutPremiumEventsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutPremiumEventsInput, Prisma.UserUncheckedCreateWithoutPremiumEventsInput>
+}
+
+export type UserUpsertWithoutPremiumEventsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutPremiumEventsInput, Prisma.UserUncheckedUpdateWithoutPremiumEventsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutPremiumEventsInput, Prisma.UserUncheckedCreateWithoutPremiumEventsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutPremiumEventsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutPremiumEventsInput, Prisma.UserUncheckedUpdateWithoutPremiumEventsInput>
+}
+
+export type UserUpdateWithoutPremiumEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
+  transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
+  categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
+  tags?: Prisma.TagUpdateManyWithoutUserNestedInput
+  savedAnalyticsViews?: Prisma.SavedAnalyticsViewUpdateManyWithoutUserNestedInput
+  alertConfigs?: Prisma.AlertConfigUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutPremiumEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  telegramId?: Prisma.StringFieldUpdateOperationsInput | string
+  activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
+  transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
+  categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
+  tags?: Prisma.TagUncheckedUpdateManyWithoutUserNestedInput
+  savedAnalyticsViews?: Prisma.SavedAnalyticsViewUncheckedUpdateManyWithoutUserNestedInput
+  alertConfigs?: Prisma.AlertConfigUncheckedUpdateManyWithoutUserNestedInput
+  subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -914,6 +1334,8 @@ export type UserCountOutputType = {
   tags: number
   savedAnalyticsViews: number
   alertConfigs: number
+  subscriptions: number
+  premiumEvents: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -923,6 +1345,8 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   tags?: boolean | UserCountOutputTypeCountTagsArgs
   savedAnalyticsViews?: boolean | UserCountOutputTypeCountSavedAnalyticsViewsArgs
   alertConfigs?: boolean | UserCountOutputTypeCountAlertConfigsArgs
+  subscriptions?: boolean | UserCountOutputTypeCountSubscriptionsArgs
+  premiumEvents?: boolean | UserCountOutputTypeCountPremiumEventsArgs
 }
 
 /**
@@ -977,6 +1401,20 @@ export type UserCountOutputTypeCountAlertConfigsArgs<ExtArgs extends runtime.Typ
   where?: Prisma.AlertConfigWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountSubscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.SubscriptionWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountPremiumEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PremiumEventWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -984,6 +1422,9 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   activeAccountId?: boolean
   defaultAccountId?: boolean
   mainCurrency?: boolean
+  isPremium?: boolean
+  premiumUntil?: boolean
+  trialUsed?: boolean
   createdAt?: boolean
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   transactions?: boolean | Prisma.User$transactionsArgs<ExtArgs>
@@ -991,6 +1432,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   tags?: boolean | Prisma.User$tagsArgs<ExtArgs>
   savedAnalyticsViews?: boolean | Prisma.User$savedAnalyticsViewsArgs<ExtArgs>
   alertConfigs?: boolean | Prisma.User$alertConfigsArgs<ExtArgs>
+  subscriptions?: boolean | Prisma.User$subscriptionsArgs<ExtArgs>
+  premiumEvents?: boolean | Prisma.User$premiumEventsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1000,6 +1443,9 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   activeAccountId?: boolean
   defaultAccountId?: boolean
   mainCurrency?: boolean
+  isPremium?: boolean
+  premiumUntil?: boolean
+  trialUsed?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
 
@@ -1009,6 +1455,9 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   activeAccountId?: boolean
   defaultAccountId?: boolean
   mainCurrency?: boolean
+  isPremium?: boolean
+  premiumUntil?: boolean
+  trialUsed?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
 
@@ -1018,10 +1467,13 @@ export type UserSelectScalar = {
   activeAccountId?: boolean
   defaultAccountId?: boolean
   mainCurrency?: boolean
+  isPremium?: boolean
+  premiumUntil?: boolean
+  trialUsed?: boolean
   createdAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "activeAccountId" | "defaultAccountId" | "mainCurrency" | "createdAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "activeAccountId" | "defaultAccountId" | "mainCurrency" | "isPremium" | "premiumUntil" | "trialUsed" | "createdAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   transactions?: boolean | Prisma.User$transactionsArgs<ExtArgs>
@@ -1029,6 +1481,8 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   tags?: boolean | Prisma.User$tagsArgs<ExtArgs>
   savedAnalyticsViews?: boolean | Prisma.User$savedAnalyticsViewsArgs<ExtArgs>
   alertConfigs?: boolean | Prisma.User$alertConfigsArgs<ExtArgs>
+  subscriptions?: boolean | Prisma.User$subscriptionsArgs<ExtArgs>
+  premiumEvents?: boolean | Prisma.User$premiumEventsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1043,6 +1497,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     tags: Prisma.$TagPayload<ExtArgs>[]
     savedAnalyticsViews: Prisma.$SavedAnalyticsViewPayload<ExtArgs>[]
     alertConfigs: Prisma.$AlertConfigPayload<ExtArgs>[]
+    subscriptions: Prisma.$SubscriptionPayload<ExtArgs>[]
+    premiumEvents: Prisma.$PremiumEventPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1050,6 +1506,9 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     activeAccountId: string | null
     defaultAccountId: string | null
     mainCurrency: string
+    isPremium: boolean
+    premiumUntil: Date | null
+    trialUsed: boolean
     createdAt: Date
   }, ExtArgs["result"]["user"]>
   composites: {}
@@ -1451,6 +1910,8 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   tags<T extends Prisma.User$tagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   savedAnalyticsViews<T extends Prisma.User$savedAnalyticsViewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$savedAnalyticsViewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SavedAnalyticsViewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   alertConfigs<T extends Prisma.User$alertConfigsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$alertConfigsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AlertConfigPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  subscriptions<T extends Prisma.User$subscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$subscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  premiumEvents<T extends Prisma.User$premiumEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$premiumEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PremiumEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1485,6 +1946,9 @@ export interface UserFieldRefs {
   readonly activeAccountId: Prisma.FieldRef<"User", 'String'>
   readonly defaultAccountId: Prisma.FieldRef<"User", 'String'>
   readonly mainCurrency: Prisma.FieldRef<"User", 'String'>
+  readonly isPremium: Prisma.FieldRef<"User", 'Boolean'>
+  readonly premiumUntil: Prisma.FieldRef<"User", 'DateTime'>
+  readonly trialUsed: Prisma.FieldRef<"User", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
 }
     
@@ -2015,6 +2479,54 @@ export type User$alertConfigsArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.AlertConfigScalarFieldEnum | Prisma.AlertConfigScalarFieldEnum[]
+}
+
+/**
+ * User.subscriptions
+ */
+export type User$subscriptionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Subscription
+   */
+  select?: Prisma.SubscriptionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Subscription
+   */
+  omit?: Prisma.SubscriptionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SubscriptionInclude<ExtArgs> | null
+  where?: Prisma.SubscriptionWhereInput
+  orderBy?: Prisma.SubscriptionOrderByWithRelationInput | Prisma.SubscriptionOrderByWithRelationInput[]
+  cursor?: Prisma.SubscriptionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.SubscriptionScalarFieldEnum | Prisma.SubscriptionScalarFieldEnum[]
+}
+
+/**
+ * User.premiumEvents
+ */
+export type User$premiumEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PremiumEvent
+   */
+  select?: Prisma.PremiumEventSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PremiumEvent
+   */
+  omit?: Prisma.PremiumEventOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PremiumEventInclude<ExtArgs> | null
+  where?: Prisma.PremiumEventWhereInput
+  orderBy?: Prisma.PremiumEventOrderByWithRelationInput | Prisma.PremiumEventOrderByWithRelationInput[]
+  cursor?: Prisma.PremiumEventWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PremiumEventScalarFieldEnum | Prisma.PremiumEventScalarFieldEnum[]
 }
 
 /**

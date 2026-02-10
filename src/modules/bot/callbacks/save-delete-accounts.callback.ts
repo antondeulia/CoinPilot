@@ -1,14 +1,22 @@
-import { Bot } from 'grammy'
+import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { UsersService } from '../../../modules/users/users.service'
+import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { FREE_LIMITS } from '../../../modules/subscription/subscription.constants'
 import { refreshAccountsPreview } from './accounts-preview.callback'
 import { homeKeyboard, homeText } from '../../../shared/keyboards/home'
+import { PremiumEventType } from '../../../generated/prisma/enums'
+
+const UPSELL_ACCOUNTS =
+	'👑 Вы достигли лимита — 5 счетов. Перейдите на Premium и управляйте финансами без ограничений!'
+const UPSELL_ASSETS = `👑 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`
 
 export const saveDeleteAccountsCallback = (
 	bot: Bot<BotContext>,
 	accountsService: AccountsService,
-	usersService: UsersService
+	usersService: UsersService,
+	subscriptionService: SubscriptionService
 ) => {
 	bot.callbackQuery('confirm_1_accounts', async ctx => {
 		const drafts = ctx.session.draftAccounts
@@ -17,6 +25,35 @@ export const saveDeleteAccountsCallback = (
 		if (!drafts || !drafts.length) return
 
 		const draft = drafts[index]
+
+		const limitAccount = await subscriptionService.canCreateAccount(ctx.state.user.id)
+		if (!limitAccount.allowed) {
+			await subscriptionService.trackEvent(
+				ctx.state.user.id,
+				PremiumEventType.limit_hit,
+				'accounts'
+			)
+			await ctx.answerCallbackQuery({ text: UPSELL_ACCOUNTS })
+			await ctx.reply(UPSELL_ACCOUNTS, {
+				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+			})
+			return
+		}
+		if (
+			!ctx.state.isPremium &&
+			draft.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT
+		) {
+			await subscriptionService.trackEvent(
+				ctx.state.user.id,
+				PremiumEventType.limit_hit,
+				'assets'
+			)
+			await ctx.answerCallbackQuery({ text: UPSELL_ASSETS })
+			await ctx.reply(UPSELL_ASSETS, {
+				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+			})
+			return
+		}
 
 		await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
 
@@ -92,6 +129,50 @@ export const saveDeleteAccountsCallback = (
 	bot.callbackQuery('confirm_all_accounts', async ctx => {
 		const drafts = ctx.session.draftAccounts
 		if (!drafts || !drafts.length) return
+
+		const limitAccount = await subscriptionService.canCreateAccount(ctx.state.user.id)
+		if (!limitAccount.allowed) {
+			await subscriptionService.trackEvent(
+				ctx.state.user.id,
+				PremiumEventType.limit_hit,
+				'accounts'
+			)
+			await ctx.answerCallbackQuery({ text: UPSELL_ACCOUNTS })
+			await ctx.reply(UPSELL_ACCOUNTS, {
+				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+			})
+			return
+		}
+		const wouldExceedAccounts =
+			!ctx.state.isPremium &&
+			limitAccount.current + drafts.length > limitAccount.limit
+		if (wouldExceedAccounts) {
+			await subscriptionService.trackEvent(
+				ctx.state.user.id,
+				PremiumEventType.limit_hit,
+				'accounts'
+			)
+			await ctx.answerCallbackQuery({ text: UPSELL_ACCOUNTS })
+			await ctx.reply(UPSELL_ACCOUNTS, {
+				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+			})
+			return
+		}
+		const hasOverLimitAssets =
+			!ctx.state.isPremium &&
+			drafts.some(d => d.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT)
+		if (hasOverLimitAssets) {
+			await subscriptionService.trackEvent(
+				ctx.state.user.id,
+				PremiumEventType.limit_hit,
+				'assets'
+			)
+			await ctx.answerCallbackQuery({ text: UPSELL_ASSETS })
+			await ctx.reply(UPSELL_ASSETS, {
+				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+			})
+			return
+		}
 
 		for (const draft of drafts) {
 			await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
