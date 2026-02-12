@@ -14,7 +14,9 @@ export const accountsPaginationCallback = (
 		const account = ctx.state.activeAccount
 		if (!account) return
 
-		const accounts = user.accounts
+		const accounts = (user.accounts ?? []).filter(
+			(a: { isHidden?: boolean }) => !a.isHidden
+		)
 		const pageSize = 9
 		const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize))
 

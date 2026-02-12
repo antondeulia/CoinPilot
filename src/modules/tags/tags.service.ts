@@ -119,9 +119,16 @@ export class TagsService {
 		})
 	}
 
-	async getNamesAndAliases(userId: string): Promise<string[]> {
+	async getNamesAndAliases(
+		userId: string,
+		opts?: { excludeIds?: string[] }
+	): Promise<string[]> {
+		const where =
+			(opts?.excludeIds?.length ?? 0) > 0
+				? { userId, id: { notIn: opts!.excludeIds } }
+				: { userId }
 		const tags = await this.prisma.tag.findMany({
-			where: { userId },
+			where,
 			include: { aliases: true }
 		})
 		const out: string[] = []

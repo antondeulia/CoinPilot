@@ -8,6 +8,7 @@ import { LLMModule } from './modules/llm/llm.module'
 import { AccountsModule } from './modules/accounts/accounts.module'
 import { ExchangeModule } from './modules/exchange/exchange.module'
 import { AnalyticsModule } from './modules/analytics/analytics.module'
+import { StripeModule } from './modules/stripe/stripe.module'
 import { AppController } from './app.controller'
 
 @Module({
@@ -20,7 +21,8 @@ import { AppController } from './app.controller'
 		TransactionsModule,
 		LLMModule,
 		AccountsModule,
-		AnalyticsModule
+		AnalyticsModule,
+		StripeModule
 	],
 	controllers: [AppController]
 })

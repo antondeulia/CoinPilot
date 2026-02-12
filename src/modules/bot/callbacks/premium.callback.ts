@@ -2,13 +2,11 @@ import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 import { PremiumEventType } from '../../../generated/prisma/enums'
-
-const STRIPE_MONTHLY_URL =
-	'https://buy.stripe.com/00w7sL0zi10vc3oa2y6EU00'
-const STRIPE_YEARLY_URL =
-	'https://buy.stripe.com/aFa6oH81KaB56J47Uq6EU01'
+import { StripeService } from '../../../modules/stripe/stripe.service'
 
 const PREMIUM_PAGE_TEXT = `👑 CoinPilot Premium
+
+Начните с 7 дней бесплатного Trial!
 
 🆓 Free:
 • До 30 транзакций в месяц
@@ -25,37 +23,85 @@ const PREMIUM_PAGE_TEXT = `👑 CoinPilot Premium
 • Расширенная аналитика и периоды >30 дней
 • Экспорт CSV/Excel и будущие Premium-фичи (повторения, семья, цели, API)`
 
-function premiumKeyboard(showTrial: boolean) {
+function premiumKeyboard(showTrial: boolean, fromUpsell: boolean) {
 	const kb = new InlineKeyboard()
 	kb
-		.url('Оплатить 4,99 €/мес', STRIPE_MONTHLY_URL)
+		.text('Оплатить 4,99 €/мес', 'premium_buy_monthly')
 		.row()
-		.url('Оплатить 39,99 €/год', STRIPE_YEARLY_URL)
+		.text('Оплатить 39,99 €/год', 'premium_buy_yearly')
 		.row()
 	if (showTrial) {
 		kb.text('🎁 Попробовать 7 дней бесплатно', 'premium_start_trial').row()
 	}
-	kb.text('← Назад', 'go_home')
+	kb.text(fromUpsell ? 'Закрыть' : '← Назад', fromUpsell ? 'hide_message' : 'go_home')
 	return kb
 }
 
 export const premiumCallback = (
 	bot: Bot<BotContext>,
-	subscriptionService: SubscriptionService
+	subscriptionService: SubscriptionService,
+	stripeService: StripeService
 ) => {
 	bot.callbackQuery('view_premium', async ctx => {
 		const user = ctx.state.user as any
 		await subscriptionService.trackEvent(user.id, PremiumEventType.premium_page_view)
 		const canTrial = await subscriptionService.canStartTrial(user.id)
 		const showTrial = canTrial.allowed
+		const fromUpsell =
+			ctx.callbackQuery?.message?.message_id !== ctx.session.homeMessageId
 		const text = ctx.state.isPremium
 			? '👑 У вас уже активен Premium. Спасибо!'
 			: PREMIUM_PAGE_TEXT
-		const kb = ctx.state.isPremium ? new InlineKeyboard().text('← Назад', 'go_home') : premiumKeyboard(showTrial)
+		const kb = ctx.state.isPremium
+			? new InlineKeyboard().text(
+					fromUpsell ? 'Закрыть' : '← Назад',
+					fromUpsell ? 'hide_message' : 'go_home'
+				)
+			: premiumKeyboard(showTrial, fromUpsell)
 		try {
 			await ctx.editMessageText(text, { reply_markup: kb })
 		} catch {
 			await ctx.reply(text, { reply_markup: kb })
+		}
+	})
+
+	bot.callbackQuery('premium_buy_monthly', async ctx => {
+		const user = ctx.state.user as any
+		const telegramId = String(ctx.from?.id ?? user.telegramId)
+		try {
+			const url = await stripeService.createCheckoutSession({
+				userId: user.id,
+				telegramId,
+				plan: 'monthly'
+			})
+			await ctx.reply('Оплата Premium — 1 месяц:', {
+				reply_markup: new InlineKeyboard().url('Оплатить 4,99 €', url)
+			})
+			await ctx.answerCallbackQuery()
+		} catch (e) {
+			await ctx.answerCallbackQuery({
+				text: 'Оплата временно недоступна, попробуйте позже.'
+			})
+		}
+	})
+
+	bot.callbackQuery('premium_buy_yearly', async ctx => {
+		const user = ctx.state.user as any
+		const telegramId = String(ctx.from?.id ?? user.telegramId)
+		try {
+			const url = await stripeService.createCheckoutSession({
+				userId: user.id,
+				telegramId,
+				plan: 'yearly'
+			})
+			await ctx.reply('Оплата Premium — 1 год:', {
+				reply_markup: new InlineKeyboard().url('Оплатить 39,99 €', url)
+			})
+			await ctx.answerCallbackQuery()
+		} catch (e) {
+			await ctx.answerCallbackQuery({
+				text: 'Оплата временно недоступна, попробуйте позже.'
+			})
 		}
 	})
 

@@ -9,7 +9,7 @@ import { homeKeyboard, homeText } from '../../../shared/keyboards/home'
 import { PremiumEventType } from '../../../generated/prisma/enums'
 
 const UPSELL_ACCOUNTS =
-	'👑 Вы достигли лимита — 5 счетов. Перейдите на Premium и управляйте финансами без ограничений!'
+	'👑 Вы достигли лимита — 2 счета в Free. Перейдите на Premium и управляйте финансами без ограничений!'
 const UPSELL_ASSETS = `👑 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`
 
 export const saveDeleteAccountsCallback = (

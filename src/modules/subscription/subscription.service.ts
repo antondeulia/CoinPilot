@@ -58,11 +58,12 @@ export class SubscriptionService {
 
 	async canCreateAccount(userId: string): Promise<LimitResult> {
 		const isPrem = await this.isPremiumForUser(userId)
+		const where = { userId, isHidden: false }
 		if (isPrem) {
-			const current = await this.prisma.account.count({ where: { userId } })
+			const current = await this.prisma.account.count({ where })
 			return { allowed: true, current, limit: FREE_LIMITS.MAX_ACCOUNTS }
 		}
-		const current = await this.prisma.account.count({ where: { userId } })
+		const current = await this.prisma.account.count({ where })
 		const limit = FREE_LIMITS.MAX_ACCOUNTS
 		return { allowed: current < limit, current, limit }
 	}
@@ -212,7 +213,7 @@ export class SubscriptionService {
 			}
 
 		const accounts = await this.prisma.account.findMany({
-			where: { userId },
+			where: { userId, isHidden: false },
 			orderBy: { createdAt: 'asc' },
 			select: { id: true },
 			take: FREE_LIMITS.MAX_ACCOUNTS + 50

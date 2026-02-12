@@ -162,11 +162,17 @@ export class AccountsService {
 			(rest.length ? ' ' + rest.join(' ') : '')
 
 		return this.prisma.$transaction(async tx => {
+			let name = formattedName
+			let suffix = 1
+			while (await tx.account.findFirst({ where: { userId, name } })) {
+				suffix++
+				name = `${formattedName} ${suffix}`
+			}
 			const existingCount = await tx.account.count({ where: { userId } })
 			const account = await tx.account.create({
 				data: {
 					userId,
-					name: formattedName,
+					name,
 					type: 'bank',
 					currency: draft.assets[0].currency
 				}

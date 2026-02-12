@@ -18,7 +18,7 @@ export function tagsListText(
 	const activeStr = active.length > 0 ? active.join(', ') : '—'
 	let text = `<b>Теги</b>\n\nСписок ваших тегов:\n<blockquote>${activeStr}</blockquote>`
 	if (frozen.length > 0) {
-		text += `\n\n🔒 Заблокированные: ${frozen.join(', ')}\nДля разблокировки — обновите Premium.`
+		text += `\n\n🔒 Доступно в Premium:\n${frozen.join(', ')}`
 	}
 	return text
 }

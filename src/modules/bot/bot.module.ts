@@ -11,6 +11,7 @@ import { TagsModule } from '../tags/tags.module'
 import { ExchangeModule } from '../exchange/exchange.module'
 import { AnalyticsModule } from '../analytics/analytics.module'
 import { SubscriptionModule } from '../subscription/subscription.module'
+import { StripeModule } from '../stripe/stripe.module'
 
 @Module({
 	imports: [
@@ -23,7 +24,8 @@ import { SubscriptionModule } from '../subscription/subscription.module'
 		TagsModule,
 		ExchangeModule,
 		AnalyticsModule,
-		SubscriptionModule
+		SubscriptionModule,
+		StripeModule
 	],
 	providers: [BotService, PremiumCronService]
 })

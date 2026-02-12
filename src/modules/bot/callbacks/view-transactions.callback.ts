@@ -17,18 +17,27 @@ async function renderTransactionsList(
 	const userId = ctx.state.user?.id
 	if (!userId) return
 	const skip = page * PAGE_SIZE
-	const [txs, totalCount] = await Promise.all([
+	const now = new Date()
+	const startOfMonth = new Date(
+		Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
+	)
+	const [txs, totalCount, monthCount] = await Promise.all([
 		prisma.transaction.findMany({
 			where: { userId },
 			orderBy: { transactionDate: 'desc' },
 			skip,
-			take: PAGE_SIZE
+			take: PAGE_SIZE,
+			include: { toAccount: true }
 		}),
-		prisma.transaction.count({ where: { userId } })
+		prisma.transaction.count({ where: { userId } }),
+		prisma.transaction.count({
+			where: { userId, transactionDate: { gte: startOfMonth } }
+		})
 	])
 	const msgId = ctx.callbackQuery?.message?.message_id
 	if (msgId == null) return
-	await ctx.api.editMessageText(ctx.chat!.id, msgId, '<b>Транзакции</b>', {
+	const header = `<b>Транзакции</b>\n\nВсего: ${totalCount} · В этом месяце: ${monthCount}`
+	await ctx.api.editMessageText(ctx.chat!.id, msgId, header, {
 		parse_mode: 'HTML',
 		reply_markup: transactionsListKeyboard(txs, page, totalCount)
 	})
@@ -105,7 +114,9 @@ export const viewTransactionsCallback = (
 		ctx.session.draftTransactions = [draft]
 		ctx.session.currentTransactionIndex = 0
 		ctx.session.editingTransactionId = txId
-		ctx.session.tempMessageId = msgId
+		if (msgId !== ctx.session.homeMessageId) {
+			ctx.session.tempMessageId = msgId
+		}
 		const user = ctx.state.user as any
 		const showConversion = await getShowConversion(
 			draft,
@@ -190,6 +201,7 @@ export const viewTransactionsCallback = (
 		ctx.session.editingTransactionId = undefined
 		ctx.session.draftTransactions = undefined
 		ctx.session.currentTransactionIndex = undefined
+		ctx.session.tempMessageId = undefined
 		const page = ctx.session.transactionsViewPage ?? 0
 		await renderTransactionsList(ctx, prisma, page)
 	})

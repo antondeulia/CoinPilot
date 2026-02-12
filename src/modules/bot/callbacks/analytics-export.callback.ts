@@ -24,7 +24,10 @@ export const analyticsExportCallback = (
 			await ctx.reply(
 				'📊 Экспорт доступен в Premium. Выгружайте данные в CSV/Excel одним нажатием!',
 				{
-					reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+					reply_markup: new InlineKeyboard()
+						.text('👑 Premium', 'view_premium')
+						.row()
+						.text('Закрыть', 'hide_message')
 				}
 			)
 			return

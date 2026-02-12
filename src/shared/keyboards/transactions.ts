@@ -9,10 +9,19 @@ function txLabel(tx: {
 	transactionDate: Date
 	description?: string | null
 	category?: string | null
+	toAccount?: { isHidden?: boolean } | null
 }) {
-	const isExpense = tx.direction === 'expense'
-	const emoji = isExpense ? '🔴' : '🟢'
-	const sign = isExpense ? '-' : '+'
+	let emoji: string
+	let sign: string
+	if (tx.direction === 'transfer') {
+		const toWallet = tx.toAccount?.isHidden === true
+		emoji = toWallet ? '🔴' : '🟢'
+		sign = toWallet ? '-' : '+'
+	} else {
+		const isExpense = tx.direction === 'expense'
+		emoji = isExpense ? '🔴' : '🟢'
+		sign = isExpense ? '-' : '+'
+	}
 	const date = new Date(tx.transactionDate).toLocaleDateString('ru-RU', {
 		day: '2-digit',
 		month: '2-digit'
@@ -30,6 +39,7 @@ export function transactionsListKeyboard(
 		transactionDate: Date
 		description?: string | null
 		category?: string | null
+		toAccount?: { isHidden?: boolean } | null
 	}>,
 	page: number,
 	totalCount: number

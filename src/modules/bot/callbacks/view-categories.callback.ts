@@ -136,13 +136,25 @@ export const viewCategoriesCallback = (
 	bot.callbackQuery(/^category:/, async ctx => {
 		if (ctx.session.categoriesMessageId == null) return
 		const id = ctx.callbackQuery.data.split(':')[1]
-		ctx.session.categoriesSelectedId = id
 		const userId = ctx.state.user.id
 		const [categories, frozen] = await Promise.all([
 			categoriesService.getSelectableByUserId(userId),
 			subscriptionService.getFrozenItems(userId)
 		])
 		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
+		if (frozenSet.has(id)) {
+			await ctx.reply(
+				'Категория доступна только по Premium. В Free — только дефолтные категории.',
+				{
+					reply_markup: new InlineKeyboard()
+						.text('👑 Premium', 'view_premium')
+						.row()
+						.text('Закрыть', 'hide_message')
+				}
+			)
+			return
+		}
+		ctx.session.categoriesSelectedId = id
 		const page = ctx.session.categoriesPage ?? 0
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),

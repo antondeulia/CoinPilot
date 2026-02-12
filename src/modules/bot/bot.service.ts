@@ -13,6 +13,7 @@ import { TagsService } from '../tags/tags.service'
 import { ExchangeService } from '../exchange/exchange.service'
 import { AnalyticsService } from '../analytics/analytics.service'
 import { SubscriptionService } from '../subscription/subscription.service'
+import { StripeService } from '../stripe/stripe.service'
 import { FREE_LIMITS } from '../subscription/subscription.constants'
 import { PremiumEventType } from '../../generated/prisma/enums'
 import { accountInfoText } from '../../utils'
@@ -83,7 +84,8 @@ export class BotService implements OnModuleInit {
 		private readonly tagsService: TagsService,
 		private readonly exchangeService: ExchangeService,
 		private readonly analyticsService: AnalyticsService,
-		private readonly subscriptionService: SubscriptionService
+		private readonly subscriptionService: SubscriptionService,
+		private readonly stripeService: StripeService
 	) {
 		const token = this.config.getOrThrow<string>('BOT_TOKEN')
 		this.bot = new Bot<BotContext>(token)
@@ -128,6 +130,7 @@ export class BotService implements OnModuleInit {
 		)
 
 		this.bot.catch(err => {
+			if (err.message?.includes('message is not modified')) return
 			console.error('Bot error:', err.message)
 		})
 
@@ -205,7 +208,7 @@ export class BotService implements OnModuleInit {
 			this.subscriptionService
 		)
 		analyticsAlertsCallback(this.bot)
-		premiumCallback(this.bot, this.subscriptionService)
+		premiumCallback(this.bot, this.subscriptionService, this.stripeService)
 
 		hideMessageCallback(this.bot)
 
@@ -213,6 +216,7 @@ export class BotService implements OnModuleInit {
 			const stack = ctx.session.navigationStack ?? []
 			stack.pop()
 			ctx.session.navigationStack = stack
+			ctx.session.tempMessageId = undefined
 			;(ctx.session as any).editingCurrency = false
 			;(ctx.session as any).editingMainCurrency = false
 			ctx.session.editingField = undefined
@@ -289,6 +293,9 @@ export class BotService implements OnModuleInit {
 				user.defaultAccountId
 			)
 
+			const visibleAccounts = (user.accounts ?? []).filter(
+				(a: { isHidden?: boolean }) => !a.isHidden
+			)
 			await ctx.api.editMessageText(
 				// @ts-ignore
 				ctx.chat.id,
@@ -299,7 +306,7 @@ export class BotService implements OnModuleInit {
 					parse_mode: 'HTML',
 					// @ts-ignore
 					reply_markup: accountSwitchKeyboard(
-						user.accounts,
+						visibleAccounts,
 						user.activeAccountId,
 						0,
 						null,
@@ -314,6 +321,9 @@ export class BotService implements OnModuleInit {
 			const accountId = ctx.callbackQuery.data.split(':')[1]
 
 			const user = ctx.state.user
+			const visibleAccounts = (user.accounts ?? []).filter(
+				(a: { isHidden?: boolean }) => !a.isHidden
+			)
 			// @ts-ignore
 			const account = user.accounts.find(a => a.id === accountId)
 
@@ -325,7 +335,7 @@ export class BotService implements OnModuleInit {
 				parse_mode: 'HTML',
 				// @ts-ignore
 				reply_markup: accountSwitchKeyboard(
-					user.accounts,
+					visibleAccounts,
 					user.activeAccountId,
 					0,
 					undefined,
@@ -366,6 +376,20 @@ export class BotService implements OnModuleInit {
 			const user: any = ctx.state.user
 			if (!user) return
 			const accountId = ctx.callbackQuery.data.split(':')[1]
+			const frozen = await this.subscriptionService.getFrozenItems(user.id)
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+			if (frozenAccountIds.has(accountId)) {
+				await ctx.reply(
+					'Счёт доступен только по Premium. Лимит Free — 2 счёта.',
+					{
+						reply_markup: new InlineKeyboard()
+							.text('👑 Premium', 'view_premium')
+							.row()
+							.text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
 			const account = await this.accountsService.getOneWithAssets(
 				accountId,
 				user.id
@@ -374,8 +398,6 @@ export class BotService implements OnModuleInit {
 
 			ctx.session.accountsViewSelectedId = accountId
 			const page = ctx.session.accountsViewPage ?? 0
-			const frozen = await this.subscriptionService.getFrozenItems(user.id)
-			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 			const mainCurrency = user.mainCurrency ?? 'USD'
 			const text = await accountDetailsText(
 				account,
@@ -384,6 +406,9 @@ export class BotService implements OnModuleInit {
 				account.id === user.defaultAccountId
 			)
 
+			const visibleAccounts = (user.accounts ?? []).filter(
+				(a: { isHidden?: boolean }) => !a.isHidden
+			)
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.callbackQuery.message!.message_id,
@@ -391,7 +416,7 @@ export class BotService implements OnModuleInit {
 				{
 					parse_mode: 'HTML',
 					reply_markup: accountSwitchKeyboard(
-						user.accounts,
+						visibleAccounts,
 						user.activeAccountId,
 						page,
 						accountId,
@@ -412,6 +437,9 @@ export class BotService implements OnModuleInit {
 				this.subscriptionService.getFrozenItems(user.id)
 			])
 			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+			const visibleAccounts = (user.accounts ?? []).filter(
+				(a: { isHidden?: boolean }) => !a.isHidden
+			)
 			const text = await viewAccountsListText(
 				accountsWithAssets,
 				user.mainCurrency ?? 'USD',
@@ -425,7 +453,7 @@ export class BotService implements OnModuleInit {
 				{
 					parse_mode: 'HTML',
 					reply_markup: accountSwitchKeyboard(
-						user.accounts,
+						visibleAccounts,
 						user.activeAccountId,
 						page,
 						null,
@@ -1155,6 +1183,9 @@ export class BotService implements OnModuleInit {
 						this.subscriptionService.getFrozenItems(user.id)
 					])
 					const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+					const visibleAccounts = (freshUser.accounts ?? []).filter(
+						(a: { isHidden?: boolean }) => !a.isHidden
+					)
 					await ctx.api.editMessageText(
 						ctx.chat!.id,
 						ctx.session.homeMessageId,
@@ -1162,7 +1193,7 @@ export class BotService implements OnModuleInit {
 						{
 							parse_mode: 'HTML',
 							reply_markup: accountSwitchKeyboard(
-								freshUser.accounts,
+								visibleAccounts,
 								freshUser.activeAccountId,
 								page,
 								accountId,
@@ -1248,7 +1279,7 @@ export class BotService implements OnModuleInit {
 							limitTag.current + result.add.length > limitTag.limit
 						) {
 							await ctx.reply(
-								'👑 10 кастомных тегов — лимит Free. Разблокируйте безлимит с Premium!',
+								'👑 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
 								{
 									reply_markup: new InlineKeyboard().text(
 										'👑 Premium',
@@ -1336,29 +1367,39 @@ export class BotService implements OnModuleInit {
 				let createdName: string | null = null
 				try {
 					if (ctx.session.editingCategory === 'create') {
-						const limitCat = await this.subscriptionService.canCreateCategory(userId)
-						if (!limitCat.allowed) {
-							await this.subscriptionService.trackEvent(
+						const names = nameInput
+							.split(/\n/)
+							.map(s => s.trim().slice(0, 20))
+							.filter(Boolean)
+						const createdNames: string[] = []
+						for (const singleName of names) {
+							const limitCat =
+								await this.subscriptionService.canCreateCategory(userId)
+							if (!limitCat.allowed) {
+								await this.subscriptionService.trackEvent(
+									userId,
+									PremiumEventType.limit_hit,
+									'categories'
+								)
+								await ctx.reply(
+									'👑 В бесплатной версии недоступно создание своих категорий. Для добавления своих категорий, вы можете перейти на Premium.',
+									{
+										reply_markup: new InlineKeyboard().text(
+											'👑 Premium',
+											'view_premium'
+										)
+									}
+								)
+								return
+							}
+							const created = await this.categoriesService.create(
 								userId,
-								PremiumEventType.limit_hit,
-								'categories'
+								singleName
 							)
-							await ctx.reply(
-								'👑 3 кастомных категории — это лимит Free. Premium = безлимитная кастомизация!',
-								{
-									reply_markup: new InlineKeyboard().text(
-										'👑 Premium',
-										'view_premium'
-									)
-								}
-							)
-							return
+							createdNames.push(created.name)
 						}
-						const created = await this.categoriesService.create(
-							userId,
-							nameInput
-						)
-						createdName = created.name
+						createdName =
+							createdNames.length > 0 ? createdNames.join(', ') : null
 					} else {
 						const selectedId = ctx.session.categoriesSelectedId
 						if (!selectedId) return
@@ -1388,12 +1429,11 @@ export class BotService implements OnModuleInit {
 							[{ text: 'Закрыть', callback_data: 'close_category_success' }]
 						]
 					}
-					await ctx.reply(
-						`Успешное добавление новой категории под названием «${createdName}».`,
-						{
-							reply_markup: successKb
-						}
-					)
+					const msg =
+						createdName.includes(', ') 
+							? `Добавлены категории: ${createdName}.`
+							: `Успешное добавление новой категории под названием «${createdName}».`
+					await ctx.reply(msg, { reply_markup: successKb })
 				}
 				ctx.session.categoriesSelectedId = null
 				const mid = ctx.session.categoriesMessageId
@@ -1424,14 +1464,31 @@ export class BotService implements OnModuleInit {
 			if (ctx.session.awaitingTransaction) {
 				let parsed: LlmTransaction[]
 				const user: any = ctx.state.user
-				const userCategories = await this.categoriesService.getAllByUserId(
-					user.id
+				const [userCategories, frozen, userAccounts] = await Promise.all([
+					this.categoriesService.getAllByUserId(user.id),
+					this.subscriptionService.getFrozenItems(user.id),
+					this.accountsService.getAllByUserIdIncludingHidden(user.id)
+				])
+				const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+				const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
+				const frozenTagIds = frozen.customTagIdsOverLimit
+				const visibleCategories = userCategories.filter(
+					c => !frozenCategoryIds.has(c.id)
 				)
-				const categoryNames = userCategories.map(c => c.name)
-				const existingTags = await this.tagsService.getNamesAndAliases(user.id)
-				const userAccounts =
-					await this.accountsService.getAllByUserIdIncludingHidden(user.id)
-				const accountNames = userAccounts.map((a: any) => a.name)
+				const categoryNames = visibleCategories.map(c => c.name)
+				const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+					excludeIds: frozenTagIds
+				})
+				const visibleAccounts = userAccounts.filter(
+					(a: any) => !frozenAccountIds.has(a.id)
+				)
+				const accountNames = visibleAccounts
+					.map((a: any) => a.name)
+					.filter((n: string) => n !== 'Вне Wallet')
+				const outsideWalletAccount = userAccounts.find(
+					(a: any) => a.name === 'Вне Wallet'
+				)
+				const outsideWalletId = outsideWalletAccount?.id ?? null
 
 				try {
 					parsed = await this.llmService.parseTransaction(
@@ -1461,6 +1518,18 @@ export class BotService implements OnModuleInit {
 					)
 					return
 				}
+				if (parsed.length > 10) {
+					await ctx.reply(
+						'Максимум 10 транзакций за один раз. Сократите сообщение.',
+						{
+							reply_markup: new InlineKeyboard().text(
+								'Закрыть',
+								'hide_message'
+							)
+						}
+					)
+					return
+				}
 
 				const defaultAccountId =
 					user.defaultAccountId || ctx.state.activeAccount?.id || null
@@ -1470,6 +1539,19 @@ export class BotService implements OnModuleInit {
 							user.id
 						)
 					: null
+				const visibleAccountsWithAssets =
+					await this.accountsService.getAllWithAssets(user.id)
+				const defaultHasEur =
+					defaultAccount?.assets?.some(
+						a => (a.currency || defaultAccount.currency) === 'EUR'
+					) ?? false
+				const accountsWithEur = visibleAccountsWithAssets.filter(acc =>
+					acc.assets?.some(
+						a => (a.currency || (acc as any).currency) === 'EUR'
+					)
+				)
+				const singleAccountWithEur =
+					accountsWithEur.length === 1 ? accountsWithEur[0] : null
 
 				if (
 					defaultAccount &&
@@ -1494,6 +1576,7 @@ export class BotService implements OnModuleInit {
 					if (parsedAccountStr && userAccounts.length) {
 						const lower = parsedAccountStr.toLowerCase()
 						for (const acc of userAccounts as any[]) {
+							if (acc.name === 'Вне Wallet') continue
 							const accLower = acc.name.toLowerCase()
 							if (
 								accLower === lower ||
@@ -1506,10 +1589,36 @@ export class BotService implements OnModuleInit {
 						}
 					}
 					tx.accountId = matchedAccountId ?? defaultAccountId
-					const acc = matchedAccountId
+					let acc = matchedAccountId
 						? userAccounts.find((a: any) => a.id === matchedAccountId)
 						: defaultAccount
 					tx.account = acc?.name ?? defaultAccount?.name ?? null
+					if (
+						tx.direction !== 'transfer' &&
+						(matchedAccountId === outsideWalletId ||
+							tx.account === 'Вне Wallet')
+					) {
+						tx.accountId = defaultAccountId
+						tx.account = defaultAccount?.name ?? null
+						acc = defaultAccount
+					}
+					if (
+						tx.direction === 'transfer' &&
+						(!tx.toAccount || String(tx.toAccount).trim() === '')
+					) {
+						tx.toAccountId = outsideWalletId
+						tx.toAccount = 'Вне Wallet'
+					}
+					if (
+						tx.accountId === defaultAccountId &&
+						tx.currency === 'EUR' &&
+						!defaultHasEur &&
+						singleAccountWithEur
+					) {
+						tx.accountId = singleAccountWithEur.id
+						tx.account = singleAccountWithEur.name
+						acc = singleAccountWithEur
+					}
 					if (!tx.category || !categoryNames.includes(tx.category)) {
 						tx.category = 'Не выбрано'
 					}
@@ -1648,11 +1757,12 @@ export class BotService implements OnModuleInit {
 	}
 
 	async closeTemp(ctx) {
-		if (ctx.session.tempMessageId) {
+		const tempId = ctx.session.tempMessageId
+		if (tempId && tempId !== ctx.session.homeMessageId) {
 			try {
-				await ctx.api.deleteMessage(ctx.chat.id, ctx.session.tempMessageId)
+				await ctx.api.deleteMessage(ctx.chat.id, tempId)
 			} catch {}
-			ctx.session.tempMessageId = undefined
 		}
+		ctx.session.tempMessageId = undefined
 	}
 }

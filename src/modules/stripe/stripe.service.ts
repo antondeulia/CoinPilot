@@ -1,0 +1,232 @@
+import { Injectable, Logger } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import Stripe from 'stripe'
+import { PrismaService } from '../prisma/prisma.service'
+import { SubscriptionPlan } from '../../generated/prisma/enums'
+
+@Injectable()
+export class StripeService {
+	private readonly logger = new Logger(StripeService.name)
+	private readonly stripe: Stripe
+	private readonly webhookSecret: string
+
+	constructor(
+		private readonly config: ConfigService,
+		private readonly prisma: PrismaService
+	) {
+		const secret = this.config.getOrThrow<string>('STRIPE_SECRET_KEY')
+		this.webhookSecret =
+			this.config.get<string>('STRIPE_WEBHOOK_SECRET') ??
+			this.config.getOrThrow<string>('WEBHOOK_SIGNING_SECRET')
+		this.stripe = new Stripe(secret, {
+			// использовать версию по умолчанию из пакета
+		} as any)
+	}
+
+	/**
+	 * Создать Checkout Session для подписки (monthly/yearly).
+	 * Возвращает URL, по которому нужно отправить пользователя.
+	 */
+	async createCheckoutSession(params: {
+		userId: string
+		telegramId: string
+		plan: 'monthly' | 'yearly'
+	}): Promise<string> {
+		const priceId =
+			params.plan === 'monthly'
+				? this.config.getOrThrow<string>('STRIPE_PRICE_MONTHLY')
+				: this.config.getOrThrow<string>('STRIPE_PRICE_YEARLY')
+
+		const successUrl =
+			this.config.get<string>('STRIPE_SUCCESS_URL') ??
+			'https://t.me/isi_crypto'
+		const cancelUrl =
+			this.config.get<string>('STRIPE_CANCEL_URL') ?? successUrl
+
+		const session = await this.stripe.checkout.sessions.create({
+			mode: 'subscription',
+			line_items: [
+				{
+					price: priceId,
+					quantity: 1
+				}
+			],
+			success_url: successUrl,
+			cancel_url: cancelUrl,
+			client_reference_id: params.telegramId,
+			metadata: {
+				user_id: params.userId,
+				plan: params.plan
+			},
+			subscription_data: {
+				metadata: {
+					user_id: params.userId,
+					plan: params.plan
+				}
+			}
+		})
+
+		if (!session.url) {
+			throw new Error('Stripe session has no URL')
+		}
+		return session.url
+	}
+
+	/**
+	 * Обработка webhook’ов Stripe.
+	 * Ожидает, что в metadata есть user_id и plan ('monthly' | 'yearly').
+	 */
+	async handleWebhook(payload: Buffer, signature: string | undefined) {
+		if (!signature) {
+			this.logger.warn('Missing Stripe signature header')
+			return
+		}
+
+		let event: Stripe.Event
+		try {
+			event = this.stripe.webhooks.constructEvent(
+				payload,
+				signature,
+				this.webhookSecret
+			)
+		} catch (err) {
+			this.logger.error('Stripe webhook signature verification failed', err as any)
+			return
+		}
+
+		switch (event.type) {
+			case 'checkout.session.completed':
+				await this.handleCheckoutCompleted(
+					event.data.object as Stripe.Checkout.Session
+				)
+				break
+			case 'invoice.paid':
+				await this.handleInvoicePaid(event.data.object as Stripe.Invoice)
+				break
+			case 'customer.subscription.updated':
+				await this.handleSubscriptionUpdated(
+					event.data.object as Stripe.Subscription
+				)
+				break
+			default:
+				// игнорируем остальные события
+				break
+		}
+	}
+
+	private async handleCheckoutCompleted(session: any) {
+		const metadata = session.metadata ?? {}
+		const userId = metadata.user_id
+		const planMeta = metadata.plan as 'monthly' | 'yearly' | undefined
+		if (!userId || !planMeta) {
+			this.logger.warn(
+				`checkout.session.completed без user_id/plan в metadata, id=${session.id}`
+			)
+			return
+		}
+
+		const stripeSubId = session.subscription as string | null
+		if (!stripeSubId) {
+			this.logger.warn(`checkout.session.completed без subscription id`)
+			return
+		}
+
+		let stripeSub: any
+		try {
+			stripeSub = await this.stripe.subscriptions.retrieve(stripeSubId)
+		} catch (e) {
+			this.logger.error('Не удалось получить Stripe subscription', e as any)
+			return
+		}
+
+		const end = new Date(stripeSub.current_period_end * 1000)
+
+		const plan =
+			planMeta === 'monthly'
+				? SubscriptionPlan.monthly
+				: SubscriptionPlan.yearly
+
+		await this.prisma.$transaction([
+			this.prisma.user.update({
+				where: { id: userId },
+				data: {
+					isPremium: true,
+					premiumUntil: end
+				}
+			}),
+			this.prisma.subscription.create({
+				data: {
+					userId,
+					plan,
+					status: 'active',
+					startDate: new Date(),
+					endDate: end,
+					amount: (session.amount_total ?? 0) / 100,
+					currency: (session.currency ?? 'eur').toUpperCase()
+				}
+			})
+		])
+	}
+
+	private async handleInvoicePaid(invoice: any) {
+		const subId = invoice.subscription as string | null
+		if (!subId) return
+
+		let stripeSub: any
+		try {
+			stripeSub = await this.stripe.subscriptions.retrieve(subId)
+		} catch (e) {
+			this.logger.error('Не удалось получить Stripe subscription (invoice)', e as any)
+			return
+		}
+
+		const meta = stripeSub.metadata ?? {}
+		const userId = meta.user_id
+		if (!userId) return
+
+		const end = new Date(stripeSub.current_period_end * 1000)
+
+		await this.prisma.$transaction([
+			this.prisma.user.update({
+				where: { id: userId },
+				data: {
+					isPremium: true,
+					premiumUntil: end
+				}
+			}),
+			this.prisma.subscription.updateMany({
+				where: { userId, status: 'active' },
+				data: { endDate: end }
+			})
+		])
+	}
+
+	private async handleSubscriptionUpdated(stripeSub: any) {
+		const meta = stripeSub.metadata ?? {}
+		const userId = meta.user_id
+		if (!userId) return
+
+		const end = new Date(stripeSub.current_period_end * 1000)
+		const status = stripeSub.status
+
+		const isActive = status === 'active' || status === 'trialing'
+
+		await this.prisma.$transaction([
+			this.prisma.subscription.updateMany({
+				where: { userId, status: 'active' },
+				data: {
+					endDate: end,
+					status: isActive ? 'active' : 'expired'
+				}
+			}),
+			this.prisma.user.update({
+				where: { id: userId },
+				data: {
+					isPremium: isActive,
+					premiumUntil: isActive ? end : null
+				}
+			})
+		])
+	}
+}
+

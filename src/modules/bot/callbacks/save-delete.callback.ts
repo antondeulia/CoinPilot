@@ -68,14 +68,17 @@ export const saveDeleteCallback = (
 		const draft = drafts[index] as any
 		// Лимит транзакций для Free
 		const limit = await subscriptionService.canCreateTransaction(ctx.state.user.id)
-		if (!limit.allowed || limit.current + 1 > limit.limit) {
+		if (!limit.allowed) {
 			await ctx.answerCallbackQuery({
 				text: '👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
 			})
 			await ctx.reply(
 				'👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
 				{
-					reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+					reply_markup: new InlineKeyboard()
+						.text('👑 Premium', 'view_premium')
+						.row()
+						.text('Закрыть', 'hide_message')
 				}
 			)
 			return
@@ -86,12 +89,15 @@ export const saveDeleteCallback = (
 			const limit = await subscriptionService.canCreateTag(ctx.state.user.id)
 			if (!limit.allowed) {
 				await ctx.answerCallbackQuery({
-					text: '👑 10 кастомных тегов — лимит Free. Разблокируйте безлимит с Premium!'
+					text: '👑 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
 				})
 				await ctx.reply(
-					'👑 10 кастомных тегов использовано. Разблокируйте безлимит с Premium!',
+					'👑 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
 					{
-						reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+						reply_markup: new InlineKeyboard()
+							.text('👑 Premium', 'view_premium')
+							.row()
+							.text('Закрыть', 'hide_message')
 					}
 				)
 				return
