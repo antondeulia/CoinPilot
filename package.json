@@ -2,6 +2,7 @@
 	"name": "alex-tg-bot",
 	"version": "0.0.1",
 	"private": true,
+	"packageManager": "npm",
 	"scripts": {
 		"build": "nest build",
 		"format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
