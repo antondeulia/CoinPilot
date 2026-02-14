@@ -2,7 +2,9 @@
 	"name": "alex-tg-bot",
 	"version": "0.0.1",
 	"private": true,
-	"engines": { "node": ">=22" },
+	"engines": {
+		"node": ">=22"
+	},
 	"packageManager": "npm",
 	"scripts": {
 		"build": "nest build",
@@ -29,8 +31,6 @@
 		"@nestjs/schedule": "^6.1.1",
 		"@prisma/adapter-pg": "^7.3.0",
 		"@prisma/client": "^7.3.0",
-		"chart.js": "^4.5.1",
-		"chartjs-node-canvas": "^5.0.0",
 		"cron": "^4.4.0",
 		"grammy": "^1.39.3",
 		"json2csv": "^6.0.0-alpha.2",
