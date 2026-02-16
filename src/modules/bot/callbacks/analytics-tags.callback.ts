@@ -14,7 +14,7 @@ export const analyticsTagsCallback = (
 ) => {
 	bot.callbackQuery('analytics_by_tag', async ctx => {
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 		;(ctx.session as any).analyticsTagsPage = 0
 
@@ -71,7 +71,7 @@ export const analyticsTagsCallback = (
 
 	bot.callbackQuery(/^analytics_tags_page:/, async ctx => {
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 		const tags = await analyticsService.getTopTags(
 			user.id,
@@ -123,7 +123,7 @@ export const analyticsTagsCallback = (
 	bot.callbackQuery(/^analytics_tag:/, async ctx => {
 		const tagId = ctx.callbackQuery.data.replace('analytics_tag:', '')
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 		;(ctx.session as any).analyticsTagDetailPage = 0
 		;(ctx.session as any).analyticsTagDetailId = tagId

@@ -6,6 +6,15 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Currency {
+  code     String  @id
+  type     String  // fiat | crypto
+  symbol   String?
+  decimals Int     @default(2)
+  @@map("currencies")
 }
 
 model User {
@@ -17,6 +26,9 @@ model User {
   isPremium            Boolean  @default(false)
   premiumUntil         DateTime?
   trialUsed            Boolean  @default(false)
+  stripeCustomerId     String?
+  lastTipText          String?
+  lastTipDate          DateTime?
   accounts             Account[]
   transactions         Transaction[]
   categories           Category[]
@@ -168,6 +180,7 @@ model Subscription {
   amount                  Float
   currency                String             @default("EUR")
   createdAt               DateTime           @default(now())
+  autoRenew               Boolean            @default(true)
 
   @@map("subscriptions")
 }

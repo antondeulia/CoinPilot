@@ -4,37 +4,73 @@ import { SubscriptionService } from '../../../modules/subscription/subscription.
 import { PremiumEventType } from '../../../generated/prisma/enums'
 import { StripeService } from '../../../modules/stripe/stripe.service'
 
-const PREMIUM_PAGE_TEXT = `👑 CoinPilot Premium
+const STRIPE_PORTAL_FALLBACK_URL = 'https://billing.stripe.com/p/login/00w7sL0zi10vc3oa2y6EU00'
 
-Начните с 7 дней бесплатного Trial!
+const PREMIUM_PAGE_TEXT = `⭐️ Подписка
 
-🆓 Free:
-• До 30 транзакций в месяц
-• До 1 фото-запроса в месяц
-• До 2 счетов и 10 валют на счёт
-• Только дефолтные категории (без кастомных)
-• До 3 кастомных тегов
-• Аналитика за 7 и 30 дней
+Вы используете Basic-план.
+Некоторые возможности ограничены.
 
-👑 Premium:
-• Безлимитные транзакции и фото (в пределах системы)
-• Безлимитные счета и валюты
-• Безлимитные кастомные категории и теги
-• Расширенная аналитика и периоды >30 дней
-• Экспорт CSV/Excel и будущие Premium-фичи (повторения, семья, цели, API)`
+<b>🆓 Ваш текущий тариф — Basic</b>
 
-function premiumKeyboard(showTrial: boolean, fromUpsell: boolean) {
+<blockquote>• До 30 транзакций в месяц
+• До 2 счетов
+• Аналитика до 30 дней
+• Ограниченные категории и теги</blockquote>
+
+<b>🚀 Что открывает Pro</b>
+
+<blockquote>• Безлимитные транзакции и счета
+• Полная аналитика капитала
+• Экспорт CSV
+• Свои категории и теги
+• Будущие Pro-инструменты <i>(ИИ-агент, бюджеты, цели...)</i></blockquote>
+
+Начните сейчас и управляйте капиталом без ограничений.`
+
+function premiumKeyboard(fromUpsell: boolean) {
 	const kb = new InlineKeyboard()
 	kb
-		.text('Оплатить 4,99 €/мес', 'premium_buy_monthly')
+		.text('🚀 Ежемесячный доступ — 4,99 € (7 дней бесплатно)', 'premium_buy_monthly')
 		.row()
-		.text('Оплатить 39,99 €/год', 'premium_buy_yearly')
+		.text('🔥 Годовой доступ — 39,99 € (экономия 33%) + 7 дней бесплатно', 'premium_buy_yearly')
 		.row()
-	if (showTrial) {
-		kb.text('🎁 Попробовать 7 дней бесплатно', 'premium_start_trial').row()
-	}
-	kb.text(fromUpsell ? 'Закрыть' : '← Назад', fromUpsell ? 'hide_message' : 'go_home')
+		.text(fromUpsell ? 'Закрыть' : '← Назад', fromUpsell ? 'hide_message' : 'go_home')
 	return kb
+}
+
+function formatSubscriptionMessage(d: {
+	active: boolean
+	planName: string
+	endDate: Date | null
+	daysLeft: number | null
+	amount: number
+	currency: string
+	periodLabel: string
+	isTrial: boolean
+	autoRenew: boolean | null
+}): string {
+	if (!d.active) {
+		return `⭐️ Подписка
+
+Вы используете Basic-план.
+Некоторые возможности ограничены.`
+	}
+	const endStr = d.endDate
+		? d.endDate.toLocaleDateString('ru-RU', {
+				day: 'numeric',
+				month: 'long',
+				year: 'numeric'
+			})
+		: '—'
+	const tariffLine = d.isTrial ? '🎁 Тариф: Trial' : '💼 Тариф: Pro'
+	const autoRenewLine =
+		d.autoRenew == null ? '' : `\n🔁 Автопродление: ${d.autoRenew ? 'Включено' : 'Выключено'}`
+	return `⭐️ Подписка
+
+🟢 Статус: Активна
+${tariffLine}
+📅 Следующее списание: ${endStr}${autoRenewLine}`
 }
 
 export const premiumCallback = (
@@ -42,26 +78,94 @@ export const premiumCallback = (
 	subscriptionService: SubscriptionService,
 	stripeService: StripeService
 ) => {
+	bot.callbackQuery('view_subscription', async ctx => {
+		const user = ctx.state.user as any
+		if (!user?.id) return
+		const d = await subscriptionService.getSubscriptionDisplay(user.id)
+		const text = formatSubscriptionMessage(d)
+		const kb = new InlineKeyboard()
+		if (d.active) {
+			kb.text('⚙️ Управление подпиской', 'subscription_manage').row()
+		} else {
+			kb.text('Оформить подписку', 'view_premium').row()
+		}
+		kb.text('← Назад', 'back_to_settings')
+		try {
+			await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: kb })
+		} catch {
+			await ctx.reply(text, { parse_mode: 'HTML', reply_markup: kb })
+		}
+		await ctx.answerCallbackQuery()
+	})
+
+	bot.callbackQuery('subscription_manage', async ctx => {
+		const user = ctx.state.user as any
+		if (!user?.id) return
+		let url = await stripeService.createBillingPortalSession(user.id)
+		if (!url) url = STRIPE_PORTAL_FALLBACK_URL
+		await ctx.answerCallbackQuery()
+		await ctx.reply('Откройте ссылку для управления подпиской:', {
+			reply_markup: new InlineKeyboard().url('⚙️ Управление подпиской', url)
+		})
+	})
+
+	bot.command('subscription', async ctx => {
+		const user = ctx.state.user as any
+		if (!user?.id) return
+		const d = await subscriptionService.getSubscriptionDisplay(user.id)
+		const text = formatSubscriptionMessage(d)
+		const kb = new InlineKeyboard()
+		if (d.active) {
+			kb.text('⚙️ Изменить подписку', 'subscription_manage').row()
+		} else {
+			kb.text('Оформить подписку', 'view_premium').row()
+		}
+		kb.text('Закрыть', 'hide_message')
+		await ctx.reply(text, { parse_mode: 'HTML', reply_markup: kb })
+	})
+
 	bot.callbackQuery('view_premium', async ctx => {
 		const user = ctx.state.user as any
 		await subscriptionService.trackEvent(user.id, PremiumEventType.premium_page_view)
-		const canTrial = await subscriptionService.canStartTrial(user.id)
-		const showTrial = canTrial.allowed
 		const fromUpsell =
 			ctx.callbackQuery?.message?.message_id !== ctx.session.homeMessageId
-		const text = ctx.state.isPremium
-			? '👑 У вас уже активен Premium. Спасибо!'
-			: PREMIUM_PAGE_TEXT
-		const kb = ctx.state.isPremium
-			? new InlineKeyboard().text(
-					fromUpsell ? 'Закрыть' : '← Назад',
-					fromUpsell ? 'hide_message' : 'go_home'
-				)
-			: premiumKeyboard(showTrial, fromUpsell)
+		if (ctx.state.isPremium) {
+			const kb = new InlineKeyboard().text(
+				fromUpsell ? 'Закрыть' : '← Назад',
+				fromUpsell ? 'hide_message' : 'go_home'
+			)
+			try {
+				await ctx.editMessageText('💠 У вас уже активен Premium. Спасибо!', {
+					reply_markup: kb
+				})
+			} catch {
+				await ctx.reply('💠 У вас уже активен Premium. Спасибо!', {
+					reply_markup: kb
+				})
+			}
+			return
+		}
+		const fromSettings =
+			ctx.callbackQuery?.message?.message_id === ctx.session.homeMessageId
+		const text = PREMIUM_PAGE_TEXT
+		const kb = fromSettings
+			? new InlineKeyboard()
+					.text(
+						'🚀 Ежемесячный доступ — 4,99 € (7 дней бесплатно)',
+						'premium_buy_monthly'
+					)
+					.row()
+					.text(
+						'🔥 Годовой доступ — 39,99 € (экономия 33%) + 7 дней бесплатно',
+						'premium_buy_yearly'
+					)
+					.row()
+					.text('← Назад', 'back_to_settings')
+			: premiumKeyboard(fromUpsell)
 		try {
-			await ctx.editMessageText(text, { reply_markup: kb })
+			await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: kb })
 		} catch {
-			await ctx.reply(text, { reply_markup: kb })
+			await ctx.reply(text, { parse_mode: 'HTML', reply_markup: kb })
 		}
 	})
 
@@ -74,7 +178,7 @@ export const premiumCallback = (
 				telegramId,
 				plan: 'monthly'
 			})
-			await ctx.reply('Оплата Premium — 1 месяц:', {
+			await ctx.reply('Оплата Premium — 1 месяц (7 дней бесплатно):', {
 				reply_markup: new InlineKeyboard().url('Оплатить 4,99 €', url)
 			})
 			await ctx.answerCallbackQuery()
@@ -94,7 +198,7 @@ export const premiumCallback = (
 				telegramId,
 				plan: 'yearly'
 			})
-			await ctx.reply('Оплата Premium — 1 год:', {
+			await ctx.reply('Оплата Premium — 1 год (7 дней бесплатно):', {
 				reply_markup: new InlineKeyboard().url('Оплатить 39,99 €', url)
 			})
 			await ctx.answerCallbackQuery()
@@ -102,35 +206,6 @@ export const premiumCallback = (
 			await ctx.answerCallbackQuery({
 				text: 'Оплата временно недоступна, попробуйте позже.'
 			})
-		}
-	})
-
-	bot.callbackQuery('premium_start_trial', async ctx => {
-		const user = ctx.state.user as any
-		const check = await subscriptionService.canStartTrial(user.id)
-		if (!check.allowed) {
-			const msg =
-				check.reason === 'trial_used'
-					? '👑 Пробный период уже был использован.'
-					: check.reason === 'add_transaction_first'
-						? 'Добавьте хотя бы одну транзакцию, затем попробуйте снова.'
-						: 'Сейчас недоступно.'
-			await ctx.answerCallbackQuery({ text: msg })
-			return
-		}
-		await subscriptionService.startTrial(user.id)
-		await ctx.answerCallbackQuery({
-			text: '🎁 Premium на 7 дней активирован!'
-		})
-		try {
-			await ctx.editMessageText(
-				'👑 Premium Trial активирован на 7 дней. Наслаждайтесь безлимитом!',
-				{ reply_markup: new InlineKeyboard().text('← Назад', 'go_home') }
-			)
-		} catch {
-			await ctx.reply(
-				'👑 Premium Trial активирован на 7 дней. Наслаждайтесь безлимитом!'
-			)
 		}
 	})
 }

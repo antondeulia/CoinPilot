@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ScheduleModule } from '@nestjs/schedule'
 import { BotService } from './bot.service'
 import { PremiumCronService } from './premium-cron.service'
+import { DailyTipCronService } from './daily-tip-cron.service'
 import { UsersModule } from '../users/users.module'
 import { TransactionsModule } from '../transactions/transactions.module'
 import { LLMModule } from '../llm/llm.module'
@@ -27,6 +28,6 @@ import { StripeModule } from '../stripe/stripe.module'
 		SubscriptionModule,
 		StripeModule
 	],
-	providers: [BotService, PremiumCronService]
+	providers: [BotService, PremiumCronService, DailyTipCronService]
 })
 export class BotModule {}

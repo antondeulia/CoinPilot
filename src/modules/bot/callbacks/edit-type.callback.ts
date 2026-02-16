@@ -20,7 +20,7 @@ export const editTypeCallback = (
 	bot.callbackQuery('edit:type', async ctx => {
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0
-		const current = drafts?.[index]
+		const current = drafts?.[index] as any
 
 		if (!drafts || !current) {
 			return
@@ -34,7 +34,7 @@ export const editTypeCallback = (
 				'set_type:transfer'
 			)
 			.row()
-			.text('🠐 Назад', 'back_to_preview')
+			.text('← Назад', 'back_to_preview')
 
 		if (ctx.session.tempMessageId != null) {
 			try {
@@ -51,7 +51,7 @@ export const editTypeCallback = (
 	bot.callbackQuery(/^set_type:/, async ctx => {
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0
-		const current = drafts?.[index]
+		const current = drafts?.[index] as any
 
 		if (!drafts || !current || ctx.session.tempMessageId == null) {
 			return
@@ -67,6 +67,28 @@ export const editTypeCallback = (
 		const user = ctx.state.user as any
 		const accountId =
 			current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
+		if (type === 'transfer') {
+			if (accountId && !current.accountId) {
+				current.accountId = accountId
+			}
+			if (current.accountId && !current.account) {
+				const fromAccount = await accountsService.getOneWithAssets(
+					current.accountId,
+					ctx.state.user.id
+				)
+				if (fromAccount) current.account = fromAccount.name
+			}
+			if (!current.toAccountId) {
+				const allAccounts = await accountsService.getAllByUserIdIncludingHidden(
+					ctx.state.user.id
+				)
+				const outside = allAccounts.find(a => a.name === 'Вне Wallet')
+				if (outside) {
+					current.toAccountId = outside.id
+					current.toAccount = outside.name
+				}
+			}
+		}
 		const showConversion = await getShowConversion(
 			current,
 			accountId ?? null,

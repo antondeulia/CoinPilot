@@ -51,6 +51,7 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
+  Currency: 'Currency',
   User: 'User',
   Account: 'Account',
   AccountAsset: 'AccountAsset',
@@ -81,6 +82,16 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
+export const CurrencyScalarFieldEnum = {
+  code: 'code',
+  type: 'type',
+  symbol: 'symbol',
+  decimals: 'decimals'
+} as const
+
+export type CurrencyScalarFieldEnum = (typeof CurrencyScalarFieldEnum)[keyof typeof CurrencyScalarFieldEnum]
+
+
 export const UserScalarFieldEnum = {
   id: 'id',
   telegramId: 'telegramId',
@@ -90,6 +101,9 @@ export const UserScalarFieldEnum = {
   isPremium: 'isPremium',
   premiumUntil: 'premiumUntil',
   trialUsed: 'trialUsed',
+  stripeCustomerId: 'stripeCustomerId',
+  lastTipText: 'lastTipText',
+  lastTipDate: 'lastTipDate',
   createdAt: 'createdAt'
 } as const
 
@@ -220,7 +234,8 @@ export const SubscriptionScalarFieldEnum = {
   providerPaymentChargeId: 'providerPaymentChargeId',
   amount: 'amount',
   currency: 'currency',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  autoRenew: 'autoRenew'
 } as const
 
 export type SubscriptionScalarFieldEnum = (typeof SubscriptionScalarFieldEnum)[keyof typeof SubscriptionScalarFieldEnum]

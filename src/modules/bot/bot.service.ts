@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Bot, InlineKeyboard, session } from 'grammy'
 import { UsersService } from '../users/users.service'
@@ -18,9 +18,15 @@ import { FREE_LIMITS } from '../subscription/subscription.constants'
 import { PremiumEventType } from '../../generated/prisma/enums'
 import { accountInfoText } from '../../utils'
 import { accountSwitchKeyboard } from '../../shared/keyboards'
-import { viewAccountsListText, accountDetailsText } from './elements/accounts'
+import {
+	viewAccountsListText,
+	accountDetailsText,
+	type AccountLastTxRow,
+	type AccountAnalyticsData
+} from './elements/accounts'
 import { homeKeyboard, homeText } from '../../shared/keyboards/home'
 import { startCommand } from './commands/start.command'
+import { renderHome } from './utils/render-home'
 import {
 	confirmKeyboard,
 	confirmTxCallback,
@@ -68,9 +74,11 @@ import { refreshAccountsPreview } from './callbacks/accounts-preview.callback'
 import { hideMessageCallback } from './callbacks/hide-message.callback'
 import { categoriesListKb } from './callbacks/view-categories.callback'
 import { tagsListText } from './callbacks/view-tags.callback'
+import { buildSettingsView } from '../../shared/keyboards/settings'
 
 @Injectable()
 export class BotService implements OnModuleInit {
+	private readonly logger = new Logger(BotService.name)
 	private readonly bot: Bot<BotContext>
 
 	constructor(
@@ -101,6 +109,10 @@ export class BotService implements OnModuleInit {
 			{
 				command: 'start',
 				description: 'Открыть меню'
+			},
+			{
+				command: 'help',
+				description: 'Помощь и инструкция'
 			}
 		])
 
@@ -135,18 +147,78 @@ export class BotService implements OnModuleInit {
 		})
 
 		// Commands
-		startCommand(this.bot, this.accountsService)
+		startCommand(this.bot, this.accountsService, this.analyticsService)
+		this.bot.command('help', async ctx => {
+			const text = `📘 Помощь
+
+🌐 Полезные ссылки
+🧩 Мой переходник — https://t.me/isi_crypto
+📄 Пользовательское соглашение — https://...
+🔐 Политика конфиденциальности — https://...
+💬 Поддержка — @sselnorr
+
+🚀 Как пользоваться CoinPilot
+CoinPilot помогает учитывать крипту и фиат в одном месте — быстро и безопасно. 
+
+1️⃣ Добавление счетов
+
+Нажмите /start, перейдите в "Счета" и добавьте свои счета в формате:
+
+"Название — сумма — валюта"
+
+Можно вводить серийно — система распознает данные автоматически.
+
+2️⃣ Добавление транзакций
+
+Просто отправьте текст или фото операции.
+ИИ-парсер распознает сумму, категорию и валюту.
+
+3️⃣ Аналитика
+
+В разделе аналитики вы получите:
+• Баланс по всем счетам
+• Метрики
+• Распределение активов
+• Статистику по периодам
+
+⭐️ Подписка
+
+Вы можете подключить Pro-тариф в разделе «⭐️ Подписка».
+
+Pro открывает:
+• Безлимитные транзакции и счета
+• Расширенную аналитику
+• Экспорт CSV / Excel
+• Доступ к будущим Pro-функциям
+
+💳 Оплата проходит через Stripe — международную защищённую платёжную систему.
+Подписку можно изменить или отменить в любое время. После отмены доступ сохранится до конца оплаченного периода.
+
+🔐 Безопасность данных
+
+• Мы не запрашиваем доступ к вашим кошелькам или API
+• Данные шифруются
+• Никогда не передаются третьим лицам
+• Вы можете удалить все свои данные в настройках
+• После удаления восстановление невозможно
+
+Ваши данные принадлежат только вам.`
+			await ctx.reply(text, {
+				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+			})
+		})
 
 		// Callbacks
-		addTxCallback(this.bot)
+		addTxCallback(this.bot, this.subscriptionService)
 		confirmTxCallback(
 			this.bot,
 			this.transactionsService,
 			this.accountsService,
 			this.tagsService,
-			this.subscriptionService
+			this.subscriptionService,
+			this.analyticsService
 		)
-		cancelTxCallback(this.bot, this.accountsService)
+		cancelTxCallback(this.bot, this.accountsService, this.analyticsService)
 		editTxCallback(this.bot, this.accountsService)
 		editTypeCallback(this.bot, this.accountsService)
 		editDescriptionCallback(this.bot)
@@ -160,13 +232,14 @@ export class BotService implements OnModuleInit {
 		editConversionCallback(this.bot, this.accountsService, this.exchangeService)
 		paginationTransactionsCallback(this.bot, this.accountsService)
 		closeEditCallback(this.bot, this.accountsService)
-		repeatParseCallback(this.bot)
+		repeatParseCallback(this.bot, this.subscriptionService)
 		saveDeleteCallback(
 			this.bot,
 			this.transactionsService,
 			this.accountsService,
 			this.tagsService,
-			this.subscriptionService
+			this.subscriptionService,
+			this.analyticsService
 		)
 		editAccountCallback(this.bot, this.accountsService)
 		accountsPaginationCallback(this.bot, this.subscriptionService)
@@ -177,23 +250,27 @@ export class BotService implements OnModuleInit {
 			this.bot,
 			this.accountsService,
 			this.usersService,
-			this.subscriptionService
+			this.subscriptionService,
+			this.analyticsService
 		)
 		viewTransactionsCallback(
 			this.bot,
 			this.prisma,
 			this.transactionsService,
-			this.accountsService
+			this.accountsService,
+			this.analyticsService
 		)
 		viewCategoriesCallback(
 			this.bot,
 			this.categoriesService,
-			this.subscriptionService
+			this.subscriptionService,
+			this.prisma
 		)
 		viewTagsCallback(
 			this.bot,
 			this.tagsService,
-			this.subscriptionService
+			this.subscriptionService,
+			this.prisma
 		)
 		analyticsMainCallback(this.bot, this.analyticsService)
 		analyticsCategoriesCallback(this.bot, this.analyticsService, this.prisma)
@@ -201,13 +278,14 @@ export class BotService implements OnModuleInit {
 		analyticsTypeCallback(this.bot, this.analyticsService)
 		analyticsFilterCallback(this.bot)
 		analyticsSavedCallback(this.bot, this.prisma)
-		analyticsChartCallback(this.bot, this.prisma, this.exchangeService)
+		analyticsChartCallback(this.bot, this.prisma, this.exchangeService, this.analyticsService)
 		analyticsExportCallback(
 			this.bot,
 			this.prisma,
-			this.subscriptionService
+			this.subscriptionService,
+			this.analyticsService
 		)
-		analyticsAlertsCallback(this.bot)
+		analyticsAlertsCallback(this.bot, this.prisma)
 		premiumCallback(this.bot, this.subscriptionService, this.stripeService)
 
 		hideMessageCallback(this.bot)
@@ -216,28 +294,51 @@ export class BotService implements OnModuleInit {
 			const stack = ctx.session.navigationStack ?? []
 			stack.pop()
 			ctx.session.navigationStack = stack
-			ctx.session.tempMessageId = undefined
+			if (!ctx.session.awaitingTransaction) {
+				ctx.session.tempMessageId = undefined
+			}
 			;(ctx.session as any).editingCurrency = false
 			;(ctx.session as any).editingMainCurrency = false
 			ctx.session.editingField = undefined
 
-			const account = ctx.state.activeAccount
-			if (!account) return
-			const mainCurrency = (ctx.state.user as any).mainCurrency ?? 'USD'
-			const balance = await this.accountsService.getBalance({
-				userId: ctx.state.user.id,
-				mainCurrency
-			})
+			const user: any = ctx.state.user
+			const mainCurrency = user?.mainCurrency ?? 'USD'
+			const accounts = (user?.accounts ?? []).filter(
+				(a: { isHidden?: boolean }) => !a.isHidden
+			)
+			const accountsCount = accounts.length
+			let totalBalance = 0
+			let monthlyChangePct = 0
+			try {
+				const [summary, cashflow] = await Promise.all([
+					this.analyticsService.getSummary(
+						user.id,
+						'30d',
+						mainCurrency
+					),
+					this.analyticsService.getCashflow(
+						user.id,
+						'30d',
+						mainCurrency
+					)
+				])
+				totalBalance = summary.balance
+				const beginning = summary.balance - cashflow
+				if (beginning > 0) {
+					monthlyChangePct = (cashflow / beginning) * 100
+				}
+			} catch {}
 
 			await ctx.api.editMessageText(
 				// @ts-ignore
 				ctx.chat.id,
 				// @ts-ignore
 				ctx.session.homeMessageId,
-				homeText(account, balance),
+				homeText(totalBalance, mainCurrency, accountsCount, monthlyChangePct),
 				{
 					parse_mode: 'HTML',
-					reply_markup: homeKeyboard(account, balance, mainCurrency)
+					link_preview_options: { is_disabled: true },
+					reply_markup: homeKeyboard()
 				}
 			)
 		})
@@ -250,29 +351,52 @@ export class BotService implements OnModuleInit {
 			;(ctx.session as any).editingMainCurrency = false
 			ctx.session.editingField = undefined
 
-			const account = ctx.state.activeAccount
-			if (!account) return
-			const mainCurrency = (ctx.state.user as any).mainCurrency ?? 'USD'
-			const balance = await this.accountsService.getBalance({
-				userId: ctx.state.user.id,
-				mainCurrency
-			})
+			const user: any = ctx.state.user
+			if (!user) return
+			const mainCurrency = user?.mainCurrency ?? 'USD'
+			const accounts = (user?.accounts ?? []).filter(
+				(a: { isHidden?: boolean }) => !a.isHidden
+			)
+			const accountsCount = accounts.length
+			let totalBalance = 0
+			let monthlyChangePct = 0
+			try {
+				const [summary, cashflow] = await Promise.all([
+					this.analyticsService.getSummary(
+						user.id,
+						'30d',
+						mainCurrency
+					),
+					this.analyticsService.getCashflow(
+						user.id,
+						'30d',
+						mainCurrency
+					)
+				])
+				totalBalance = summary.balance
+				const beginning = summary.balance - cashflow
+				if (beginning > 0) {
+					monthlyChangePct = (cashflow / beginning) * 100
+				}
+			} catch {}
 
 			await ctx.api.editMessageText(
 				// @ts-ignore
 				ctx.chat.id,
 				// @ts-ignore
 				ctx.session.homeMessageId,
-				homeText(account, balance),
+				homeText(totalBalance, mainCurrency, accountsCount, monthlyChangePct),
 				{
 					parse_mode: 'HTML',
-					reply_markup: homeKeyboard(account, balance, mainCurrency)
+					reply_markup: homeKeyboard()
 				}
 			)
 		})
 
 		this.bot.callbackQuery('view_accounts', async ctx => {
-			await this.closeTemp(ctx)
+			if (!ctx.session.awaitingTransaction) {
+				await this.closeTemp(ctx)
+			}
 
 			const user: any = ctx.state.user
 			if (!user) return
@@ -290,7 +414,9 @@ export class BotService implements OnModuleInit {
 				accountsWithAssets,
 				user.mainCurrency ?? 'USD',
 				this.exchangeService,
-				user.defaultAccountId
+				this.analyticsService,
+				user.id,
+				user.lastTipText
 			)
 
 			const visibleAccounts = (user.accounts ?? []).filter(
@@ -378,18 +504,6 @@ export class BotService implements OnModuleInit {
 			const accountId = ctx.callbackQuery.data.split(':')[1]
 			const frozen = await this.subscriptionService.getFrozenItems(user.id)
 			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
-			if (frozenAccountIds.has(accountId)) {
-				await ctx.reply(
-					'Счёт доступен только по Premium. Лимит Free — 2 счёта.',
-					{
-						reply_markup: new InlineKeyboard()
-							.text('👑 Premium', 'view_premium')
-							.row()
-							.text('Закрыть', 'hide_message')
-					}
-				)
-				return
-			}
 			const account = await this.accountsService.getOneWithAssets(
 				accountId,
 				user.id
@@ -399,13 +513,109 @@ export class BotService implements OnModuleInit {
 			ctx.session.accountsViewSelectedId = accountId
 			const page = ctx.session.accountsViewPage ?? 0
 			const mainCurrency = user.mainCurrency ?? 'USD'
+			const isPremium = !!ctx.state.isPremium
+
+			const lastTxs = await this.prisma.transaction.findMany({
+				where: { accountId, userId: user.id },
+				orderBy: { transactionDate: 'desc' },
+				take: 3,
+				include: { tag: true, toAccount: true }
+			})
+			const lastTransactions: AccountLastTxRow[] = []
+			for (const tx of lastTxs) {
+				const amt =
+					tx.convertedAmount != null && tx.convertToCurrency
+						? tx.convertedAmount
+						: tx.amount
+				const cur =
+					tx.convertedAmount != null && tx.convertToCurrency
+						? tx.convertToCurrency
+						: tx.currency
+				const amountMain = (await this.exchangeService.convert(amt, cur, mainCurrency)) ?? 0
+				const signed = tx.direction === 'expense' ? -Math.abs(tx.amount) : Math.abs(tx.amount)
+				lastTransactions.push({
+					direction: tx.direction,
+					amount: signed,
+					currency: tx.currency,
+					amountMain: Math.abs(amountMain),
+					description: tx.description,
+					transactionDate: tx.transactionDate,
+					category: tx.category,
+					tagName: tx.tag?.name ?? null,
+					toAccountName: tx.toAccount?.name ?? null
+				})
+			}
+
+			let analyticsData: AccountAnalyticsData | undefined
+			if (isPremium) {
+				const beg = await this.analyticsService.getBeginningBalance(
+					user.id,
+					'month',
+					mainCurrency,
+					accountId
+				)
+				const [
+					summary,
+					topExpenses,
+					topIncome,
+					anomalies,
+					transfersTotal,
+					cashflow,
+					burnRate
+				] =
+					await Promise.all([
+						this.analyticsService.getSummary(user.id, 'month', mainCurrency, accountId),
+						this.analyticsService.getTopCategories(user.id, 'month', mainCurrency, 3, accountId, beg),
+						this.analyticsService.getTopIncomeCategories(user.id, 'month', mainCurrency, beg, 3, accountId),
+						this.analyticsService.getAnomalies(user.id, 'month', mainCurrency, 100, accountId, beg),
+						this.analyticsService.getTransfersTotal(user.id, 'month', mainCurrency, accountId),
+						this.analyticsService.getCashflow(user.id, 'month', mainCurrency, accountId),
+						this.analyticsService.getBurnRate(user.id, 'month', mainCurrency, accountId)
+					])
+				const thresholdAnomaly = beg > 0 ? beg * 0.5 : 100
+				const topTransfersWithPct = await this.analyticsService.getTopTransfers(
+					user.id,
+					'month',
+					mainCurrency,
+					3,
+					accountId,
+					beg
+				)
+				analyticsData = {
+					beginningBalance: beg,
+					expenses: summary.expenses,
+					income: summary.income,
+					transfersTotal,
+					balance: summary.balance,
+					cashflow,
+					burnRate,
+					topExpenses: topExpenses.map(c => ({ categoryName: c.categoryName, sum: c.sum, pct: c.pct })),
+					topIncome: topIncome.map(c => ({ categoryName: c.categoryName, sum: c.sum, pct: c.pct })),
+					topTransfers: topTransfersWithPct.map(t => ({
+						fromAccountName: t.fromAccountName,
+						toAccountName: t.toAccountName,
+						sum: t.sum,
+						pct: t.pct,
+						descriptions: t.descriptions
+					})),
+					anomalies: anomalies.map(x => ({
+						description: x.description ?? x.tagOrCategory ?? null,
+						amountMain: x.amount
+					})),
+					thresholdAnomaly
+				}
+			}
+
 			const text = await accountDetailsText(
 				account,
 				mainCurrency,
 				this.exchangeService,
-				account.id === user.defaultAccountId
+				account.id === user.defaultAccountId,
+				isPremium,
+				lastTransactions,
+				analyticsData
 			)
-
+			const selectedFrozen = frozenAccountIds.has(accountId)
 			const visibleAccounts = (user.accounts ?? []).filter(
 				(a: { isHidden?: boolean }) => !a.isHidden
 			)
@@ -421,7 +631,8 @@ export class BotService implements OnModuleInit {
 						page,
 						accountId,
 						user.defaultAccountId,
-						frozenAccountIds
+						frozenAccountIds,
+						selectedFrozen
 					)
 				}
 			)
@@ -444,7 +655,9 @@ export class BotService implements OnModuleInit {
 				accountsWithAssets,
 				user.mainCurrency ?? 'USD',
 				this.exchangeService,
-				user.defaultAccountId
+				this.analyticsService,
+				user.id,
+				user.lastTipText
 			)
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
@@ -467,6 +680,15 @@ export class BotService implements OnModuleInit {
 		this.bot.callbackQuery('accounts_jarvis_edit_details', async ctx => {
 			const selectedId = ctx.session.accountsViewSelectedId
 			if (!selectedId) return
+			const user: any = ctx.state.user
+			const frozen = await this.subscriptionService.getFrozenItems(user.id)
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+			if (frozenAccountIds.has(selectedId)) {
+				await ctx.answerCallbackQuery({
+					text: 'Редактирование замороженного счёта доступно в Premium.'
+				})
+				return
+			}
 			ctx.session.editingAccountDetailsId = selectedId
 			const msg = await ctx.reply(
 				'Режим Jarvis-редактирования счёта.\n\nОпишите, что изменить: название, добавить/удалить валюты, изменить суммы.',
@@ -481,120 +703,178 @@ export class BotService implements OnModuleInit {
 			ctx.session.editMessageId = msg.message_id
 		})
 
+		this.bot.callbackQuery(/^account_delete:/, async ctx => {
+			const accountId = ctx.callbackQuery.data.replace('account_delete:', '')
+			const user: any = ctx.state.user
+			const account = await this.accountsService.getOneWithAssets(accountId, user.id)
+			if (!account) return
+			await ctx.api.editMessageText(
+				ctx.chat!.id,
+				ctx.callbackQuery.message!.message_id,
+				`Удалить счёт «${account.name}»?\n\nТранзакции по счёту будут удалены.`,
+				{
+					reply_markup: new InlineKeyboard()
+						.text('Удалить', `account_delete_confirm:${accountId}`)
+						.text('Отмена', 'accounts_unselect')
+				}
+			)
+		})
+
+		this.bot.callbackQuery(/^account_delete_confirm:/, async ctx => {
+			const accountId = ctx.callbackQuery.data.replace('account_delete_confirm:', '')
+			const user: any = ctx.state.user
+			const deleted = await this.accountsService.deleteAccount(accountId, user.id)
+			if (!deleted) return
+			ctx.session.accountsViewSelectedId = null
+			const freshUser = await this.prisma.user.findUnique({
+				where: { telegramId: String(ctx.from!.id) }
+			})
+			if (!freshUser) return
+			const [accountsWithAssets, frozen] = await Promise.all([
+				this.accountsService.getAllWithAssets(freshUser.id),
+				this.subscriptionService.getFrozenItems(freshUser.id)
+			])
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+			const visibleAccounts = await this.prisma.account.findMany({
+				where: { userId: freshUser.id, isHidden: false },
+				orderBy: { createdAt: 'asc' }
+			})
+			const text = await viewAccountsListText(
+				accountsWithAssets,
+				freshUser.mainCurrency ?? 'USD',
+				this.exchangeService,
+				this.analyticsService,
+				freshUser.id,
+				(freshUser as any).lastTipText
+			)
+			await ctx.api.editMessageText(
+				ctx.chat!.id,
+				ctx.callbackQuery.message!.message_id,
+				'Счёт удалён.<br><br>' + text,
+				{
+					parse_mode: 'HTML',
+					reply_markup: accountSwitchKeyboard(
+						visibleAccounts,
+						freshUser.activeAccountId,
+						0,
+						null,
+						freshUser.defaultAccountId ?? undefined,
+						frozenAccountIds
+					)
+				}
+			)
+		})
+
 		this.bot.callbackQuery('add_account', async ctx => {
 			// заглушка, реальная логика вынесена в addAccountCallback
 		})
 
 		this.bot.callbackQuery('view_settings', async ctx => {
-			await this.closeTemp(ctx)
+			if (!ctx.session.awaitingTransaction) {
+				await this.closeTemp(ctx)
+			}
 
 			ctx.session.navigationStack = [...(ctx.session.navigationStack ?? []), 'home']
 
 			const user: any = ctx.state.user
-			const mainCode = user?.mainCurrency ?? 'USD'
-			const defaultAccount =
-				user.accounts.find(a => a.id === user.defaultAccountId) ??
-				user.accounts[0]
-			const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-			const tariffStr = ctx.state.isPremium
-				? user.premiumUntil
-					? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
-					: 'Premium (навсегда)'
-				: 'Free'
-			const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
-			const kb = new InlineKeyboard()
-				.text('Основная валюта', 'main_currency_open')
-				.row()
-				.text('Основной счёт', 'default_account_open')
-				.row()
-				.text('Категории', 'view_categories')
-				.row()
-				.text('Теги', 'view_tags')
-				.row()
-				.text('🠐 Назад', 'go_home')
+			const alertsEnabledCount = await this.prisma.alertConfig.count({
+				where: { userId: user.id, enabled: true }
+			})
+			const view = buildSettingsView(user, alertsEnabledCount)
 
 			await ctx.api.editMessageText(
 				// @ts-ignore
 				ctx.chat.id,
 				// @ts-ignore
 				ctx.session.homeMessageId,
-				settingsText,
-				{ parse_mode: 'HTML', reply_markup: kb }
+				view.text,
+				{ parse_mode: 'HTML', reply_markup: view.keyboard }
 			)
 		})
 
 		this.bot.callbackQuery('main_currency_open', async ctx => {
-			await ctx.api.editMessageText(
-				ctx.chat!.id,
-				ctx.callbackQuery.message!.message_id,
+			const hint = await ctx.reply(
 				'Введите одну валюту, например: USD, доллар, $, евро, UAH.',
 				{
 					reply_markup: new InlineKeyboard().text('Закрыть', 'back_to_settings')
 				}
 			)
 			;(ctx.session as any).editingMainCurrency = true
-			ctx.session.editMessageId = ctx.callbackQuery.message!.message_id
+			;(ctx.session as any).mainCurrencyHintMessageId = hint.message_id
+			;(ctx.session as any).mainCurrencyErrorMessageIds = []
 		})
 		this.bot.callbackQuery('back_to_settings', async ctx => {
 			;(ctx.session as any).editingMainCurrency = false
+			const hintMessageId = (ctx.session as any).mainCurrencyHintMessageId as
+				| number
+				| undefined
+			if (hintMessageId) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, hintMessageId)
+				} catch {}
+				;(ctx.session as any).mainCurrencyHintMessageId = undefined
+			}
+			const errorMessageIds =
+				((ctx.session as any).mainCurrencyErrorMessageIds as number[] | undefined) ??
+				[]
+			for (const id of errorMessageIds) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, id)
+				} catch {}
+			}
+			;(ctx.session as any).mainCurrencyErrorMessageIds = []
 			const user: any = ctx.state.user
-			const mainCode = user?.mainCurrency ?? 'USD'
-			const defaultAccount =
-				user.accounts.find(a => a.id === user.defaultAccountId) ??
-				user.accounts[0]
-			const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-			const tariffStr = ctx.state.isPremium
-				? user.premiumUntil
-					? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
-					: 'Premium (навсегда)'
-				: 'Free'
-			const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
-			const kb = new InlineKeyboard()
-				.text('Основная валюта', 'main_currency_open')
-				.row()
-				.text('Основной счёт', 'default_account_open')
-				.row()
-				.text('Категории', 'view_categories')
-				.row()
-				.text('Теги', 'view_tags')
-				.row()
-				.text('🠐 Назад', 'go_home')
+			const alertsEnabledCount = await this.prisma.alertConfig.count({
+				where: { userId: user.id, enabled: true }
+			})
+			const view = buildSettingsView(user, alertsEnabledCount)
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
-				ctx.callbackQuery.message!.message_id,
-				settingsText,
-				{ parse_mode: 'HTML', reply_markup: kb }
+				ctx.session.homeMessageId,
+				view.text,
+				{ parse_mode: 'HTML', reply_markup: view.keyboard }
 			)
 		})
 		this.bot.callbackQuery(/^main_currency_set:/, async ctx => {
 			const code = ctx.callbackQuery.data.replace('main_currency_set:', '')
 			await this.usersService.setMainCurrency(ctx.state.user.id, code)
 			const user: any = { ...ctx.state.user, mainCurrency: code }
-			const defaultAccount =
-				user.accounts.find(a => a.id === user.defaultAccountId) ??
-				user.accounts[0]
-			const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-			const tariffStr = ctx.state.isPremium
-				? user.premiumUntil
-					? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
-					: 'Premium (навсегда)'
-				: 'Free'
-			const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${code}\nОсновной счёт: ${defaultAccountName}`
-			const kb = new InlineKeyboard()
-				.text('Основная валюта', 'main_currency_open')
-				.row()
-				.text('Основной счёт', 'default_account_open')
-				.row()
-				.text('Категории', 'view_categories')
-				.row()
-				.text('Теги', 'view_tags')
-				.row()
-				.text('🠐 Назад', 'go_home')
+			const alertsEnabledCount = await this.prisma.alertConfig.count({
+				where: { userId: user.id, enabled: true }
+			})
+			const view = buildSettingsView(user, alertsEnabledCount)
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.callbackQuery.message!.message_id,
-				settingsText,
-				{ parse_mode: 'HTML', reply_markup: kb }
+				view.text,
+				{ parse_mode: 'HTML', reply_markup: view.keyboard }
+			)
+		})
+
+		this.bot.callbackQuery('confirm_delete_all_data', async ctx => {
+			const kb = new InlineKeyboard()
+				.text('Да', 'delete_data_step2')
+				.text('Нет', 'back_to_settings')
+			await ctx.api.editMessageText(
+				ctx.chat!.id,
+				ctx.callbackQuery.message!.message_id,
+				'Вы уверены, что хотите удалить все данные? Это действие необратимо.',
+				{ reply_markup: kb }
+			)
+		})
+
+		this.bot.callbackQuery('delete_data_step2', async ctx => {
+			;(ctx.session as any).awaitingDeleteConfirm = true
+			await ctx.api.editMessageText(
+				ctx.chat!.id,
+				ctx.callbackQuery.message!.message_id,
+				"Для подтверждения отправьте в чат: 'delete-confirm'",
+				{
+					reply_markup: new InlineKeyboard().text(
+						'← Назад',
+						'back_to_settings'
+					)
+				}
 			)
 		})
 
@@ -603,7 +883,11 @@ export class BotService implements OnModuleInit {
 			if (!user) return
 			;(ctx.session as any).defaultAccountPage = 0
 			const kb = new InlineKeyboard()
-			const accounts = user.accounts as { id: string; name: string }[]
+			const accounts = (user.accounts as {
+				id: string
+				name: string
+				isHidden?: boolean
+			}[]).filter(a => !a.isHidden)
 			const pageSize = 9
 			const page = 0
 			const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize))
@@ -623,7 +907,7 @@ export class BotService implements OnModuleInit {
 				.text(`1/${totalPages}`, 'default_account_page_current')
 				.text('Вперёд »', 'default_account_page_next')
 				.row()
-				.text('🠐 Назад', 'back_to_settings')
+				.text('← Назад', 'back_to_settings')
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.callbackQuery.message!.message_id,
@@ -635,7 +919,11 @@ export class BotService implements OnModuleInit {
 		this.bot.callbackQuery(/^default_account_page_/, async ctx => {
 			const user: any = ctx.state.user
 			if (!user) return
-			const accounts = user.accounts as { id: string; name: string }[]
+			const accounts = (user.accounts as {
+				id: string
+				name: string
+				isHidden?: boolean
+			}[]).filter(a => !a.isHidden)
 			const pageSize = 9
 			const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize))
 			let page = (ctx.session as any).defaultAccountPage ?? 0
@@ -665,7 +953,7 @@ export class BotService implements OnModuleInit {
 				.text(`${page + 1}/${totalPages}`, 'default_account_page_current')
 				.text('Вперёд »', 'default_account_page_next')
 				.row()
-				.text('🠐 Назад', 'back_to_settings')
+				.text('← Назад', 'back_to_settings')
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.callbackQuery.message!.message_id,
@@ -680,33 +968,37 @@ export class BotService implements OnModuleInit {
 			const accountId = ctx.callbackQuery.data.split(':')[1]
 			await this.usersService.setDefaultAccount(user.id, accountId)
 			user.defaultAccountId = accountId
-			const mainCode = user.mainCurrency ?? 'USD'
-			const defaultAccount =
-				user.accounts.find(a => a.id === user.defaultAccountId) ??
-				user.accounts[0]
-			const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-			const tariffStr = ctx.state.isPremium
-				? user.premiumUntil
-					? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
-					: 'Premium (навсегда)'
-				: 'Free'
-			const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
-			const kb = new InlineKeyboard()
-				.text('Основная валюта', 'main_currency_open')
-				.row()
-				.text('Основной счёт', 'default_account_open')
-				.row()
-				.text('🠐 Назад', 'go_home')
+			const alertsEnabledCount = await this.prisma.alertConfig.count({
+				where: { userId: user.id, enabled: true }
+			})
+			const view = buildSettingsView(user, alertsEnabledCount)
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.callbackQuery.message!.message_id,
-				settingsText,
-				{ parse_mode: 'HTML', reply_markup: kb }
+				view.text,
+				{ parse_mode: 'HTML', reply_markup: view.keyboard }
 			)
 		})
 
 		this.bot.on('message:text', async ctx => {
 			const text = ctx.message.text.trim()
+
+			if ((ctx.session as any).awaitingDeleteConfirm) {
+				if (text === 'delete-confirm') {
+					const userId = ctx.state.user.id
+					;(ctx.session as any).awaitingDeleteConfirm = false
+					await this.usersService.deleteAllUserData(userId)
+					await ctx.reply('Все данные пользователя удалены.')
+					const user = await this.usersService.getOrCreateByTelegramId(
+						String(ctx.from!.id)
+					)
+					;(ctx.state as any).user = user
+					;(ctx.state as any).activeAccount =
+						user.accounts.find(a => a.id === user.activeAccountId) ?? null
+					await renderHome(ctx, this.accountsService, this.analyticsService)
+				}
+				return
+			}
 
 			if (ctx.session.awaitingTagInput && ctx.session.draftTransactions) {
 				const drafts = ctx.session.draftTransactions
@@ -1044,23 +1336,40 @@ export class BotService implements OnModuleInit {
 					map[normalized] ||
 					map[normalized.replace(/[^A-ZА-ЯЁ]/gi, '') as keyof typeof map]
 				if (!code) {
-					await ctx.reply('Не удалось распознать валюту, попробуйте ещё раз.', {
+					const errorMessage = await ctx.reply(
+						'Не удалось распознать валюту, попробуйте ещё раз.',
+						{
 						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
-					})
+						}
+					)
+					const ids =
+						((ctx.session as any).mainCurrencyErrorMessageIds as number[] | undefined) ??
+						[]
+					ids.push(errorMessage.message_id)
+					;(ctx.session as any).mainCurrencyErrorMessageIds = ids
 					return
 				}
 
 				await this.usersService.setMainCurrency(ctx.state.user.id, code)
 
-				if (ctx.session.editMessageId) {
+				const hintMessageId = (ctx.session as any).mainCurrencyHintMessageId as
+					| number
+					| undefined
+				if (hintMessageId) {
 					try {
-						await ctx.api.deleteMessage(
-							ctx.chat!.id,
-							ctx.session.editMessageId
-						)
+						await ctx.api.deleteMessage(ctx.chat!.id, hintMessageId)
 					} catch {}
-					ctx.session.editMessageId = undefined
+					;(ctx.session as any).mainCurrencyHintMessageId = undefined
 				}
+				const errorMessageIds =
+					((ctx.session as any).mainCurrencyErrorMessageIds as number[] | undefined) ??
+					[]
+				for (const id of errorMessageIds) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, id)
+					} catch {}
+				}
+				;(ctx.session as any).mainCurrencyErrorMessageIds = []
 
 				try {
 					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
@@ -1069,32 +1378,24 @@ export class BotService implements OnModuleInit {
 				const user: any = await this.usersService.getOrCreateByTelegramId(
 					String(ctx.from!.id)
 				)
-				const mainCode = user.mainCurrency ?? 'USD'
-				const defaultAccount =
-					user.accounts.find(a => a.id === user.defaultAccountId) ??
-					user.accounts[0]
-				const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-				const isPrem =
-					user.isPremium &&
-					(!user.premiumUntil || new Date(user.premiumUntil) > new Date())
-				const tariffStr = isPrem
-					? user.premiumUntil
-						? `Premium (до ${new Date(user.premiumUntil).toLocaleDateString('ru-RU')})`
-						: 'Premium (навсегда)'
-					: 'Free'
-				const settingsText = `<b>⚙️ Настройки</b>\n\nВаш тариф: ${tariffStr}\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
-				const kb = new InlineKeyboard()
-					.text('Основная валюта', 'main_currency_open')
-					.row()
-					.text('Основной счёт', 'default_account_open')
-					.row()
-					.text('🠐 Назад', 'go_home')
-				await ctx.api.editMessageText(
-					ctx.chat!.id,
-					ctx.session.homeMessageId,
-					settingsText,
-					{ parse_mode: 'HTML', reply_markup: kb }
-				)
+				const alertsEnabledCount = await this.prisma.alertConfig.count({
+					where: { userId: user.id, enabled: true }
+				})
+				const view = buildSettingsView(user as any, alertsEnabledCount)
+				try {
+					await ctx.api.editMessageText(
+						ctx.chat!.id,
+						ctx.session.homeMessageId,
+						view.text,
+						{ parse_mode: 'HTML', reply_markup: view.keyboard }
+					)
+				} catch {
+					const msg = await ctx.reply(view.text, {
+						parse_mode: 'HTML',
+						reply_markup: view.keyboard
+					})
+					ctx.session.homeMessageId = msg.message_id
+				}
 				;(ctx.session as any).editingMainCurrency = false
 				return
 			}
@@ -1130,12 +1431,12 @@ export class BotService implements OnModuleInit {
 							'assets'
 						)
 						await ctx.reply(
-							`👑 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`,
+							`💠 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`,
 							{
-								reply_markup: new InlineKeyboard().text(
-									'👑 Premium',
-									'view_premium'
-								)
+								reply_markup: new InlineKeyboard()
+									.text('💠 Pro-тариф', 'view_premium')
+									.row()
+									.text('Закрыть', 'hide_message')
 							}
 						)
 						return
@@ -1169,23 +1470,169 @@ export class BotService implements OnModuleInit {
 				)
 				if (freshAccount) {
 					const mainCurrency = user.mainCurrency ?? 'USD'
+					const isPremium = !!(ctx.state as any).isPremium
+					const lastTxs = await this.prisma.transaction.findMany({
+						where: { accountId, userId: user.id },
+						orderBy: { transactionDate: 'desc' },
+						take: 3,
+						include: { tag: true, toAccount: true }
+					})
+					const lastTransactions: AccountLastTxRow[] = []
+					for (const tx of lastTxs) {
+						const amt =
+							tx.convertedAmount != null && tx.convertToCurrency
+								? tx.convertedAmount
+								: tx.amount
+						const cur =
+							tx.convertedAmount != null && tx.convertToCurrency
+								? tx.convertToCurrency
+								: tx.currency
+						const amountMain =
+							(await this.exchangeService.convert(amt, cur, mainCurrency)) ?? 0
+						const signed =
+							tx.direction === 'expense' ? -Math.abs(tx.amount) : Math.abs(tx.amount)
+						lastTransactions.push({
+							direction: tx.direction,
+							amount: signed,
+							currency: tx.currency,
+							amountMain: Math.abs(amountMain),
+							description: tx.description,
+							transactionDate: tx.transactionDate,
+							category: tx.category,
+							tagName: tx.tag?.name ?? null,
+							toAccountName: tx.toAccount?.name ?? null
+						})
+					}
+					let analyticsData: AccountAnalyticsData | undefined
+					if (isPremium) {
+						const beg = await this.analyticsService.getBeginningBalance(
+							user.id,
+							'month',
+							mainCurrency,
+							accountId
+						)
+						const [
+							summary,
+							topExpenses,
+							topIncome,
+							anomalies,
+							transfersTotal,
+							cashflow,
+							burnRate
+						] =
+							await Promise.all([
+								this.analyticsService.getSummary(
+									user.id,
+									'month',
+									mainCurrency,
+									accountId
+								),
+								this.analyticsService.getTopCategories(
+									user.id,
+									'month',
+									mainCurrency,
+									3,
+									accountId,
+									beg
+								),
+								this.analyticsService.getTopIncomeCategories(
+									user.id,
+									'month',
+									mainCurrency,
+									beg,
+									3,
+									accountId
+								),
+								this.analyticsService.getAnomalies(
+									user.id,
+									'month',
+									mainCurrency,
+									100,
+									accountId,
+									beg
+								),
+								this.analyticsService.getTransfersTotal(
+									user.id,
+									'month',
+									mainCurrency,
+									accountId
+								),
+								this.analyticsService.getCashflow(
+									user.id,
+									'month',
+									mainCurrency,
+									accountId
+							),
+							this.analyticsService.getBurnRate(
+								user.id,
+								'month',
+								mainCurrency,
+								accountId
+								)
+							])
+						const thresholdAnomaly = beg > 0 ? beg * 0.5 : 100
+						const topTransfersWithPct = await this.analyticsService.getTopTransfers(
+							user.id,
+							'month',
+							mainCurrency,
+							3,
+							accountId,
+							beg
+						)
+						analyticsData = {
+							beginningBalance: beg,
+							expenses: summary.expenses,
+							income: summary.income,
+							transfersTotal,
+							balance: summary.balance,
+							cashflow,
+							burnRate,
+							topExpenses: topExpenses.map(c => ({
+								categoryName: c.categoryName,
+								sum: c.sum,
+								pct: c.pct
+							})),
+							topIncome: topIncome.map(c => ({
+								categoryName: c.categoryName,
+								sum: c.sum,
+								pct: c.pct
+							})),
+							topTransfers: topTransfersWithPct.map(t => ({
+								fromAccountName: t.fromAccountName,
+								toAccountName: t.toAccountName,
+								sum: t.sum,
+								pct: t.pct,
+								descriptions: t.descriptions
+							})),
+							anomalies: anomalies.map(x => ({
+								description: x.description ?? x.tagOrCategory ?? null,
+								amountMain: x.amount
+							})),
+							thresholdAnomaly
+						}
+					}
 					const detailsText = await accountDetailsText(
 						freshAccount,
 						mainCurrency,
 						this.exchangeService,
-						freshAccount.id === user.defaultAccountId
+						freshAccount.id === user.defaultAccountId,
+						isPremium,
+						lastTransactions,
+						analyticsData
 					)
 					const page = ctx.session.accountsViewPage ?? 0
 					const [freshUser, frozen] = await Promise.all([
-						this.usersService.getOrCreateByTelegramId(
-							String(ctx.from!.id)
-						),
+						this.prisma.user.findUnique({
+							where: { telegramId: String(ctx.from!.id) }
+						}),
 						this.subscriptionService.getFrozenItems(user.id)
 					])
+					if (!freshUser) return
 					const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
-					const visibleAccounts = (freshUser.accounts ?? []).filter(
-						(a: { isHidden?: boolean }) => !a.isHidden
-					)
+					const visibleAccounts = await this.prisma.account.findMany({
+						where: { userId: freshUser.id, isHidden: false },
+						orderBy: { createdAt: 'asc' }
+					})
 					await ctx.api.editMessageText(
 						ctx.chat!.id,
 						ctx.session.homeMessageId,
@@ -1279,12 +1726,12 @@ export class BotService implements OnModuleInit {
 							limitTag.current + result.add.length > limitTag.limit
 						) {
 							await ctx.reply(
-								'👑 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
+								'💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
 								{
-									reply_markup: new InlineKeyboard().text(
-										'👑 Premium',
-										'view_premium'
-									)
+									reply_markup: new InlineKeyboard()
+										.text('💠 Pro-тариф', 'view_premium')
+										.row()
+										.text('Закрыть', 'hide_message')
 								}
 							)
 							return
@@ -1382,12 +1829,12 @@ export class BotService implements OnModuleInit {
 									'categories'
 								)
 								await ctx.reply(
-									'👑 В бесплатной версии недоступно создание своих категорий. Для добавления своих категорий, вы можете перейти на Premium.',
+									'💠 В бесплатной версии недоступно создание своих категорий. Для добавления своих категорий, вы можете перейти на Premium.',
 									{
-										reply_markup: new InlineKeyboard().text(
-											'👑 Premium',
-											'view_premium'
-										)
+										reply_markup: new InlineKeyboard()
+											.text('💠 Pro-тариф', 'view_premium')
+											.row()
+											.text('Закрыть', 'hide_message')
 									}
 								)
 								return
@@ -1497,30 +1944,20 @@ export class BotService implements OnModuleInit {
 						existingTags,
 						accountNames
 					)
-				} catch {
-					await ctx.reply(
-						'Прости, я не смог понять, что ты имеешь в виду 😕\n' +
-							'Попробуй, например:\n\n' +
-							'• Купил кофе за 120 грн\n' +
-							'• Зарплата 1500 USD\n' +
-							'• Купил 5 монет BTC'
+				} catch (e: unknown) {
+					const err = e instanceof Error ? e : new Error(String(e))
+					this.logger.warn(
+						`parseTransaction failed: ${err.message}`,
+						err.stack
 					)
-					return
-				}
-
-				if (!parsed.length) {
+					const openaiErr = e as { response?: { data?: unknown }; status?: number }
+					if (openaiErr?.response?.data != null) {
+						this.logger.debug(
+							`parseTransaction OpenAI response: ${JSON.stringify(openaiErr.response.data)}`
+						)
+					}
 					await ctx.reply(
-						'Прости, я не смог понять, что ты имеешь в виду 😕\n' +
-							'Попробуй, например:\n\n' +
-							'• Купил кофе за 120 грн\n' +
-							'• Зарплата 1500 USD\n' +
-							'• Купил 5 монет BTC'
-					)
-					return
-				}
-				if (parsed.length > 10) {
-					await ctx.reply(
-						'Максимум 10 транзакций за один раз. Сократите сообщение.',
+						'Техническая ошибка парсинга (ИИ недоступен или превышен лимит). Обратитесь к разработчику: @sselnorr',
 						{
 							reply_markup: new InlineKeyboard().text(
 								'Закрыть',
@@ -1530,194 +1967,12 @@ export class BotService implements OnModuleInit {
 					)
 					return
 				}
+			parsed = parsed.map(tx => ({
+				...tx,
+				rawText: tx.rawText && tx.rawText.trim().length > 0 ? tx.rawText : text
+			}))
 
-				const defaultAccountId =
-					user.defaultAccountId || ctx.state.activeAccount?.id || null
-				const defaultAccount = defaultAccountId
-					? await this.accountsService.getOneWithAssets(
-							defaultAccountId,
-							user.id
-						)
-					: null
-				const visibleAccountsWithAssets =
-					await this.accountsService.getAllWithAssets(user.id)
-				const defaultHasEur =
-					defaultAccount?.assets?.some(
-						a => (a.currency || defaultAccount.currency) === 'EUR'
-					) ?? false
-				const accountsWithEur = visibleAccountsWithAssets.filter(acc =>
-					acc.assets?.some(
-						a => (a.currency || (acc as any).currency) === 'EUR'
-					)
-				)
-				const singleAccountWithEur =
-					accountsWithEur.length === 1 ? accountsWithEur[0] : null
-
-				if (
-					defaultAccount &&
-					(!defaultAccount.assets || defaultAccount.assets.length === 0)
-				) {
-					await ctx.reply(
-						'В связанном счёте отсутствуют активы. Добавьте валюты в счёт.',
-						{
-							reply_markup: new InlineKeyboard().text(
-								'Закрыть',
-								'hide_message'
-							)
-						}
-					)
-					return
-				}
-
-				for (const tx of parsed as any[]) {
-					const parsedAccountStr =
-						(tx.account && String(tx.account).trim()) || ''
-					let matchedAccountId: string | null = null
-					if (parsedAccountStr && userAccounts.length) {
-						const lower = parsedAccountStr.toLowerCase()
-						for (const acc of userAccounts as any[]) {
-							if (acc.name === 'Вне Wallet') continue
-							const accLower = acc.name.toLowerCase()
-							if (
-								accLower === lower ||
-								accLower.includes(lower) ||
-								lower.includes(accLower)
-							) {
-								matchedAccountId = acc.id
-								break
-							}
-						}
-					}
-					tx.accountId = matchedAccountId ?? defaultAccountId
-					let acc = matchedAccountId
-						? userAccounts.find((a: any) => a.id === matchedAccountId)
-						: defaultAccount
-					tx.account = acc?.name ?? defaultAccount?.name ?? null
-					if (
-						tx.direction !== 'transfer' &&
-						(matchedAccountId === outsideWalletId ||
-							tx.account === 'Вне Wallet')
-					) {
-						tx.accountId = defaultAccountId
-						tx.account = defaultAccount?.name ?? null
-						acc = defaultAccount
-					}
-					if (
-						tx.direction === 'transfer' &&
-						(!tx.toAccount || String(tx.toAccount).trim() === '')
-					) {
-						tx.toAccountId = outsideWalletId
-						tx.toAccount = 'Вне Wallet'
-					}
-					if (
-						tx.accountId === defaultAccountId &&
-						tx.currency === 'EUR' &&
-						!defaultHasEur &&
-						singleAccountWithEur
-					) {
-						tx.accountId = singleAccountWithEur.id
-						tx.account = singleAccountWithEur.name
-						acc = singleAccountWithEur
-					}
-					if (!tx.category || !categoryNames.includes(tx.category)) {
-						tx.category = 'Не выбрано'
-					}
-					if (tx.accountId && tx.currency && typeof tx.amount === 'number') {
-						const account = await this.accountsService.getOneWithAssets(
-							tx.accountId,
-							user.id
-						)
-						if (account && account.assets.length) {
-							const codes = Array.from(
-								new Set(
-									account.assets.map(
-										a => a.currency || account.currency
-									)
-								)
-							)
-							if (!codes.includes(tx.currency) && codes.length) {
-								tx.convertToCurrency = codes[0]
-								tx.convertedAmount = await this.exchangeService.convert(
-									tx.amount,
-									tx.currency,
-									tx.convertToCurrency
-								)
-							}
-						}
-					}
-					if (tx.tag_text) {
-						const resolved = await this.tagsService.resolveTag(
-							user.id,
-							tx.tag_text,
-							tx.normalized_tag ?? '',
-							tx.tag_confidence ?? 0
-						)
-						if (resolved.tagName) {
-							tx.tagId = resolved.tagId
-							tx.tagName = resolved.tagName
-							tx.tagIsNew = resolved.isNew
-						}
-					}
-				}
-
-				const first = parsed[0]
-				const hasAnyField =
-					typeof first.amount === 'number' ||
-					(typeof first.description === 'string' &&
-						first.description.trim().length > 0)
-
-				if (!hasAnyField) {
-					await ctx.reply(
-						'Прости, я не смог понять, что ты имеешь в виду 😕\n' +
-							'Попробуй, например:\n\n' +
-							'• Купил кофе за 120 грн\n' +
-							'• Зарплата 1500 USD\n' +
-							'• Купил 5 монет BTC'
-					)
-					return
-				}
-
-				ctx.session.awaitingTransaction = false
-				ctx.session.confirmingTransaction = true
-				ctx.session.draftTransactions = parsed
-				ctx.session.currentTransactionIndex = 0
-
-				const accountCurrencies = defaultAccount
-					? Array.from(
-							new Set(
-								defaultAccount.assets?.map(
-									a => a.currency || defaultAccount.currency
-								) ?? []
-							)
-						)
-					: []
-				const showConversion = !(
-					first.currency && accountCurrencies.includes(first.currency)
-				)
-
-				if (ctx.session.tempMessageId != null) {
-					try {
-						await ctx.api.deleteMessage(
-							ctx.chat!.id,
-							ctx.session.tempMessageId
-						)
-					} catch {}
-				}
-				const msg = await ctx.reply(
-					renderConfirmMessage(first, 0, parsed.length, user.defaultAccountId),
-					{
-						parse_mode: 'HTML',
-						reply_markup: confirmKeyboard(
-							parsed.length,
-							0,
-							showConversion,
-							first?.direction === 'transfer',
-							false
-						)
-					}
-				)
-
-				ctx.session.tempMessageId = msg.message_id
+				await this.processParsedTransactions(ctx, parsed)
 				return
 			}
 
@@ -1753,6 +2008,113 @@ export class BotService implements OnModuleInit {
 			}
 		})
 
+		this.bot.on('message:photo', async ctx => {
+			if (!ctx.session.awaitingTransaction) return
+			const user: any = ctx.state.user
+			if (!user) return
+			const imageLimit = await this.subscriptionService.canParseImage(user.id)
+			if (!ctx.state.isPremium && !imageLimit.allowed) {
+				await ctx.reply(
+					'📸 Лимит фото-распознавания в Basic исчерпан. Перейдите на Pro для безлимита.',
+					{
+						reply_markup: new InlineKeyboard()
+							.text('💠 Pro-тариф', 'view_premium')
+							.row()
+							.text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+			const [userCategories, frozen, userAccounts] = await Promise.all([
+				this.categoriesService.getAllByUserId(user.id),
+				this.subscriptionService.getFrozenItems(user.id),
+				this.accountsService.getAllByUserIdIncludingHidden(user.id)
+			])
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+			const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
+			const frozenTagIds = frozen.customTagIdsOverLimit
+			const visibleCategories = userCategories.filter(
+				c => !frozenCategoryIds.has(c.id)
+			)
+			const categoryNames = visibleCategories.map(c => c.name)
+			const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+				excludeIds: frozenTagIds
+			})
+			const visibleAccounts = userAccounts.filter(
+				(a: any) => !frozenAccountIds.has(a.id)
+			)
+			const accountNames = visibleAccounts
+				.map((a: any) => a.name)
+				.filter((n: string) => n !== 'Вне Wallet')
+
+			const photos = ctx.message.photo
+			if (!photos?.length) return
+			const largest = photos[photos.length - 1]
+			let imageDataUrl: string
+			try {
+				const file = await ctx.api.getFile(largest.file_id)
+				const token = this.config.getOrThrow<string>('BOT_TOKEN')
+				const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
+				const res = await fetch(url)
+				if (!res.ok) throw new Error('Failed to download photo')
+				const buf = Buffer.from(await res.arrayBuffer())
+				const base64 = buf.toString('base64')
+				imageDataUrl = `data:image/jpeg;base64,${base64}`
+			} catch {
+				await ctx.reply(
+					'Не удалось загрузить фото. Попробуйте ещё раз или отправьте текст.',
+					{
+						reply_markup: new InlineKeyboard().text(
+							'Закрыть',
+							'hide_message'
+						)
+					}
+				)
+				return
+			}
+
+			const userCaption = ctx.message.caption?.trim() || ''
+			let parsed: LlmTransaction[]
+			try {
+				parsed = await this.llmService.parseTransactionFromImage(
+					imageDataUrl,
+					categoryNames,
+					existingTags,
+					accountNames,
+					userCaption || undefined
+				)
+			} catch (e: unknown) {
+				const err = e instanceof Error ? e : new Error(String(e))
+				this.logger.warn(
+					`parseTransactionFromImage failed: ${err.message}`,
+					err.stack
+				)
+				const openaiErr = e as { response?: { data?: unknown }; status?: number }
+				if (openaiErr?.response?.data != null) {
+					this.logger.debug(
+						`parseTransactionFromImage OpenAI response: ${JSON.stringify(openaiErr.response.data)}`
+					)
+				}
+				await ctx.reply(
+					'Техническая ошибка парсинга (ИИ недоступен или превышен лимит). Обратитесь к разработчику: @sselnorr',
+					{
+						reply_markup: new InlineKeyboard().text(
+							'Закрыть',
+							'hide_message'
+						)
+					}
+				)
+				return
+			}
+
+			const parseToken = `PHOTO_PARSE:${new Date().toISOString().slice(0, 7)}:${largest.file_unique_id}`
+			parsed = parsed.map(tx => ({
+				...tx,
+				rawText: parseToken
+			}))
+			await this.processParsedTransactions(ctx, parsed)
+		})
+
 		this.bot.start()
 	}
 
@@ -1764,5 +2126,370 @@ export class BotService implements OnModuleInit {
 			} catch {}
 		}
 		ctx.session.tempMessageId = undefined
+	}
+
+	private async processParsedTransactions(
+		ctx: BotContext,
+		parsed: LlmTransaction[]
+	): Promise<void> {
+		const user: any = ctx.state.user
+		if (!parsed.length) {
+			await ctx.reply(
+				'Прости, я не смог понять, что ты имеешь в виду 😕\n' +
+					'Попробуй, например:\n\n' +
+					'• Купил кофе за 120 грн\n' +
+					'• Зарплата 1500 USD\n' +
+					'• Купил 5 монет BTC'
+			)
+			return
+		}
+		if (parsed.length > 10) {
+			await ctx.reply(
+				'Максимум 10 транзакций за один раз. Сократите сообщение.',
+				{
+					reply_markup: new InlineKeyboard().text(
+						'Закрыть',
+						'hide_message'
+					)
+				}
+			)
+			return
+		}
+		const [userCategories, frozen, userAccounts] = await Promise.all([
+			this.categoriesService.getAllByUserId(user.id),
+			this.subscriptionService.getFrozenItems(user.id),
+			this.accountsService.getAllByUserIdIncludingHidden(user.id)
+		])
+		const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+		const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
+		const frozenTagIds = frozen.customTagIdsOverLimit
+		const visibleCategories = userCategories.filter(
+			c => !frozenCategoryIds.has(c.id)
+		)
+		const categoryNames = visibleCategories.map(c => c.name)
+		const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+			excludeIds: frozenTagIds
+		})
+		const outsideWalletAccount = userAccounts.find(
+			(a: any) => a.name === 'Вне Wallet'
+		)
+		const outsideWalletId = outsideWalletAccount?.id ?? null
+		const defaultAccountId =
+			user.defaultAccountId || ctx.state.activeAccount?.id || null
+		const defaultAccount = defaultAccountId
+			? await this.accountsService.getOneWithAssets(
+					defaultAccountId,
+					user.id
+				)
+			: null
+		const visibleAccountsWithAssets =
+			await this.accountsService.getAllWithAssets(user.id)
+		const defaultHasEur =
+			defaultAccount?.assets?.some(
+				a => (a.currency || defaultAccount.currency) === 'EUR'
+			) ?? false
+		const accountsWithEur = visibleAccountsWithAssets.filter(acc =>
+			acc.assets?.some(
+				a => (a.currency || (acc as any).currency) === 'EUR'
+			)
+		)
+		const singleAccountWithEur =
+			accountsWithEur.length === 1 ? accountsWithEur[0] : null
+		const accountAliasMap: Record<string, string> = {
+			нал: 'Наличные',
+			наличные: 'Наличные',
+			байбит: 'Bybit',
+			bybit: 'Bybit',
+			мех: 'MEXC',
+			mexc: 'MEXC'
+		}
+
+		const normalizeAccountAlias = (value?: string | null): string => {
+			const raw = String(value ?? '').trim()
+			if (!raw) return ''
+			const lower = raw.toLowerCase()
+			return accountAliasMap[lower] ?? raw
+		}
+
+		const matchAccountByName = (name: string): { id: string; name: string } | null => {
+			if (!name || !userAccounts.length) return null
+			const lower = normalizeAccountAlias(name).toLowerCase()
+			if (!lower) return null
+			for (const acc of userAccounts as any[]) {
+				if (acc.name === 'Вне Wallet') continue
+				const accLower = acc.name.toLowerCase()
+				if (
+					accLower === lower ||
+					accLower.includes(lower) ||
+					lower.includes(accLower)
+				) {
+					return { id: acc.id, name: acc.name }
+				}
+			}
+			return null
+		}
+
+		const merged = new Map<string, any>()
+		for (const tx of parsed as any[]) {
+			const direction = tx.direction
+			const txDate = (tx.transactionDate || new Date().toISOString()).slice(0, 10)
+			const account = normalizeAccountAlias(tx.account ?? tx.fromAccount ?? '')
+			const category = tx.category ?? 'Не выбрано'
+			const currency = (tx.currency ?? '').toUpperCase()
+			if (direction === 'transfer') {
+				const key = `transfer|${txDate}|${currency}|${account}|${normalizeAccountAlias(
+					tx.toAccount ?? ''
+				)}`
+				if (!merged.has(key)) merged.set(key, { ...tx })
+				else {
+					const prev = merged.get(key)
+					prev.amount = Number(prev.amount ?? 0) + Number(tx.amount ?? 0)
+				}
+				continue
+			}
+			const key = `${direction}|${txDate}|${currency}|${account}|${category}|${
+				tx.tag_text ?? ''
+			}`
+			if (!merged.has(key)) {
+				merged.set(key, { ...tx })
+				continue
+			}
+			const prev = merged.get(key)
+			prev.amount = Number(prev.amount ?? 0) + Number(tx.amount ?? 0)
+			const labels = [prev.description, tx.description]
+				.map((v: string | undefined) => String(v ?? '').trim())
+				.filter(Boolean)
+			prev.description = labels.length <= 2 ? labels.join(', ') : 'Продукты'
+		}
+		const parsedNormalized = Array.from(merged.values()) as any[]
+
+		const recentTx = await this.prisma.transaction.findMany({
+			where: { userId: user.id, description: { not: null } },
+			orderBy: { transactionDate: 'desc' },
+			take: 200,
+			include: { tag: true, account: true }
+		})
+		const findSimilar = (description?: string | null) => {
+			const target = String(description ?? '').trim().toLowerCase()
+			if (!target) return null
+			return (
+				recentTx.find(t => {
+					const src = String(t.description ?? '').trim().toLowerCase()
+					if (!src) return false
+					return src.includes(target) || target.includes(src)
+				}) ?? null
+			)
+		}
+
+		for (const tx of parsedNormalized) {
+			tx.account = normalizeAccountAlias(tx.account)
+			tx.fromAccount = normalizeAccountAlias(tx.fromAccount)
+			tx.toAccount = normalizeAccountAlias(tx.toAccount)
+			const sourceText = `${tx.rawText ?? ''} ${tx.description ?? ''}`.toLowerCase()
+			const transferHint =
+				/(перев[её]л|перевод|перекинул|вывел|снял в нал|в нал)/.test(sourceText) &&
+				/(с |из ).+( в | на )/.test(sourceText)
+			if (transferHint) {
+				tx.direction = 'transfer'
+			}
+			if (!tx.category || tx.category === 'Не выбрано' || !tx.tag_text) {
+				const similar = findSimilar(tx.description)
+				if (similar) {
+					if (!tx.category || tx.category === 'Не выбрано') {
+						tx.category = similar.category ?? tx.category
+					}
+					if (!tx.tag_text && similar.tag?.name) {
+						tx.tag_text = similar.tag.name
+						tx.normalized_tag = similar.tag.name.toLowerCase()
+						tx.tag_confidence = 0.95
+					}
+					if (!tx.account && similar.account?.name) {
+						tx.account = similar.account.name
+					}
+				}
+			}
+		}
+
+		for (const tx of parsedNormalized) {
+			const isTransfer = tx.direction === 'transfer'
+			const parsedAccountStr = isTransfer
+				? (tx.fromAccount && String(tx.fromAccount).trim()) || (tx.account && String(tx.account).trim()) || ''
+				: (tx.account && String(tx.account).trim()) || ''
+			const matched = parsedAccountStr ? matchAccountByName(parsedAccountStr) : null
+			const matchedAccountId = matched?.id ?? null
+			tx.accountId = isTransfer
+				? matchedAccountId ?? (parsedAccountStr ? defaultAccountId : outsideWalletId ?? defaultAccountId)
+				: matchedAccountId ?? defaultAccountId
+			let acc = matchedAccountId
+				? userAccounts.find((a: any) => a.id === matchedAccountId)
+				: defaultAccount
+			tx.account = acc?.name ?? defaultAccount?.name ?? null
+			if (
+				!isTransfer &&
+				(matchedAccountId === outsideWalletId ||
+					tx.account === 'Вне Wallet')
+			) {
+				tx.accountId = defaultAccountId
+				tx.account = defaultAccount?.name ?? null
+				acc = defaultAccount
+			}
+			if (isTransfer) {
+				const toStr = tx.toAccount && String(tx.toAccount).trim()
+				if (toStr) {
+					const toMatched = matchAccountByName(toStr)
+					if (toMatched) {
+						tx.toAccountId = toMatched.id
+						tx.toAccount = toMatched.name
+					} else {
+						tx.toAccountId = outsideWalletId
+						tx.toAccount = 'Вне Wallet'
+					}
+				} else {
+					tx.toAccountId = outsideWalletId
+					tx.toAccount = 'Вне Wallet'
+				}
+				if (!tx.accountId) {
+					tx.accountId = outsideWalletId ?? defaultAccountId
+					tx.account = tx.accountId === outsideWalletId ? 'Вне Wallet' : defaultAccount?.name
+				}
+			}
+			if (
+				tx.accountId === defaultAccountId &&
+				tx.currency === 'EUR' &&
+				!defaultHasEur &&
+				singleAccountWithEur
+			) {
+				tx.accountId = singleAccountWithEur.id
+				tx.account = singleAccountWithEur.name
+				acc = singleAccountWithEur
+			}
+			const accountForTx =
+				tx.accountId &&
+				visibleAccountsWithAssets.find(
+					(a: any) => a.id === tx.accountId
+				)
+			if (
+				accountForTx &&
+				(!accountForTx.assets || accountForTx.assets.length === 0)
+			) {
+				const accountName = accountForTx.name || 'Основной счёт'
+				await ctx.reply(
+					`Вы не указали связанный счёт, поэтому транзакция привязана к основному счёту «${accountName}», но в нём отсутствуют активы. Добавьте валюты в счёт.`,
+					{
+						reply_markup: new InlineKeyboard().text(
+							'Закрыть',
+							'hide_message'
+						)
+					}
+				)
+				return
+			}
+			if (!tx.category || !categoryNames.includes(tx.category)) {
+				tx.category = 'Не выбрано'
+			}
+			if (tx.accountId && tx.currency && typeof tx.amount === 'number') {
+				const account = await this.accountsService.getOneWithAssets(
+					tx.accountId,
+					user.id
+				)
+				if (account && account.assets.length) {
+					const codes = Array.from(
+						new Set(
+							account.assets.map(
+								a => a.currency || account.currency
+							)
+						)
+					)
+					if (!codes.includes(tx.currency) && codes.length) {
+						tx.convertToCurrency = codes[0]
+						tx.convertedAmount =
+							await this.exchangeService.convert(
+								tx.amount,
+								tx.currency,
+								tx.convertToCurrency
+							)
+					}
+				}
+			}
+			if (tx.tag_text) {
+				const resolved = await this.tagsService.resolveTag(
+					user.id,
+					tx.tag_text,
+					tx.normalized_tag ?? '',
+					tx.tag_confidence ?? 0
+				)
+				if (resolved.tagName) {
+					tx.tagId = resolved.tagId
+					tx.tagName = resolved.tagName
+					tx.tagIsNew = resolved.isNew
+				}
+			}
+		}
+
+		const first = parsedNormalized[0]
+		const hasAnyField =
+			typeof first.amount === 'number' ||
+			(typeof first.description === 'string' &&
+				first.description.trim().length > 0)
+		if (!hasAnyField) {
+			await ctx.reply(
+				'Прости, я не смог понять, что ты имеешь в виду 😕\n' +
+					'Попробуй, например:\n\n' +
+					'• Купил кофе за 120 грн\n' +
+					'• Зарплата 1500 USD\n' +
+					'• Купил 5 монет BTC'
+			)
+			return
+		}
+
+		ctx.session.awaitingTransaction = false
+		ctx.session.confirmingTransaction = true
+		ctx.session.draftTransactions = parsedNormalized
+		ctx.session.currentTransactionIndex = 0
+
+		const firstAccountId = (first as any)?.accountId ?? defaultAccountId
+		const previewAccount =
+			(firstAccountId &&
+				visibleAccountsWithAssets.find((a: any) => a.id === firstAccountId)) ||
+			defaultAccount
+		const accountCurrencies = previewAccount
+			? Array.from(
+					new Set(
+						previewAccount.assets?.map(
+							a => a.currency || previewAccount.currency
+						) ?? []
+					)
+				)
+			: []
+		const showConversion = !(
+			first.currency && accountCurrencies.includes(first.currency)
+		)
+		if (ctx.session.tempMessageId != null) {
+			try {
+				await ctx.api.deleteMessage(
+					ctx.chat!.id,
+					ctx.session.tempMessageId
+				)
+			} catch {}
+		}
+		const msg = await ctx.reply(
+			renderConfirmMessage(
+				first,
+				0,
+				parsedNormalized.length,
+				user.defaultAccountId
+			),
+			{
+				parse_mode: 'HTML',
+				reply_markup: confirmKeyboard(
+					parsedNormalized.length,
+					0,
+					showConversion,
+					first?.direction === 'transfer',
+					false
+				)
+			}
+		)
+		ctx.session.tempMessageId = msg.message_id
 	}
 }

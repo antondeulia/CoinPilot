@@ -4,11 +4,11 @@ import { type AnalyticsPeriod } from '../../../modules/analytics/analytics.servi
 
 export const analyticsFilterCallback = (bot: Bot<BotContext>) => {
 	bot.callbackQuery('analytics_filter', async ctx => {
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const kb = new InlineKeyboard()
-		kb.text(period === 7 ? '✅ 7d' : '7d', 'analytics_filter_period:7')
-			.text(period === 30 ? '✅ 30d' : '30d', 'analytics_filter_period:30')
-			.text(period === 90 ? '✅ 90d' : '90d', 'analytics_filter_period:90')
+		kb.text(period === '7d' ? '✅ 7d' : '7d', 'analytics_filter_period:7d')
+			.text(period === '30d' ? '✅ 30d' : '30d', 'analytics_filter_period:30d')
+			.text(period === '90d' ? '✅ 90d' : '90d', 'analytics_filter_period:90d')
 			.row()
 		kb.text('← Назад', 'analytics_back_to_main')
 
@@ -26,9 +26,9 @@ export const analyticsFilterCallback = (bot: Bot<BotContext>) => {
 	})
 
 	bot.callbackQuery(/^analytics_filter_period:/, async ctx => {
-		const p = parseInt(ctx.callbackQuery.data.split(':')[1], 10) as AnalyticsPeriod
+		const p = ctx.callbackQuery.data.split(':')[1] as AnalyticsPeriod
 		;(ctx.session as any).analyticsPeriod = p
-		await ctx.answerCallbackQuery({ text: `Период: ${p} дней` })
+		await ctx.answerCallbackQuery({ text: `Период: ${p}` })
 		const msgId = (ctx.session as any).homeMessageId
 		if (msgId != null) {
 			try {

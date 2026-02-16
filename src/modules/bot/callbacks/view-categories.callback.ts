@@ -1,33 +1,9 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { CategoriesService } from '../../../modules/categories/categories.service'
+import { buildSettingsView } from '../../../shared/keyboards/settings'
 
 const PAGE_SIZE = 9
-
-function settingsKeyboard() {
-	return new InlineKeyboard()
-		.text('Основная валюта', 'main_currency_open')
-		.row()
-		.text('Основной счёт', 'default_account_open')
-		.row()
-		.text('Категории', 'view_categories')
-		.row()
-		.text('Теги', 'view_tags')
-		.row()
-		.text('🠐 Назад', 'go_home')
-}
-
-function settingsText(user: {
-	mainCurrency?: string
-	defaultAccountId?: string
-	accounts: { id: string; name: string }[]
-}) {
-	const mainCode = user?.mainCurrency ?? 'USD'
-	const defaultAccount =
-		user.accounts.find((a: any) => a.id === user.defaultAccountId) ?? user.accounts[0]
-	const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-	return `<b>⚙️ Настройки</b>\n\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
-}
 
 const SETTINGS_CAT_PAGE_PREFIX = 'settings_cat_page:'
 
@@ -74,7 +50,8 @@ export function categoriesListKb(
 export const viewCategoriesCallback = (
 	bot: Bot<BotContext>,
 	categoriesService: CategoriesService,
-	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customCategoryIdsOverLimit: string[] }> }
+	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customCategoryIdsOverLimit: string[] }> },
+	prisma: { alertConfig: { count: (args: { where: { userId: string; enabled: boolean } }) => Promise<number> } }
 ) => {
 	bot.callbackQuery('view_categories', async ctx => {
 		const userId = ctx.state.user.id
@@ -147,7 +124,7 @@ export const viewCategoriesCallback = (
 				'Категория доступна только по Premium. В Free — только дефолтные категории.',
 				{
 					reply_markup: new InlineKeyboard()
-						.text('👑 Premium', 'view_premium')
+						.text('💠 Pro-тариф', 'view_premium')
 						.row()
 						.text('Закрыть', 'hide_message')
 				}
@@ -323,9 +300,13 @@ export const viewCategoriesCallback = (
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		const user: any = ctx.state.user
-		await ctx.api.editMessageText(ctx.chat!.id, msgId, settingsText(user), {
+		const alertsEnabledCount = await prisma.alertConfig.count({
+			where: { userId: user.id, enabled: true }
+		})
+		const view = buildSettingsView(user, alertsEnabledCount)
+		await ctx.api.editMessageText(ctx.chat!.id, msgId, view.text, {
 			parse_mode: 'HTML',
-			reply_markup: settingsKeyboard()
+			reply_markup: view.keyboard
 		})
 		ctx.session.categoriesMessageId = undefined
 	})

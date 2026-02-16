@@ -140,6 +140,29 @@ export class SubscriptionService {
 		return { allowed: current < limit, current, limit }
 	}
 
+	async canParseImage(userId: string): Promise<LimitResult> {
+		const isPrem = await this.isPremiumForUser(userId)
+		const now = new Date()
+		const startOfMonth = new Date(
+			Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
+		)
+		const rows = await this.prisma.transaction.findMany({
+			where: {
+				userId,
+				transactionDate: { gte: startOfMonth, lte: now },
+				rawText: { startsWith: 'PHOTO_PARSE:' }
+			},
+			select: { rawText: true },
+			distinct: ['rawText']
+		})
+		const current = rows.length
+		const limit = FREE_LIMITS.MAX_IMAGE_PARSES_PER_MONTH
+		if (isPrem) {
+			return { allowed: true, current, limit }
+		}
+		return { allowed: current < limit, current, limit }
+	}
+
 	async canStartTrial(userId: string): Promise<{ allowed: boolean; reason?: string }> {
 		const user = await this.prisma.user.findUnique({
 			where: { id: userId },
@@ -305,5 +328,79 @@ export class SubscriptionService {
 			select: { isPremium: true, premiumUntil: true }
 		})
 		return user ? this.isPremium(user) : false
+	}
+
+	async getSubscriptionDisplay(userId: string): Promise<{
+		active: boolean
+		planName: string
+		endDate: Date | null
+		daysLeft: number | null
+		amount: number
+		currency: string
+		periodLabel: string
+		isTrial: boolean
+		autoRenew: boolean | null
+	}> {
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: { isPremium: true, premiumUntil: true, mainCurrency: true }
+		})
+		const active = user ? this.isPremium(user) : false
+		const mainCurrency = user?.mainCurrency ?? 'EUR'
+		if (!active) {
+			return {
+				active: false,
+				planName: 'Free',
+				endDate: null,
+				daysLeft: null,
+				amount: 0,
+				currency: mainCurrency,
+				periodLabel: 'месяц',
+				isTrial: false,
+				autoRenew: null
+			}
+		}
+		const sub = await this.prisma.subscription.findFirst({
+			where: { userId, status: 'active' },
+			orderBy: { createdAt: 'desc' },
+			select: {
+				plan: true,
+				endDate: true,
+				amount: true,
+				currency: true,
+				autoRenew: true
+			}
+		})
+		const planNames: Record<string, string> = {
+			monthly: 'Месячный',
+			yearly: 'Годовой',
+			lifetime: 'Навсегда',
+			trial: 'Trial'
+		}
+		const periodLabels: Record<string, string> = {
+			monthly: 'месяц',
+			yearly: 'год',
+			lifetime: 'навсегда',
+			trial: 'trial'
+		}
+		const endDate = sub?.endDate ?? user?.premiumUntil ?? null
+		const now = new Date()
+		let daysLeft: number | null = null
+		if (endDate && endDate > now) {
+			daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+		}
+		const plan = sub?.plan ?? 'monthly'
+		const isTrial = plan === 'trial'
+		return {
+			active,
+			planName: planNames[plan] ?? plan,
+			endDate,
+			daysLeft,
+			amount: sub?.amount ?? 0,
+			currency: sub?.currency ?? mainCurrency,
+			periodLabel: periodLabels[plan] ?? 'месяц',
+			isTrial,
+			autoRenew: sub?.autoRenew ?? null
+		}
 	}
 }

@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { TagsService } from '../../../modules/tags/tags.service'
+import { buildSettingsView } from '../../../shared/keyboards/settings'
 
 function tagsSettingsKeyboard() {
 	return new InlineKeyboard()
@@ -26,7 +27,8 @@ export function tagsListText(
 export const viewTagsCallback = (
 	bot: Bot<BotContext>,
 	tagsService: TagsService,
-	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customTagIdsOverLimit: string[] }> }
+	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customTagIdsOverLimit: string[] }> },
+	prisma: { alertConfig: { count: (args: { where: { userId: string; enabled: boolean } }) => Promise<number> } }
 ) => {
 	bot.callbackQuery('view_tags', async ctx => {
 		const userId = ctx.state.user.id
@@ -78,25 +80,13 @@ export const viewTagsCallback = (
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		const user: any = ctx.state.user
-		const mainCode = user?.mainCurrency ?? 'USD'
-		const defaultAccount =
-			user.accounts?.find((a: any) => a.id === user.defaultAccountId) ??
-			user.accounts?.[0]
-		const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
-		const settingsText = `<b>⚙️ Настройки</b>\n\nОсновная валюта: ${mainCode}\nОсновной счёт: ${defaultAccountName}`
-		const kb = new InlineKeyboard()
-			.text('Основная валюта', 'main_currency_open')
-			.row()
-			.text('Основной счёт', 'default_account_open')
-			.row()
-			.text('Категории', 'view_categories')
-			.row()
-			.text('Теги', 'view_tags')
-			.row()
-			.text('🠐 Назад', 'go_home')
-		await ctx.api.editMessageText(ctx.chat!.id, msgId, settingsText, {
+		const alertsEnabledCount = await prisma.alertConfig.count({
+			where: { userId: user.id, enabled: true }
+		})
+		const view = buildSettingsView(user, alertsEnabledCount)
+		await ctx.api.editMessageText(ctx.chat!.id, msgId, view.text, {
 			parse_mode: 'HTML',
-			reply_markup: kb
+			reply_markup: view.keyboard
 		})
 		ctx.session.tagsSettingsMessageId = undefined
 	})

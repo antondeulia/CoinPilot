@@ -55,6 +55,9 @@ export type BotContext = Context & {
 		categoriesMessageId?: number
 		categoriesHintMessageId?: number
 		editingTransactionId?: string
+		awaitingDeleteConfirm?: boolean
+		mainCurrencyHintMessageId?: number
+		mainCurrencyErrorMessageIds?: number[]
 	}
 	chat: {
 		id: string

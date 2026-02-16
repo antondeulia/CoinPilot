@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const LlmTransactionSchema = z.object({
 	action: z.literal('create_transaction'),
-	amount: z.number().positive().optional(),
+	amount: z.number().optional(),
 	currency: z.string().optional(),
 	direction: z.enum(['expense', 'income', 'transfer']),
 	fromAccount: z.string().optional(),

@@ -33,6 +33,9 @@ export type UserMinAggregateOutputType = {
   isPremium: boolean | null
   premiumUntil: Date | null
   trialUsed: boolean | null
+  stripeCustomerId: string | null
+  lastTipText: string | null
+  lastTipDate: Date | null
   createdAt: Date | null
 }
 
@@ -45,6 +48,9 @@ export type UserMaxAggregateOutputType = {
   isPremium: boolean | null
   premiumUntil: Date | null
   trialUsed: boolean | null
+  stripeCustomerId: string | null
+  lastTipText: string | null
+  lastTipDate: Date | null
   createdAt: Date | null
 }
 
@@ -57,6 +63,9 @@ export type UserCountAggregateOutputType = {
   isPremium: number
   premiumUntil: number
   trialUsed: number
+  stripeCustomerId: number
+  lastTipText: number
+  lastTipDate: number
   createdAt: number
   _all: number
 }
@@ -71,6 +80,9 @@ export type UserMinAggregateInputType = {
   isPremium?: true
   premiumUntil?: true
   trialUsed?: true
+  stripeCustomerId?: true
+  lastTipText?: true
+  lastTipDate?: true
   createdAt?: true
 }
 
@@ -83,6 +95,9 @@ export type UserMaxAggregateInputType = {
   isPremium?: true
   premiumUntil?: true
   trialUsed?: true
+  stripeCustomerId?: true
+  lastTipText?: true
+  lastTipDate?: true
   createdAt?: true
 }
 
@@ -95,6 +110,9 @@ export type UserCountAggregateInputType = {
   isPremium?: true
   premiumUntil?: true
   trialUsed?: true
+  stripeCustomerId?: true
+  lastTipText?: true
+  lastTipDate?: true
   createdAt?: true
   _all?: true
 }
@@ -180,6 +198,9 @@ export type UserGroupByOutputType = {
   isPremium: boolean
   premiumUntil: Date | null
   trialUsed: boolean
+  stripeCustomerId: string | null
+  lastTipText: string | null
+  lastTipDate: Date | null
   createdAt: Date
   _count: UserCountAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
@@ -213,6 +234,9 @@ export type UserWhereInput = {
   isPremium?: Prisma.BoolFilter<"User"> | boolean
   premiumUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   trialUsed?: Prisma.BoolFilter<"User"> | boolean
+  stripeCustomerId?: Prisma.StringNullableFilter<"User"> | string | null
+  lastTipText?: Prisma.StringNullableFilter<"User"> | string | null
+  lastTipDate?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   accounts?: Prisma.AccountListRelationFilter
   transactions?: Prisma.TransactionListRelationFilter
@@ -233,6 +257,9 @@ export type UserOrderByWithRelationInput = {
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrderInput | Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
+  stripeCustomerId?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastTipText?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastTipDate?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   accounts?: Prisma.AccountOrderByRelationAggregateInput
   transactions?: Prisma.TransactionOrderByRelationAggregateInput
@@ -256,6 +283,9 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   isPremium?: Prisma.BoolFilter<"User"> | boolean
   premiumUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   trialUsed?: Prisma.BoolFilter<"User"> | boolean
+  stripeCustomerId?: Prisma.StringNullableFilter<"User"> | string | null
+  lastTipText?: Prisma.StringNullableFilter<"User"> | string | null
+  lastTipDate?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   accounts?: Prisma.AccountListRelationFilter
   transactions?: Prisma.TransactionListRelationFilter
@@ -276,6 +306,9 @@ export type UserOrderByWithAggregationInput = {
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrderInput | Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
+  stripeCustomerId?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastTipText?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastTipDate?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
   _max?: Prisma.UserMaxOrderByAggregateInput
@@ -294,6 +327,9 @@ export type UserScalarWhereWithAggregatesInput = {
   isPremium?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   premiumUntil?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   trialUsed?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
+  stripeCustomerId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  lastTipText?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  lastTipDate?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
 
@@ -306,6 +342,9 @@ export type UserCreateInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -326,6 +365,9 @@ export type UserUncheckedCreateInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -346,6 +388,9 @@ export type UserUpdateInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -366,6 +411,9 @@ export type UserUncheckedUpdateInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -386,6 +434,9 @@ export type UserCreateManyInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -398,6 +449,9 @@ export type UserUpdateManyMutationInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -410,6 +464,9 @@ export type UserUncheckedUpdateManyInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -422,6 +479,9 @@ export type UserCountOrderByAggregateInput = {
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
+  stripeCustomerId?: Prisma.SortOrder
+  lastTipText?: Prisma.SortOrder
+  lastTipDate?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -434,6 +494,9 @@ export type UserMaxOrderByAggregateInput = {
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
+  stripeCustomerId?: Prisma.SortOrder
+  lastTipText?: Prisma.SortOrder
+  lastTipDate?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -446,20 +509,15 @@ export type UserMinOrderByAggregateInput = {
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
+  stripeCustomerId?: Prisma.SortOrder
+  lastTipText?: Prisma.SortOrder
+  lastTipDate?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type UserScalarRelationFilter = {
   is?: Prisma.UserWhereInput
   isNot?: Prisma.UserWhereInput
-}
-
-export type StringFieldUpdateOperationsInput = {
-  set?: string
-}
-
-export type NullableStringFieldUpdateOperationsInput = {
-  set?: string | null
 }
 
 export type BoolFieldUpdateOperationsInput = {
@@ -595,6 +653,9 @@ export type UserCreateWithoutAccountsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
@@ -614,6 +675,9 @@ export type UserUncheckedCreateWithoutAccountsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
@@ -649,6 +713,9 @@ export type UserUpdateWithoutAccountsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
@@ -668,6 +735,9 @@ export type UserUncheckedUpdateWithoutAccountsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
@@ -687,6 +757,9 @@ export type UserCreateWithoutTransactionsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryCreateNestedManyWithoutUserInput
@@ -706,6 +779,9 @@ export type UserUncheckedCreateWithoutTransactionsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutUserInput
@@ -741,6 +817,9 @@ export type UserUpdateWithoutTransactionsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutUserNestedInput
@@ -760,6 +839,9 @@ export type UserUncheckedUpdateWithoutTransactionsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutUserNestedInput
@@ -779,6 +861,9 @@ export type UserCreateWithoutCategoriesInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -798,6 +883,9 @@ export type UserUncheckedCreateWithoutCategoriesInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -833,6 +921,9 @@ export type UserUpdateWithoutCategoriesInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -852,6 +943,9 @@ export type UserUncheckedUpdateWithoutCategoriesInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -871,6 +965,9 @@ export type UserCreateWithoutTagsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -890,6 +987,9 @@ export type UserUncheckedCreateWithoutTagsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -925,6 +1025,9 @@ export type UserUpdateWithoutTagsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -944,6 +1047,9 @@ export type UserUncheckedUpdateWithoutTagsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -963,6 +1069,9 @@ export type UserCreateWithoutSavedAnalyticsViewsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -982,6 +1091,9 @@ export type UserUncheckedCreateWithoutSavedAnalyticsViewsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -1017,6 +1129,9 @@ export type UserUpdateWithoutSavedAnalyticsViewsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -1036,6 +1151,9 @@ export type UserUncheckedUpdateWithoutSavedAnalyticsViewsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -1055,6 +1173,9 @@ export type UserCreateWithoutAlertConfigsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -1074,6 +1195,9 @@ export type UserUncheckedCreateWithoutAlertConfigsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -1109,6 +1233,9 @@ export type UserUpdateWithoutAlertConfigsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -1128,6 +1255,9 @@ export type UserUncheckedUpdateWithoutAlertConfigsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -1147,6 +1277,9 @@ export type UserCreateWithoutSubscriptionsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -1166,6 +1299,9 @@ export type UserUncheckedCreateWithoutSubscriptionsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -1201,6 +1337,9 @@ export type UserUpdateWithoutSubscriptionsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -1220,6 +1359,9 @@ export type UserUncheckedUpdateWithoutSubscriptionsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -1239,6 +1381,9 @@ export type UserCreateWithoutPremiumEventsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -1258,6 +1403,9 @@ export type UserUncheckedCreateWithoutPremiumEventsInput = {
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
+  stripeCustomerId?: string | null
+  lastTipText?: string | null
+  lastTipDate?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -1293,6 +1441,9 @@ export type UserUpdateWithoutPremiumEventsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -1312,6 +1463,9 @@ export type UserUncheckedUpdateWithoutPremiumEventsInput = {
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -1425,6 +1579,9 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   isPremium?: boolean
   premiumUntil?: boolean
   trialUsed?: boolean
+  stripeCustomerId?: boolean
+  lastTipText?: boolean
+  lastTipDate?: boolean
   createdAt?: boolean
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   transactions?: boolean | Prisma.User$transactionsArgs<ExtArgs>
@@ -1446,6 +1603,9 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   isPremium?: boolean
   premiumUntil?: boolean
   trialUsed?: boolean
+  stripeCustomerId?: boolean
+  lastTipText?: boolean
+  lastTipDate?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
 
@@ -1458,6 +1618,9 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   isPremium?: boolean
   premiumUntil?: boolean
   trialUsed?: boolean
+  stripeCustomerId?: boolean
+  lastTipText?: boolean
+  lastTipDate?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
 
@@ -1470,10 +1633,13 @@ export type UserSelectScalar = {
   isPremium?: boolean
   premiumUntil?: boolean
   trialUsed?: boolean
+  stripeCustomerId?: boolean
+  lastTipText?: boolean
+  lastTipDate?: boolean
   createdAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "activeAccountId" | "defaultAccountId" | "mainCurrency" | "isPremium" | "premiumUntil" | "trialUsed" | "createdAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "activeAccountId" | "defaultAccountId" | "mainCurrency" | "isPremium" | "premiumUntil" | "trialUsed" | "stripeCustomerId" | "lastTipText" | "lastTipDate" | "createdAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   transactions?: boolean | Prisma.User$transactionsArgs<ExtArgs>
@@ -1509,6 +1675,9 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     isPremium: boolean
     premiumUntil: Date | null
     trialUsed: boolean
+    stripeCustomerId: string | null
+    lastTipText: string | null
+    lastTipDate: Date | null
     createdAt: Date
   }, ExtArgs["result"]["user"]>
   composites: {}
@@ -1949,6 +2118,9 @@ export interface UserFieldRefs {
   readonly isPremium: Prisma.FieldRef<"User", 'Boolean'>
   readonly premiumUntil: Prisma.FieldRef<"User", 'DateTime'>
   readonly trialUsed: Prisma.FieldRef<"User", 'Boolean'>
+  readonly stripeCustomerId: Prisma.FieldRef<"User", 'String'>
+  readonly lastTipText: Prisma.FieldRef<"User", 'String'>
+  readonly lastTipDate: Prisma.FieldRef<"User", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
 }
     

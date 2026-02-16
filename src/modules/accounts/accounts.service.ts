@@ -57,16 +57,38 @@ export class AccountsService {
 		})
 	}
 
+	/**
+	 * Обновляет название и текущий баланс счёта (активы).
+	 * Баланс — всегда текущий: хранится только в AccountAsset, без отдельного «начального».
+	 * Пользователь может в любой момент задать актуальный баланс через Jarvis-редактирование.
+	 */
 	async updateAccountWithAssets(
 		accountId: string,
 		userId: string,
 		draft: { name: string; assets: { currency: string; amount: number }[] }
 	) {
 		await this.prisma.$transaction(async tx => {
+			const oldAssets = await tx.accountAsset.findMany({
+				where: { accountId },
+				select: { currency: true }
+			})
 			await tx.account.update({
 				where: { id: accountId, userId },
 				data: { name: draft.name.trim() }
 			})
+			const oldCurrencies = new Set(oldAssets.map(a => a.currency))
+			const newCurrencies = new Set(draft.assets.map(a => a.currency))
+			const removedCurrencies = [...oldCurrencies].filter(
+				code => !newCurrencies.has(code)
+			)
+			if (removedCurrencies.length > 0) {
+				await tx.transaction.deleteMany({
+					where: {
+						accountId,
+						currency: { in: removedCurrencies }
+					}
+				})
+			}
 			await tx.accountAsset.deleteMany({ where: { accountId } })
 			for (const a of draft.assets) {
 				await tx.accountAsset.create({
@@ -85,9 +107,46 @@ export class AccountsService {
 		})
 	}
 
+	async deleteAccount(accountId: string, userId: string): Promise<boolean> {
+		const account = await this.prisma.account.findFirst({
+			where: { id: accountId, userId }
+		})
+		if (!account) return false
+		await this.prisma.$transaction(async tx => {
+			await tx.transaction.deleteMany({
+				where: {
+					OR: [
+						{ accountId },
+						{ fromAccountId: accountId },
+						{ toAccountId: accountId }
+					]
+				}
+			})
+			await tx.account.delete({ where: { id: accountId, userId } })
+			const user = await tx.user.findUnique({
+				where: { id: userId },
+				select: { activeAccountId: true, defaultAccountId: true }
+			})
+			if (user && (user.activeAccountId === accountId || user.defaultAccountId === accountId)) {
+				const other = await tx.account.findFirst({
+					where: { userId }
+				})
+				await tx.user.update({
+					where: { id: userId },
+					data: {
+						activeAccountId: other?.id ?? null,
+						defaultAccountId: other?.id ?? null
+					}
+				})
+			}
+		})
+		return true
+	}
+
 	/**
-	 * Cashflow за текущий календарный месяц (1-е число — сегодня).
-	 * Только income/expense, без внутренних переводов; валюта нормализуется в mainCurrency.
+	 * Cashflow за текущий календарный месяц: с 1-го числа месяца по сегодня включительно
+	 * (локальное время сервера). Учитываются income/expense и переводы на/с «Вне Wallet».
+	 * Валюта приводится к mainCurrency.
 	 */
 	async getBalance({
 		userId,
@@ -108,35 +167,61 @@ export class AccountsService {
 
 		const now = new Date()
 		const startOfMonth = new Date(
-			Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)
+			now.getFullYear(),
+			now.getMonth(),
+			1,
+			0,
+			0,
+			0,
+			0
 		)
 		const endOfToday = new Date(
-			Date.UTC(
-				now.getUTCFullYear(),
-				now.getUTCMonth(),
-				now.getUTCDate(),
-				23,
-				59,
-				59,
-				999
-			)
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate(),
+			23,
+			59,
+			59,
+			999
 		)
 
-		const txs = await this.prisma.transaction.findMany({
-			where: {
-				userId,
-				direction: { in: ['income', 'expense'] },
-				account: { userId, isHidden: false },
-				transactionDate: { gte: startOfMonth, lte: endOfToday }
-			},
-			select: {
-				direction: true,
-				amount: true,
-				currency: true,
-				convertedAmount: true,
-				convertToCurrency: true
-			}
-		})
+		const [txs, transferTxs] = await Promise.all([
+			this.prisma.transaction.findMany({
+				where: {
+					userId,
+					direction: { in: ['income', 'expense'] },
+					account: { userId, isHidden: false },
+					transactionDate: { gte: startOfMonth, lte: endOfToday }
+				},
+				select: {
+					direction: true,
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true
+				}
+			}),
+			this.prisma.transaction.findMany({
+				where: {
+					userId,
+					direction: 'transfer',
+					toAccountId: { not: null },
+					transactionDate: { gte: startOfMonth, lte: endOfToday },
+					OR: [
+						{ account: { userId, isHidden: false }, toAccount: { isHidden: true } },
+						{ account: { userId, isHidden: true }, toAccount: { isHidden: false } }
+					]
+				},
+				select: {
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true,
+					account: { select: { isHidden: true } },
+					toAccount: { select: { isHidden: true } }
+				}
+			})
+		])
 
 		let inflowsMain = 0
 		let outflowsMain = 0
@@ -145,40 +230,92 @@ export class AccountsService {
 				tx.convertedAmount != null &&
 				tx.convertToCurrency != null &&
 				tx.convertToCurrency === main
-			const amountMain = useConverted
+			const converted = useConverted
 				? tx.convertedAmount!
 				: await this.exchangeService.convert(tx.amount, tx.currency, main)
+			const amountMain = converted ?? 0
 			if (tx.direction === 'income') inflowsMain += amountMain
 			else outflowsMain += amountMain
+		}
+		for (const tx of transferTxs) {
+			const useConverted =
+				tx.convertedAmount != null &&
+				tx.convertToCurrency != null &&
+				tx.convertToCurrency === main
+			const converted = useConverted
+				? tx.convertedAmount!
+				: await this.exchangeService.convert(tx.amount, tx.currency, main)
+			const amountMain = converted ?? 0
+			const toExternal = tx.toAccount?.isHidden === true
+			if (toExternal) outflowsMain += amountMain
+			else inflowsMain += amountMain
 		}
 		return inflowsMain - outflowsMain
 	}
 
 	async createAccountWithAssets(userId: string, draft: LlmAccount) {
-		const [firstWord, ...rest] = draft.name.trim().split(/\s+/)
+		const rawName = draft.name.trim()
+		const userEmojiMatch = rawName.match(
+			/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+)/u
+		)
+		const userEmoji = userEmojiMatch?.[1]
+		const emoji = userEmoji ?? draft.emoji ?? '💼'
+		const nameWithoutLeadingEmoji = rawName
+			.replace(
+				/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+\s*)+/u,
+				''
+			)
+			.trim()
+		const safeName = nameWithoutLeadingEmoji || 'Счёт'
+		const [firstWord, ...rest] = safeName.split(/\s+/)
 		const formattedName =
 			firstWord.charAt(0).toUpperCase() +
 			firstWord.slice(1).toLowerCase() +
 			(rest.length ? ' ' + rest.join(' ') : '')
+		const accountTypeMap: Record<string, 'bank' | 'cash' | 'crypto'> = {
+			bank: 'bank',
+			exchange: 'bank',
+			crypto_wallet: 'crypto',
+			cash: 'cash',
+			online_service: 'bank',
+			other: 'bank'
+		}
+		const type = accountTypeMap[draft.accountType ?? 'bank'] ?? 'bank'
+		const mergedAssets = new Map<string, number>()
+		for (const asset of draft.assets) {
+			const currency = (asset.currency ?? '').toUpperCase().trim()
+			if (!currency) continue
+			const prev = mergedAssets.get(currency) ?? 0
+			mergedAssets.set(currency, prev + Number(asset.amount ?? 0))
+		}
+		const assets = Array.from(mergedAssets.entries()).map(([currency, amount]) => ({
+			currency,
+			amount
+		}))
+		if (!assets.length) {
+			assets.push({ currency: 'USD', amount: 0 })
+		}
 
 		return this.prisma.$transaction(async tx => {
-			let name = formattedName
+			let name = `${emoji} ${formattedName}`.trim()
 			let suffix = 1
 			while (await tx.account.findFirst({ where: { userId, name } })) {
 				suffix++
-				name = `${formattedName} ${suffix}`
+				name = `${emoji} ${formattedName} ${suffix}`.trim()
 			}
-			const existingCount = await tx.account.count({ where: { userId } })
+			const existingCount = await tx.account.count({
+				where: { userId, isHidden: false }
+			})
 			const account = await tx.account.create({
 				data: {
 					userId,
 					name,
-					type: 'bank',
-					currency: draft.assets[0].currency
+					type,
+					currency: assets[0].currency
 				}
 			})
 
-			for (const asset of draft.assets) {
+			for (const asset of assets) {
 				await tx.accountAsset.create({
 					data: {
 						accountId: account.id,
