@@ -1,8 +1,13 @@
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { BotContext } from '../core/bot.middleware'
 import { renderHome } from './render-home'
 
-export async function resetToHome(ctx: BotContext, accountsService: AccountsService) {
+export async function resetToHome(
+	ctx: BotContext,
+	accountsService: AccountsService,
+	analyticsService: AnalyticsService
+) {
 	ctx.session.awaitingTransaction = false
 	ctx.session.confirmingTransaction = false
 	ctx.session.editingField = undefined
@@ -15,5 +20,5 @@ export async function resetToHome(ctx: BotContext, accountsService: AccountsServ
 		ctx.session.tempMessageId = undefined
 	}
 
-	await renderHome(ctx, accountsService)
+	await renderHome(ctx, accountsService, analyticsService)
 }

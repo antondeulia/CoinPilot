@@ -43,6 +43,19 @@ export class StripeService {
 		const cancelUrl =
 			this.config.get<string>('STRIPE_CANCEL_URL') ?? successUrl
 
+		const user = await this.prisma.user.findUnique({
+			where: { id: params.userId },
+			select: { trialUsed: true }
+		})
+		const subscriptionData: { metadata: { user_id: string; plan: string }; trial_period_days?: number } = {
+			metadata: {
+				user_id: params.userId,
+				plan: params.plan
+			}
+		}
+		if (user && !user.trialUsed) {
+			subscriptionData.trial_period_days = 7
+		}
 		const session = await this.stripe.checkout.sessions.create({
 			mode: 'subscription',
 			line_items: [
@@ -58,17 +71,29 @@ export class StripeService {
 				user_id: params.userId,
 				plan: params.plan
 			},
-			subscription_data: {
-				metadata: {
-					user_id: params.userId,
-					plan: params.plan
-				}
-			}
+			subscription_data: subscriptionData
 		})
 
 		if (!session.url) {
 			throw new Error('Stripe session has no URL')
 		}
+		return session.url
+	}
+
+	async createBillingPortalSession(userId: string): Promise<string | null> {
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: { stripeCustomerId: true }
+		})
+		if (!user?.stripeCustomerId) return null
+		const returnUrl =
+			this.config.get<string>('STRIPE_SUCCESS_URL') ??
+			this.config.get<string>('STRIPE_CANCEL_URL') ??
+			'https://t.me'
+		const session = await this.stripe.billingPortal.sessions.create({
+			customer: user.stripeCustomerId,
+			return_url: returnUrl
+		})
 		return session.url
 	}
 
@@ -105,6 +130,11 @@ export class StripeService {
 				break
 			case 'customer.subscription.updated':
 				await this.handleSubscriptionUpdated(
+					event.data.object as Stripe.Subscription
+				)
+				break
+			case 'customer.subscription.deleted':
+				await this.handleSubscriptionDeleted(
 					event.data.object as Stripe.Subscription
 				)
 				break
@@ -146,12 +176,16 @@ export class StripeService {
 				? SubscriptionPlan.monthly
 				: SubscriptionPlan.yearly
 
+		const stripeCustomerId = session.customer as string | null
+
 		await this.prisma.$transaction([
 			this.prisma.user.update({
 				where: { id: userId },
 				data: {
 					isPremium: true,
-					premiumUntil: end
+					premiumUntil: end,
+					trialUsed: true,
+					...(stripeCustomerId && { stripeCustomerId })
 				}
 			}),
 			this.prisma.subscription.create({
@@ -225,6 +259,22 @@ export class StripeService {
 					isPremium: isActive,
 					premiumUntil: isActive ? end : null
 				}
+			})
+		])
+	}
+
+	private async handleSubscriptionDeleted(stripeSub: any) {
+		const meta = stripeSub.metadata ?? {}
+		const userId = meta.user_id
+		if (!userId) return
+		await this.prisma.$transaction([
+			this.prisma.subscription.updateMany({
+				where: { userId, status: 'active' },
+				data: { status: 'expired' }
+			}),
+			this.prisma.user.update({
+				where: { id: userId },
+				data: { isPremium: false, premiumUntil: null }
 			})
 		])
 	}

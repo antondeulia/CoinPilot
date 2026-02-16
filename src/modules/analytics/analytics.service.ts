@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ExchangeService } from '../exchange/exchange.service'
 
-export type AnalyticsPeriod = 7 | 30 | 90
+export type AnalyticsPeriod = '7d' | '30d' | '90d' | 'week' | 'month' | '3month'
 
 export interface AnalyticsFilters {
 	period: AnalyticsPeriod
@@ -27,6 +27,15 @@ export interface CategorySum {
 	categoryName: string
 	sum: number
 	pct: number
+	tagDetails?: { tagName: string; sum: number }[]
+}
+
+export interface TransferSum {
+	fromAccountName: string
+	toAccountName: string
+	sum: number
+	pct: number
+	descriptions: string[]
 }
 
 export interface TagSum {
@@ -48,25 +57,47 @@ export interface AnomalyRow {
 	currency: string
 	description: string | null
 	transactionDate: Date
+	tagOrCategory?: string
 }
 
-function periodToDays(period: AnalyticsPeriod): number {
-	return period
-}
+const ROLLING_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 }
 
 function dateRange(period: AnalyticsPeriod): { from: Date; to: Date } {
-	const to = new Date()
-	const from = new Date(to)
-	from.setDate(from.getDate() - periodToDays(period))
+	const now = new Date()
+	const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+	let from: Date
+	const days = ROLLING_DAYS[period]
+	if (days !== undefined) {
+		from = new Date(to)
+		from.setDate(from.getDate() - days)
+		from.setHours(0, 0, 0, 0)
+	} else if (period === 'week') {
+		const day = now.getDay()
+		const mondayOffset = day === 0 ? -6 : 1 - day
+		from = new Date(now)
+		from.setDate(now.getDate() + mondayOffset)
+		from.setHours(0, 0, 0, 0)
+	} else if (period === 'month') {
+		from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+	} else {
+		// 3month: first day of (current - 2) month
+		from = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0, 0)
+	}
 	return { from, to }
+}
+
+function periodDays(period: AnalyticsPeriod): number {
+	const { from, to } = dateRange(period)
+	return Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)))
 }
 
 function prevDateRange(period: AnalyticsPeriod): { from: Date; to: Date } {
-	const to = new Date()
-	to.setDate(to.getDate() - periodToDays(period))
-	const from = new Date(to)
-	from.setDate(from.getDate() - periodToDays(period))
-	return { from, to }
+	const { from, to } = dateRange(period)
+	const span = to.getTime() - from.getTime()
+	return {
+		from: new Date(from.getTime() - span),
+		to: new Date(from.getTime() - 1)
+	}
 }
 
 @Injectable()
@@ -95,12 +126,319 @@ export class AnalyticsService {
 		return { where, from, to }
 	}
 
+	getDateRange(period: AnalyticsPeriod): { from: Date; to: Date } {
+		return dateRange(period)
+	}
+
+	/** Net transfer effect in main currency: positive = money into wallet from external */
+	async getTransferCashflow(
+		userId: string,
+		period: AnalyticsPeriod,
+		mainCurrency: string,
+		accountId?: string
+	): Promise<number> {
+		const { from, to } = dateRange(period)
+		const transferTxs = await this.prisma.transaction.findMany({
+			where: {
+				userId,
+				direction: 'transfer',
+				toAccountId: { not: null },
+				transactionDate: { gte: from, lte: to },
+				...(accountId
+					? {
+							OR: [
+								{ accountId, toAccount: { isHidden: true } },
+								{ toAccountId: accountId, account: { isHidden: true } }
+							]
+						}
+					: {
+							OR: [
+								{ account: { userId, isHidden: false }, toAccount: { isHidden: true } },
+								{ account: { userId, isHidden: true }, toAccount: { isHidden: false } }
+							]
+						})
+			},
+			select: {
+				amount: true,
+				currency: true,
+				convertedAmount: true,
+				convertToCurrency: true,
+				account: { select: { isHidden: true } },
+				toAccount: { select: { isHidden: true } }
+			}
+		})
+		let net = 0
+		for (const tx of transferTxs) {
+			const amt =
+				tx.convertedAmount != null && tx.convertToCurrency
+					? tx.convertedAmount
+					: tx.amount
+			const cur =
+				tx.convertedAmount != null && tx.convertToCurrency
+					? tx.convertToCurrency
+					: tx.currency
+			const inMain = await this.toMainCurrency(amt, cur, mainCurrency)
+			const toExternal = tx.toAccount?.isHidden === true
+			net += toExternal ? -inMain : inMain
+		}
+		return net
+	}
+
+	async getCashflow(
+		userId: string,
+		period: AnalyticsPeriod,
+		mainCurrency: string,
+		accountId?: string
+	): Promise<number> {
+		const [summary, transferCf] = await Promise.all([
+			this.getSummary(userId, period, mainCurrency, accountId),
+			this.getTransferCashflow(userId, period, mainCurrency, accountId)
+		])
+		return summary.income - summary.expenses + transferCf
+	}
+
+	async getBeginningBalance(
+		userId: string,
+		period: AnalyticsPeriod,
+		mainCurrency: string,
+		accountId?: string
+	): Promise<number> {
+		const [summary, transferCf] = await Promise.all([
+			this.getSummary(userId, period, mainCurrency, accountId),
+			this.getTransferCashflow(userId, period, mainCurrency, accountId)
+		])
+		return summary.balance - (summary.income - summary.expenses) - transferCf
+	}
+
+	async getTransfersTotal(
+		userId: string,
+		period: AnalyticsPeriod,
+		mainCurrency: string,
+		accountId?: string
+	): Promise<number> {
+		const { from, to } = dateRange(period)
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
+		const rows = await this.prisma.transaction.findMany({
+			where: {
+				userId,
+				direction: 'transfer',
+				transactionDate: { gte: from, lte: to },
+				...accountFilter
+			},
+			select: {
+				amount: true,
+				currency: true,
+				convertedAmount: true,
+				convertToCurrency: true
+			}
+		})
+		let total = 0
+		for (const r of rows) {
+			const amt =
+				r.convertedAmount != null && r.convertToCurrency
+					? r.convertedAmount
+					: r.amount
+			const cur =
+				r.convertedAmount != null && r.convertToCurrency
+					? r.convertToCurrency
+					: r.currency
+			total += await this.toMainCurrency(amt, cur, mainCurrency)
+		}
+		return total
+	}
+
+	async getTopTransfers(
+		userId: string,
+		period: AnalyticsPeriod,
+		mainCurrency: string,
+		limit = 10,
+		accountId?: string,
+		beginningBalance?: number
+	): Promise<TransferSum[]> {
+		const { from, to } = dateRange(period)
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
+		const txs = await this.prisma.transaction.findMany({
+			where: {
+				userId,
+				direction: 'transfer',
+				transactionDate: { gte: from, lte: to },
+				...accountFilter
+			},
+			select: {
+				fromAccountId: true,
+				toAccountId: true,
+				amount: true,
+				currency: true,
+				convertedAmount: true,
+				convertToCurrency: true,
+				description: true,
+				tagId: true
+			}
+		})
+		const tagIds = [...new Set(txs.map(t => t.tagId).filter(Boolean))] as string[]
+		const tags = tagIds.length
+			? await this.prisma.tag.findMany({
+					where: { id: { in: tagIds } },
+					select: { id: true, name: true }
+				})
+			: []
+		const tagIdToName = new Map(tags.map(t => [t.id, t.name]))
+		const keyToRows = new Map<string, typeof txs>()
+		for (const t of txs) {
+			const key = `${t.fromAccountId ?? ''}\t${t.toAccountId ?? ''}`
+			if (!keyToRows.has(key)) keyToRows.set(key, [])
+			keyToRows.get(key)!.push(t)
+		}
+		const sums: { key: string; sum: number; descriptions: string[] }[] = []
+		for (const [, rows] of keyToRows) {
+			let sum = 0
+			const descriptions: string[] = []
+			for (const r of rows) {
+				const amt =
+					r.convertedAmount != null && r.convertToCurrency
+						? r.convertedAmount
+						: r.amount
+				const cur =
+					r.convertedAmount != null && r.convertToCurrency
+						? r.convertToCurrency!
+						: r.currency
+				sum += await this.toMainCurrency(amt, cur, mainCurrency)
+				const label = r.tagId
+					? (tagIdToName.get(r.tagId) ?? '—')
+					: (r.description?.trim() || '—')
+				descriptions.push(label)
+			}
+			sums.push({
+				key: rows[0] ? `${rows[0].fromAccountId}\t${rows[0].toAccountId}` : '',
+				sum,
+				descriptions: [...new Set(descriptions)]
+			})
+		}
+		sums.sort((a, b) => b.sum - a.sum)
+		const top = sums.slice(0, limit)
+		const accountIds = new Set<string>()
+		for (const s of top) {
+			const [fromId, toId] = s.key.split('\t')
+			if (fromId) accountIds.add(fromId)
+			if (toId) accountIds.add(toId)
+		}
+		const accounts = await this.prisma.account.findMany({
+			where: { id: { in: Array.from(accountIds) } },
+			select: { id: true, name: true }
+		})
+		const idToName = new Map(accounts.map(a => [a.id, a.name]))
+		const denom =
+			beginningBalance != null && beginningBalance > 0 ? beginningBalance : 1
+		return top.map(s => {
+			const [fromId, toId] = s.key.split('\t')
+			return {
+				fromAccountName: idToName.get(fromId) ?? (fromId ? '—' : 'Вне Wallet'),
+				toAccountName: idToName.get(toId) ?? (toId ? '—' : 'Вне Wallet'),
+				sum: s.sum,
+				pct: (s.sum / denom) * 100,
+				descriptions: s.descriptions
+			}
+		})
+	}
+
+	async getTopIncomeCategories(
+		userId: string,
+		period: AnalyticsPeriod,
+		mainCurrency: string,
+		beginningBalance: number,
+		limit = 5,
+		accountId?: string
+	): Promise<CategorySum[]> {
+		const { from, to } = dateRange(period)
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
+		const rows = await this.prisma.transaction.groupBy({
+			by: ['category'],
+			where: {
+				userId,
+				direction: 'income',
+				transactionDate: { gte: from, lte: to },
+				category: { not: null },
+				...accountFilter
+			},
+			_sum: { amount: true }
+		})
+		const withConverted: { name: string; sum: number; tagSums: Map<string, number> }[] = []
+		for (const r of rows) {
+			const txs = await this.prisma.transaction.findMany({
+				where: {
+					userId,
+					direction: 'income',
+					transactionDate: { gte: from, lte: to },
+					category: r.category,
+					...accountFilter
+				},
+				select: {
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true,
+					tagId: true
+				}
+			})
+			let sum = 0
+			const tagSums = new Map<string, number>()
+			const tagIds = [...new Set(txs.map(t => t.tagId).filter(Boolean))] as string[]
+			const tags = tagIds.length
+				? await this.prisma.tag.findMany({
+						where: { id: { in: tagIds } },
+						select: { id: true, name: true }
+					})
+				: []
+			const tagIdToName = new Map(tags.map(t => [t.id, t.name]))
+			for (const t of txs) {
+				const amt =
+					t.convertedAmount != null && t.convertToCurrency
+						? t.convertedAmount
+						: t.amount
+				const cur =
+					t.convertedAmount != null && t.convertToCurrency
+						? t.convertToCurrency!
+						: t.currency
+				const inMain = await this.toMainCurrency(amt, cur, mainCurrency)
+				sum += inMain
+				if (t.tagId) {
+					const tagName = tagIdToName.get(t.tagId) ?? '—'
+					tagSums.set(tagName, (tagSums.get(tagName) ?? 0) + inMain)
+				}
+			}
+			withConverted.push({ name: r.category!, sum, tagSums })
+		}
+		withConverted.sort((a, b) => b.sum - a.sum)
+		const topNames = withConverted.slice(0, limit).map(c => c.name)
+		const categories = await this.prisma.category.findMany({
+			where: { userId, name: { in: topNames } },
+			select: { id: true, name: true }
+		})
+		const nameToId = new Map(categories.map(c => [c.name, c.id]))
+		const denom = beginningBalance > 0 ? beginningBalance : 1
+		return withConverted.slice(0, limit).map(c => ({
+			categoryId: nameToId.get(c.name) ?? null,
+			categoryName: c.name,
+			sum: c.sum,
+			pct: (c.sum / denom) * 100,
+			tagDetails: Array.from(c.tagSums.entries()).map(([tagName, s]) => ({ tagName, sum: s }))
+		}))
+	}
+
 	private async toMainCurrency(
 		amount: number,
 		currency: string,
 		mainCurrency: string
 	): Promise<number> {
-		return this.exchange.convert(amount, currency, mainCurrency)
+		const v = await this.exchange.convert(amount, currency, mainCurrency)
+		if (v != null) return v
+		return amount
 	}
 
 	async getSummary(
@@ -227,7 +565,7 @@ export class AnalyticsService {
 			expensesPrev > 0 ? ((expenses - expensesPrev) / expensesPrev) * 100 : null
 		const incomeTrendPct =
 			incomePrev > 0 ? ((income - incomePrev) / incomePrev) * 100 : null
-		const burnRate = period > 0 ? expenses / period : 0
+		const burnRate = periodDays(period) > 0 ? expenses / periodDays(period) : 0
 
 		return {
 			balance,
@@ -246,7 +584,8 @@ export class AnalyticsService {
 		period: AnalyticsPeriod,
 		mainCurrency: string,
 		limit = 5,
-		accountId?: string
+		accountId?: string,
+		beginningBalance?: number
 	): Promise<CategorySum[]> {
 		const { from, to } = dateRange(period)
 		const accountFilter = accountId
@@ -266,8 +605,7 @@ export class AnalyticsService {
 			_count: true
 		})
 
-		let totalExpenses = 0
-		const withConverted: { name: string; sum: number }[] = []
+		const withConverted: { name: string; sum: number; tagSums: Map<string, number> }[] = []
 		for (const r of rows) {
 			const txs = await this.prisma.transaction.findMany({
 				where: {
@@ -281,10 +619,20 @@ export class AnalyticsService {
 					amount: true,
 					currency: true,
 					convertedAmount: true,
-					convertToCurrency: true
+					convertToCurrency: true,
+					tagId: true
 				}
 			})
 			let sum = 0
+			const tagSums = new Map<string, number>()
+			const tagIds = [...new Set(txs.map(t => t.tagId).filter(Boolean))] as string[]
+			const tags = tagIds.length
+				? await this.prisma.tag.findMany({
+						where: { id: { in: tagIds } },
+						select: { id: true, name: true }
+					})
+				: []
+			const tagIdToName = new Map(tags.map(t => [t.id, t.name]))
 			for (const t of txs) {
 				const amt =
 					t.convertedAmount != null && t.convertToCurrency
@@ -294,10 +642,14 @@ export class AnalyticsService {
 					t.convertedAmount != null && t.convertToCurrency
 						? t.convertToCurrency!
 						: t.currency
-				sum += await this.toMainCurrency(amt, cur, mainCurrency)
+				const inMain = await this.toMainCurrency(amt, cur, mainCurrency)
+				sum += inMain
+				if (t.tagId) {
+					const tagName = tagIdToName.get(t.tagId) ?? '—'
+					tagSums.set(tagName, (tagSums.get(tagName) ?? 0) + inMain)
+				}
 			}
-			totalExpenses += sum
-			withConverted.push({ name: r.category!, sum })
+			withConverted.push({ name: r.category!, sum, tagSums })
 		}
 		withConverted.sort((a, b) => b.sum - a.sum)
 		const topNames = withConverted.slice(0, limit).map(c => c.name)
@@ -306,11 +658,13 @@ export class AnalyticsService {
 			select: { id: true, name: true }
 		})
 		const nameToId = new Map(categories.map(c => [c.name, c.id]))
+		const denom = (beginningBalance != null && beginningBalance > 0) ? beginningBalance : 1
 		return withConverted.slice(0, limit).map(c => ({
 			categoryId: nameToId.get(c.name) ?? null,
 			categoryName: c.name,
 			sum: c.sum,
-			pct: totalExpenses > 0 ? (c.sum / totalExpenses) * 100 : 0
+			pct: (c.sum / denom) * 100,
+			tagDetails: Array.from(c.tagSums.entries()).map(([tagName, s]) => ({ tagName, sum: s }))
 		}))
 	}
 
@@ -480,12 +834,17 @@ export class AnalyticsService {
 		period: AnalyticsPeriod,
 		mainCurrency: string,
 		threshold: number,
-		accountId?: string
+		accountId?: string,
+		beginningBalance?: number
 	): Promise<AnomalyRow[]> {
 		const { from, to } = dateRange(period)
 		const accountFilter = accountId
 			? { accountId }
 			: { account: { userId, isHidden: false } }
+		const effectiveThreshold =
+			beginningBalance != null && beginningBalance > 0
+				? beginningBalance * 0.5
+				: threshold
 
 		const txs = await this.prisma.transaction.findMany({
 			where: {
@@ -501,10 +860,21 @@ export class AnalyticsService {
 				description: true,
 				transactionDate: true,
 				convertedAmount: true,
-				convertToCurrency: true
+				convertToCurrency: true,
+				category: true,
+				tagId: true
 			},
 			orderBy: { amount: 'desc' }
 		})
+
+		const tagIds = [...new Set(txs.map(t => t.tagId).filter(Boolean))] as string[]
+		const tags = tagIds.length
+			? await this.prisma.tag.findMany({
+					where: { id: { in: tagIds } },
+					select: { id: true, name: true }
+				})
+			: []
+		const tagIdToName = new Map(tags.map(t => [t.id, t.name]))
 
 		const result: AnomalyRow[] = []
 		for (const t of txs) {
@@ -516,13 +886,17 @@ export class AnalyticsService {
 							mainCurrency
 						)
 					: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
-			if (amt >= threshold) {
+			if (amt >= effectiveThreshold) {
+				const tagOrCategory = t.tagId
+					? (tagIdToName.get(t.tagId) ?? null)
+					: (t.category ?? null)
 				result.push({
 					transactionId: t.id,
 					amount: amt,
 					currency: mainCurrency,
 					description: t.description,
-					transactionDate: t.transactionDate
+					transactionDate: t.transactionDate,
+					tagOrCategory: tagOrCategory ?? undefined
 				})
 			}
 		}

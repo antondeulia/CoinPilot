@@ -43,7 +43,7 @@ function buildAccountsKeyboard(
 		])
 	}
 
-	rows.push([{ text: '🠐 Назад', callback_data: 'back_to_preview' }])
+	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
 	return { inline_keyboard: rows }
 }

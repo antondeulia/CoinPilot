@@ -1,11 +1,13 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { resetToHome } from '../utils/reset-home'
 
 export const cancelTxCallback = (
 	bot: Bot<BotContext>,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	analyticsService: AnalyticsService
 ) => {
 	bot.callbackQuery('cancel_tx', async ctx => {
 		ctx.session.confirmingTransaction = false
@@ -19,6 +21,6 @@ export const cancelTxCallback = (
 			ctx.session.tempMessageId = undefined
 		}
 
-		await resetToHome(ctx, accountsService)
+		await resetToHome(ctx, accountsService, analyticsService)
 	})
 }

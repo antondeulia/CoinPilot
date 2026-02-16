@@ -7,7 +7,8 @@ export function accountSwitchKeyboard(
 	page = 0,
 	selectedId?: string | null,
 	defaultAccountId?: string,
-	frozenIds: Set<string> = new Set()
+	frozenIds: Set<string> = new Set(),
+	selectedFrozen = false
 ) {
 	const kb = new InlineKeyboard()
 	const pageSize = 9
@@ -34,11 +35,16 @@ export function accountSwitchKeyboard(
 		.row()
 
 	if (selectedId) {
-		kb.text('Jarvis-редактирование', 'accounts_jarvis_edit_details').row()
+		if (selectedFrozen) {
+			kb.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
+		} else {
+			kb.text('Jarvis-редактирование', 'accounts_jarvis_edit_details')
+				.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
+		}
 		kb.text('Снять выделение', 'accounts_unselect').row()
 	} else {
 		kb.text('+ Добавить счёт', 'add_account').row()
-		kb.text('🠐 Назад', 'accounts_back')
+		kb.text('← Назад', 'accounts_back')
 	}
 
 	return kb

@@ -4,11 +4,16 @@ import { Parser } from 'json2csv'
 import { PrismaService } from '../../../modules/prisma/prisma.service'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 import { PremiumEventType } from '../../../generated/prisma/enums'
+import {
+	AnalyticsService,
+	type AnalyticsPeriod
+} from '../../../modules/analytics/analytics.service'
 
 export const analyticsExportCallback = (
 	bot: Bot<BotContext>,
 	prisma: PrismaService,
-	subscriptionService: SubscriptionService
+	subscriptionService: SubscriptionService,
+	analyticsService: AnalyticsService
 ) => {
 	bot.callbackQuery('analytics_export', async ctx => {
 		const user = ctx.state.user as any
@@ -25,20 +30,19 @@ export const analyticsExportCallback = (
 				'📊 Экспорт доступен в Premium. Выгружайте данные в CSV/Excel одним нажатием!',
 				{
 					reply_markup: new InlineKeyboard()
-						.text('👑 Premium', 'view_premium')
+						.text('💠 Pro-тариф', 'view_premium')
 						.row()
 						.text('Закрыть', 'hide_message')
 				}
 			)
 			return
 		}
-		const period = (ctx.session as any).analyticsPeriod ?? 30
-		const from = new Date()
-		from.setDate(from.getDate() - period)
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
+		const { from, to } = analyticsService.getDateRange(period)
 		const txs = await prisma.transaction.findMany({
 			where: {
 				userId: user.id,
-				transactionDate: { gte: from, lte: new Date() },
+				transactionDate: { gte: from, lte: to },
 				account: { isHidden: false }
 			},
 			select: {
@@ -69,7 +73,7 @@ export const analyticsExportCallback = (
 		})
 		const csv = parser.parse(txs)
 		const buffer = Buffer.from(csv, 'utf-8')
-		await ctx.replyWithDocument(new InputFile(buffer, `transactions_${period}d.csv`))
+		await ctx.replyWithDocument(new InputFile(buffer, `transactions_${period}.csv`))
 		await ctx.answerCallbackQuery()
 	})
 }

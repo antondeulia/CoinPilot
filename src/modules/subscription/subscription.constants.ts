@@ -7,6 +7,8 @@ export const FREE_LIMITS = {
 	MAX_CUSTOM_CATEGORIES: 0,
 	// Кол-во кастомных тегов
 	MAX_CUSTOM_TAGS: 3,
+	// Лимит фото-распознаваний в месяц для Free
+	MAX_IMAGE_PARSES_PER_MONTH: 1,
 	// Экспорт только в Premium
 	EXPORT_ALLOWED: false
 } as const

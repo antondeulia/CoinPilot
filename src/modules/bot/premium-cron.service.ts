@@ -16,7 +16,7 @@ export class PremiumCronService {
 		for (const u of expired) {
 			await this.botService.sendToUser(
 				u.telegramId,
-				'👑 Ваш Premium истёк. Продолжайте пользоваться безлимитом — оформите подписку снова в меню Premium.'
+				'💠 Ваш Premium истёк. Продолжайте пользоваться безлимитом — оформите подписку снова в меню Premium.'
 			)
 		}
 	}
@@ -25,7 +25,7 @@ export class PremiumCronService {
 	async monthlyUpsell() {
 		const users = await this.subscriptionService.getUsersForMonthlyUpsell()
 		const text =
-			'👑 Специальное предложение: оформите Premium со скидкой и получите безлимитные счета, теги и экспорт. Нажмите Premium в меню.'
+			'💠 Специальное предложение: оформите Premium со скидкой и получите безлимитные счета, теги и экспорт. Нажмите Premium в меню.'
 		for (const u of users) {
 			await this.botService.sendToUser(u.telegramId, text)
 		}
@@ -35,7 +35,7 @@ export class PremiumCronService {
 	async quarterlyLifetimeOffer() {
 		const users = await this.subscriptionService.getUsersForQuarterlyLifetimeOffer()
 		const text =
-			'👑 Ограниченное предложение: Premium навсегда за 49,99 €. Одна оплата — безлимит навсегда. В меню: Premium.'
+			'💠 Ограниченное предложение: Premium навсегда за 49,99 €. Одна оплата — безлимит навсегда. В меню: Premium.'
 		for (const u of users) {
 			await this.botService.sendToUser(u.telegramId, text)
 		}

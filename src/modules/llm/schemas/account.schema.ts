@@ -8,6 +8,10 @@ export const LlmAccountAssetSchema = z.object({
 export const LlmAccountSchema = z.object({
 	name: z.string(),
 	assets: z.array(LlmAccountAssetSchema).min(1),
+	emoji: z.string().optional(),
+	accountType: z
+		.enum(['bank', 'exchange', 'crypto_wallet', 'cash', 'online_service', 'other'])
+		.optional(),
 	rawText: z.string().optional()
 })
 

@@ -1,28 +1,31 @@
 import { Bot, InputFile } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { type AnalyticsPeriod } from '../../../modules/analytics/analytics.service'
+import {
+	AnalyticsService,
+	type AnalyticsPeriod
+} from '../../../modules/analytics/analytics.service'
 import { ExchangeService } from '../../../modules/exchange/exchange.service'
 import { PrismaService } from '../../../modules/prisma/prisma.service'
 
 export const analyticsChartCallback = (
 	bot: Bot<BotContext>,
 	prisma: PrismaService,
-	exchangeService: ExchangeService
+	exchangeService: ExchangeService,
+	analyticsService: AnalyticsService
 ) => {
 	bot.callbackQuery('analytics_chart', async ctx => {
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 		const accountFilter = accountId
 			? { accountId }
 			: { account: { userId: user.id, isHidden: false } }
-		const from = new Date()
-		from.setDate(from.getDate() - period)
+		const { from, to } = analyticsService.getDateRange(period)
 		const txs = await prisma.transaction.findMany({
 			where: {
 				userId: user.id,
 				direction: 'expense',
-				transactionDate: { gte: from, lte: new Date() },
+				transactionDate: { gte: from, lte: to },
 				...accountFilter
 			},
 			select: {
@@ -44,7 +47,7 @@ export const analyticsChartCallback = (
 			const amt = t.convertedAmount ?? t.amount
 			const cur = t.convertToCurrency ?? t.currency
 			const inMain = await exchangeService.convert(amt, cur, mainCurrency)
-			byDay.set(key, (byDay.get(key) ?? 0) + inMain)
+			byDay.set(key, (byDay.get(key) ?? 0) + (inMain ?? 0))
 		}
 		const data = Array.from(byDay.entries())
 			.sort((a, b) => a[0].localeCompare(b[0]))

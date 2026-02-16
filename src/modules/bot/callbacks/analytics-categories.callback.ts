@@ -16,7 +16,7 @@ export const analyticsCategoriesCallback = (
 ) => {
 	bot.callbackQuery('analytics_by_category', async ctx => {
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 		;(ctx.session as any).analyticsCategoriesPage = 0
 
@@ -76,7 +76,7 @@ export const analyticsCategoriesCallback = (
 
 	bot.callbackQuery(/^analytics_categories_page:/, async ctx => {
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 		const categories = await analyticsService.getTopCategories(
 			user.id,
@@ -129,7 +129,7 @@ export const analyticsCategoriesCallback = (
 	bot.callbackQuery(/^analytics_category:/, async ctx => {
 		const categoryIdOrName = ctx.callbackQuery.data.replace('analytics_category:', '')
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 		;(ctx.session as any).analyticsCategoryDetailPage = 0
 		;(ctx.session as any).analyticsCategoryDetailId = categoryIdOrName
@@ -188,7 +188,7 @@ export const analyticsCategoriesCallback = (
 		const categoryName = (ctx.session as any).analyticsCategoryDetailId
 		if (!categoryName) return
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 		let page = (ctx.session as any).analyticsCategoryDetailPage ?? 0
 		const action = ctx.callbackQuery.data.split(':')[1]

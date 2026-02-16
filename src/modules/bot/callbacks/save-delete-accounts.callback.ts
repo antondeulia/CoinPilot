@@ -3,20 +3,22 @@ import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { UsersService } from '../../../modules/users/users.service'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { FREE_LIMITS } from '../../../modules/subscription/subscription.constants'
 import { refreshAccountsPreview } from './accounts-preview.callback'
-import { homeKeyboard, homeText } from '../../../shared/keyboards/home'
+import { renderHome } from '../utils/render-home'
 import { PremiumEventType } from '../../../generated/prisma/enums'
 
 const UPSELL_ACCOUNTS =
-	'👑 Вы достигли лимита — 2 счета в Free. Перейдите на Premium и управляйте финансами без ограничений!'
-const UPSELL_ASSETS = `👑 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`
+	'💠 Вы достигли лимита — 2 счета в Free. Перейдите на Premium и управляйте финансами без ограничений!'
+const UPSELL_ASSETS = `💠 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`
 
 export const saveDeleteAccountsCallback = (
 	bot: Bot<BotContext>,
 	accountsService: AccountsService,
 	usersService: UsersService,
-	subscriptionService: SubscriptionService
+	subscriptionService: SubscriptionService,
+	analyticsService: AnalyticsService
 ) => {
 	bot.callbackQuery('confirm_1_accounts', async ctx => {
 		const drafts = ctx.session.draftAccounts
@@ -25,9 +27,22 @@ export const saveDeleteAccountsCallback = (
 		if (!drafts || !drafts.length) return
 
 		const draft = drafts[index]
+		const lockKey = JSON.stringify({
+			name: draft?.name ?? '',
+			assets: (draft?.assets ?? [])
+				.map(a => `${a.currency}:${a.amount}`)
+				.sort()
+		})
+		const sessionAny = ctx.session as any
+		const singleLocks: string[] = sessionAny.savingAccountLocks ?? []
+		if (singleLocks.includes(lockKey)) return
+		sessionAny.savingAccountLocks = [...singleLocks, lockKey]
 
 		const limitAccount = await subscriptionService.canCreateAccount(ctx.state.user.id)
 		if (!limitAccount.allowed) {
+			sessionAny.savingAccountLocks = (sessionAny.savingAccountLocks ?? []).filter(
+				(k: string) => k !== lockKey
+			)
 			await subscriptionService.trackEvent(
 				ctx.state.user.id,
 				PremiumEventType.limit_hit,
@@ -35,7 +50,10 @@ export const saveDeleteAccountsCallback = (
 			)
 			await ctx.answerCallbackQuery({ text: UPSELL_ACCOUNTS })
 			await ctx.reply(UPSELL_ACCOUNTS, {
-				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+				reply_markup: new InlineKeyboard()
+					.text('💠 Pro-тариф', 'view_premium')
+					.row()
+					.text('Закрыть', 'hide_message')
 			})
 			return
 		}
@@ -43,6 +61,9 @@ export const saveDeleteAccountsCallback = (
 			!ctx.state.isPremium &&
 			draft.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT
 		) {
+			sessionAny.savingAccountLocks = (sessionAny.savingAccountLocks ?? []).filter(
+				(k: string) => k !== lockKey
+			)
 			await subscriptionService.trackEvent(
 				ctx.state.user.id,
 				PremiumEventType.limit_hit,
@@ -50,14 +71,27 @@ export const saveDeleteAccountsCallback = (
 			)
 			await ctx.answerCallbackQuery({ text: UPSELL_ASSETS })
 			await ctx.reply(UPSELL_ASSETS, {
-				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+				reply_markup: new InlineKeyboard()
+					.text('💠 Pro-тариф', 'view_premium')
+					.row()
+					.text('Закрыть', 'hide_message')
 			})
 			return
 		}
 
-		await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
+		try {
+			await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
+		} catch {
+			sessionAny.savingAccountLocks = (sessionAny.savingAccountLocks ?? []).filter(
+				(k: string) => k !== lockKey
+			)
+			return
+		}
 
 		drafts.splice(index, 1)
+		sessionAny.savingAccountLocks = (sessionAny.savingAccountLocks ?? []).filter(
+			(k: string) => k !== lockKey
+		)
 
 		if (!drafts.length) {
 			ctx.session.draftAccounts = undefined
@@ -75,19 +109,10 @@ export const saveDeleteAccountsCallback = (
 			await ctx.reply('Счёт сохранён.')
 
 			const user = await usersService.getOrCreateByTelegramId(String(ctx.from!.id))
-			const account = user.accounts.find(a => a.id === user.activeAccountId)
-			if (account) {
-				const mainCurrency = (user as any).mainCurrency ?? 'USD'
-				const balance = await accountsService.getBalance({
-					userId: user.id,
-					mainCurrency
-				})
-				const homeMsg = await ctx.reply(homeText(account, balance), {
-					parse_mode: 'HTML',
-					reply_markup: homeKeyboard(account, balance, mainCurrency)
-				})
-				ctx.session.homeMessageId = homeMsg.message_id
-			}
+			;(ctx.state as any).user = user
+			;(ctx.state as any).activeAccount =
+				user.accounts.find(a => a.id === user.activeAccountId) ?? null
+			await renderHome(ctx, accountsService, analyticsService)
 			return
 		}
 
@@ -129,9 +154,13 @@ export const saveDeleteAccountsCallback = (
 	bot.callbackQuery('confirm_all_accounts', async ctx => {
 		const drafts = ctx.session.draftAccounts
 		if (!drafts || !drafts.length) return
+		const sessionAny = ctx.session as any
+		if (sessionAny.savingAllAccounts) return
+		sessionAny.savingAllAccounts = true
 
 		const limitAccount = await subscriptionService.canCreateAccount(ctx.state.user.id)
 		if (!limitAccount.allowed) {
+			sessionAny.savingAllAccounts = false
 			await subscriptionService.trackEvent(
 				ctx.state.user.id,
 				PremiumEventType.limit_hit,
@@ -139,7 +168,10 @@ export const saveDeleteAccountsCallback = (
 			)
 			await ctx.answerCallbackQuery({ text: UPSELL_ACCOUNTS })
 			await ctx.reply(UPSELL_ACCOUNTS, {
-				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+				reply_markup: new InlineKeyboard()
+					.text('💠 Pro-тариф', 'view_premium')
+					.row()
+					.text('Закрыть', 'hide_message')
 			})
 			return
 		}
@@ -147,6 +179,7 @@ export const saveDeleteAccountsCallback = (
 			!ctx.state.isPremium &&
 			limitAccount.current + drafts.length > limitAccount.limit
 		if (wouldExceedAccounts) {
+			sessionAny.savingAllAccounts = false
 			await subscriptionService.trackEvent(
 				ctx.state.user.id,
 				PremiumEventType.limit_hit,
@@ -154,7 +187,10 @@ export const saveDeleteAccountsCallback = (
 			)
 			await ctx.answerCallbackQuery({ text: UPSELL_ACCOUNTS })
 			await ctx.reply(UPSELL_ACCOUNTS, {
-				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+				reply_markup: new InlineKeyboard()
+					.text('💠 Pro-тариф', 'view_premium')
+					.row()
+					.text('Закрыть', 'hide_message')
 			})
 			return
 		}
@@ -162,6 +198,7 @@ export const saveDeleteAccountsCallback = (
 			!ctx.state.isPremium &&
 			drafts.some(d => d.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT)
 		if (hasOverLimitAssets) {
+			sessionAny.savingAllAccounts = false
 			await subscriptionService.trackEvent(
 				ctx.state.user.id,
 				PremiumEventType.limit_hit,
@@ -169,16 +206,23 @@ export const saveDeleteAccountsCallback = (
 			)
 			await ctx.answerCallbackQuery({ text: UPSELL_ASSETS })
 			await ctx.reply(UPSELL_ASSETS, {
-				reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+				reply_markup: new InlineKeyboard()
+					.text('💠 Pro-тариф', 'view_premium')
+					.row()
+					.text('Закрыть', 'hide_message')
 			})
 			return
 		}
 
+		ctx.session.draftAccounts = undefined
+		let created = 0
 		for (const draft of drafts) {
-			await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
+			try {
+				await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
+				created++
+			} catch {}
 		}
 
-		ctx.session.draftAccounts = undefined
 		ctx.session.currentAccountIndex = undefined
 		ctx.session.confirmingAccounts = false
 		ctx.session.awaitingAccountInput = false
@@ -190,22 +234,16 @@ export const saveDeleteAccountsCallback = (
 			ctx.session.tempMessageId = undefined
 		}
 
-		await ctx.reply('Все счета сохранены.')
+		await ctx.reply(
+			created > 0 ? `Счета сохранены: ${created}.` : 'Не удалось сохранить счета.'
+		)
 
 		const user = await usersService.getOrCreateByTelegramId(String(ctx.from!.id))
-		const account = user.accounts.find(a => a.id === user.activeAccountId)
-		if (account) {
-			const mainCurrency = (user as any).mainCurrency ?? 'USD'
-			const balance = await accountsService.getBalance({
-				userId: user.id,
-				mainCurrency
-			})
-			const homeMsg = await ctx.reply(homeText(account, balance), {
-				parse_mode: 'HTML',
-				reply_markup: homeKeyboard(account, balance, mainCurrency)
-			})
-			ctx.session.homeMessageId = homeMsg.message_id
-		}
+		;(ctx.state as any).user = user
+		;(ctx.state as any).activeAccount =
+			user.accounts.find(a => a.id === user.activeAccountId) ?? null
+		await renderHome(ctx, accountsService, analyticsService)
+		sessionAny.savingAllAccounts = false
 	})
 
 	bot.callbackQuery('cancel_all_accounts', async ctx => {

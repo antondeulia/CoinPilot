@@ -41,7 +41,7 @@ function buildTargetAccountsKeyboard(
 			{ text: 'Вперёд »', callback_data: 'target_accounts_page:next' }
 		])
 	}
-	rows.push([{ text: '🠐 Назад', callback_data: 'back_to_preview' }])
+	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 	return { inline_keyboard: rows }
 }
 

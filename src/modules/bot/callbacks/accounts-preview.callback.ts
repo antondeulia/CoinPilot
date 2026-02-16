@@ -1,21 +1,26 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
-import { formatAmount, formatAccountName } from '../../../utils/format'
+import {
+	formatAccountName,
+	getCurrencySymbol,
+	isCryptoCurrency
+} from '../../../utils/format'
 
 function renderAccountPreview(account, index: number, total: number, isDefault: boolean) {
-	const lines: string[] = []
-
-	lines.push(
-		`Счёт: ${formatAccountName(account.name, isDefault)}\t\t\t${total > 1 ? `${index + 1}/${total}` : ''}`
-	)
-
+	const header = `💼 <b>Предпросмотр счёта</b>${total > 1 ? ` ${index + 1}/${total}` : ''}`
+	const title = `Название: <b>${formatAccountName(account.name, isDefault)}</b>`
+	const assets: string[] = ['\nАктивы:']
 	account.assets.forEach((asset, i) => {
-		lines.push(
-			`Актив ${i + 1}: ${formatAmount(asset.amount, asset.currency)} (${asset.currency})`
-		)
+		const code = String(asset.currency ?? '').toUpperCase()
+		const symbol = getCurrencySymbol(code)
+		const displayCurrency = symbol === code ? code : `${symbol} (${code})`
+		const amount = Number(asset.amount ?? 0).toLocaleString('ru-RU', {
+			minimumFractionDigits: isCryptoCurrency(code) ? 0 : 2,
+			maximumFractionDigits: isCryptoCurrency(code) ? 8 : 2
+		})
+		assets.push(`${i + 1}. ${amount} ${displayCurrency}`)
 	})
-
-	return lines.join('\n')
+	return `${header}\n\n${title}\n${assets.join('\n')}\n\nВсего активов: ${account.assets.length}`
 }
 
 function accountPreviewKeyboard(total: number, index: number) {

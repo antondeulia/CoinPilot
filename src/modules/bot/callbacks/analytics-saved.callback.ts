@@ -5,12 +5,12 @@ import { PrismaService } from '../../../modules/prisma/prisma.service'
 export const analyticsSavedCallback = (bot: Bot<BotContext>, prisma: PrismaService) => {
 	bot.callbackQuery('analytics_save_view', async ctx => {
 		const userId = ctx.state.user.id
-		const period = (ctx.session as any).analyticsPeriod ?? 30
+		const period = (ctx.session as any).analyticsPeriod ?? 'month'
 		const accountId = (ctx.session as any).analyticsFilter?.accountId ?? null
 		await prisma.savedAnalyticsView.create({
 			data: {
 				userId,
-				name: `Обзор ${period}d`,
+				name: `Обзор ${period}`,
 				filters: { period, accountId }
 			}
 		})

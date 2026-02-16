@@ -12,7 +12,7 @@ export const analyticsTypeCallback = (
 ) => {
 	bot.callbackQuery('analytics_by_type', async ctx => {
 		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 30) as AnalyticsPeriod
+		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const accountId = (ctx.session as any).analyticsFilter?.accountId
 
 		const byType = await analyticsService.getByType(
@@ -22,7 +22,8 @@ export const analyticsTypeCallback = (
 			accountId
 		)
 		const symbol = getCurrencySymbol(user.mainCurrency ?? 'USD')
-		const periodStr = period === 7 ? '7 дней' : period === 30 ? '30 дней' : '90 дней'
+		const periodStr =
+			period === '7d' ? '7 дней' : period === '30d' ? '30 дней' : period === '90d' ? '90 дней' : period === 'week' ? 'неделю' : period === 'month' ? 'месяц' : '3 месяца'
 
 		const text = `📊 <b>По типу за ${periodStr}</b>
 

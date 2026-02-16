@@ -1,52 +1,41 @@
 import { InlineKeyboard } from 'grammy'
 
-export function homeText(account, balance: number) {
-	return `
-WalletBot – CoinPilot
-Финансовый tracking для фиата и крипты в Telegram.
+export function homeText(
+	totalBalance: number,
+	mainCurrency: string,
+	accountsCount: number,
+	monthlyChangePct: number
+) {
+	const balanceStr = totalBalance.toLocaleString('ru-RU', {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2
+	})
+	const accountsStr = accountsCount.toLocaleString('ru-RU')
+	const pct =
+		Number.isFinite(monthlyChangePct) && !Number.isNaN(monthlyChangePct)
+			? monthlyChangePct
+			: 0
+	const pctStr = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%'
 
-Зачем он:
-— Помогает держать деньги и капитал под контролем.
-— Показывает реальную картину доходов, расходов и активов.
-— Экономит время за счёт ИИ-парсинга.
+	return `<b>CoinPilot AI – бот по управлению капиталом.</b>
 
-Что внутри:
-• Банки, биржи, кошельки.
-• Мультивалютные счета.
-• Доходы, расходы, подписки.
-• Analytics по счетам и действиям.
+💰 Общий капитал: <i>${balanceStr} ${mainCurrency}</i>
+🏦 Счетов: <i>${accountsStr}</i>
+📈 30 дней: <i>${pctStr}</i>
 
-Как работает:
-— Отправляешь текст или фото.
-— ИИ извлекает сумму, валюту, дату и категорию.
+Выберите действие в меню ниже.
 
-Безопасность:
-Данные зашифрованы.
-Не передаются третьим лицам.
-Можно удалить в любой момент.
-
-Инструмент для ежедневного использования.
-Не демо. Не Excel. Не временное решение.
-
-Полезные боты и сервисы — https://t.me/isi_crypto
-`
+<code>🧠 AI-ассистент активен
+🔒 Данные зашифрованы</code>`
 }
 
-export function homeKeyboard(
-	account: { currency: string } | null,
-	balance: number,
-	balanceCurrency?: string
-) {
-	const currency = balanceCurrency ?? account?.currency ?? 'USD'
+export function homeKeyboard() {
 	return new InlineKeyboard()
-		.text(`💲 Денежный поток: ${balance.toFixed(2)} ${currency}`, 'view_balance')
+		.text('➕ Добавить транзакцию', 'add_transaction')
+		.text('💼 Счета', 'view_accounts')
 		.row()
-		.text('+ Запись', 'add_transaction')
-		.text('Счета', 'view_accounts')
+		.text('📄 Список транзакций', 'view_transactions')
+		.text('📊 Аналитика', 'view_analytics')
 		.row()
-		.text('Записи', 'view_transactions')
-		.text('Аналитика', 'view_analytics')
-		.row()
-		.text('👑 Premium', 'view_premium')
 		.text('⚙️ Настройки', 'view_settings')
 }

@@ -23,7 +23,14 @@ export class TransactionsService {
 		convertToCurrency?: string
 	}) {
 		const tx = await this.prisma.transaction.create({
-			data: params
+			data: {
+				...params,
+				amount: Math.abs(params.amount),
+				convertedAmount:
+					params.convertedAmount != null
+						? Math.abs(params.convertedAmount)
+						: undefined
+			}
 		})
 		await this.applyBalanceEffect(tx)
 		return tx
@@ -88,7 +95,7 @@ export class TransactionsService {
 			where: { id },
 			data: {
 				...(params.accountId != null && { accountId: params.accountId }),
-				...(params.amount != null && { amount: params.amount }),
+				...(params.amount != null && { amount: Math.abs(params.amount) }),
 				...(params.currency != null && { currency: params.currency }),
 				...(params.direction != null && { direction: params.direction }),
 				...(params.category != null && { category: params.category }),
@@ -98,7 +105,10 @@ export class TransactionsService {
 				}),
 				...(params.tagId !== undefined && { tagId: params.tagId }),
 				...(params.convertedAmount !== undefined && {
-					convertedAmount: params.convertedAmount
+					convertedAmount:
+						params.convertedAmount != null
+							? Math.abs(params.convertedAmount)
+							: null
 				}),
 				...(params.convertToCurrency !== undefined && {
 					convertToCurrency: params.convertToCurrency

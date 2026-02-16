@@ -471,14 +471,6 @@ export type TagUpdateOneWithoutTransactionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TagUpdateToOneWithWhereWithoutTransactionsInput, Prisma.TagUpdateWithoutTransactionsInput>, Prisma.TagUncheckedUpdateWithoutTransactionsInput>
 }
 
-export type IntFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type TagCreateNestedOneWithoutAliasesInput = {
   create?: Prisma.XOR<Prisma.TagCreateWithoutAliasesInput, Prisma.TagUncheckedCreateWithoutAliasesInput>
   connectOrCreate?: Prisma.TagCreateOrConnectWithoutAliasesInput

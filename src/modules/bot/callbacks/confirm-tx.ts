@@ -4,6 +4,7 @@ import { TransactionsService } from '../../../modules/transactions/transactions.
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { TagsService } from '../../../modules/tags/tags.service'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { renderHome } from '../utils/render-home'
 
 export async function getShowConversion(
@@ -12,9 +13,9 @@ export async function getShowConversion(
 	userId: string,
 	accountsService: AccountsService
 ): Promise<boolean> {
-	if (!accountId || !draft?.currency) return true
+	if (!accountId || !draft?.currency) return false
 	const account = await accountsService.getOneWithAssets(accountId, userId)
-	if (!account) return true
+	if (!account) return false
 	const codes = Array.from(
 		new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
 	)
@@ -26,7 +27,8 @@ export const confirmTxCallback = (
 	transactionsService: TransactionsService,
 	accountsService: AccountsService,
 	tagsService: TagsService,
-	subscriptionService: SubscriptionService
+	subscriptionService: SubscriptionService,
+	analyticsService: AnalyticsService
 ) => {
 	bot.callbackQuery('confirm_tx', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -42,12 +44,15 @@ export const confirmTxCallback = (
 		const txLimit = await subscriptionService.canCreateTransaction(user.id)
 		if (!txLimit.allowed || txLimit.current + newCount > txLimit.limit) {
 			await ctx.answerCallbackQuery({
-				text: '👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
+				text: '💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
 			})
 			await ctx.reply(
-				'👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
 				{
-					reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+					reply_markup: new InlineKeyboard()
+						.text('💠 Pro-тариф', 'view_premium')
+						.row()
+						.text('Закрыть', 'hide_message')
 				}
 			)
 			return
@@ -63,17 +68,24 @@ export const confirmTxCallback = (
 				limit.current + newTagCount > limit.limit
 			) {
 				await ctx.answerCallbackQuery({
-					text: '👑 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
+					text: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
 				})
 				await ctx.reply(
-					'👑 10 кастомных тегов использовано. Разблокируйте безлимит с Premium!',
+					'💠 10 кастомных тегов использовано. Разблокируйте безлимит с Premium!',
 					{
-						reply_markup: new InlineKeyboard().text('👑 Premium', 'view_premium')
+						reply_markup: new InlineKeyboard()
+							.text('💠 Pro-тариф', 'view_premium')
+							.row()
+							.text('Закрыть', 'hide_message')
 					}
 				)
 				return
 			}
 		}
+
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+		const outsideWalletId =
+			allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
 
 		for (const draft of drafts as any[]) {
 			const accountId =
@@ -98,7 +110,7 @@ export const confirmTxCallback = (
 				...(isTransfer
 					? {
 							fromAccountId: accountId,
-							toAccountId: draft.toAccountId ?? undefined
+							toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
 						}
 					: { category: draft.category ?? 'Не выбрано' }),
 				description: draft.description,
@@ -146,7 +158,7 @@ export const confirmTxCallback = (
 		ctx.session.tempMessageId = msg.message_id
 
 		// показать домашний экран как после /start (новым сообщением)
-		await renderHome(ctx as any, accountsService)
+		await renderHome(ctx as any, accountsService, analyticsService)
 	})
 }
 
@@ -175,13 +187,9 @@ export function confirmKeyboard(
 		.text('Сумма', 'edit:amount')
 		.row()
 		.text('Счёт', 'edit:account')
-	if (isTransfer) {
-		kb.text('На счёт', 'edit:target_account')
-	}
-	kb.text('Дата', 'edit:date')
-	if (!isTransfer) {
-		kb.text('Категория', 'edit:category')
-	}
+		.text('Дата', 'edit:date')
+	if (isTransfer) kb.text('На счёт', 'edit:target_account')
+	else kb.text('Категория', 'edit:category')
 	kb.row().text('Валюта', 'edit:currency')
 
 	if (showConversion) {
@@ -190,9 +198,7 @@ export function confirmKeyboard(
 	kb.text('Теги', 'edit:tag')
 
 	if (!isEditingExisting && total > 1) {
-		kb.row()
-			.text('Сохранить 1', 'confirm_1_transactions')
-			.text('Удалить 1', 'cancel_1_transactions')
+		kb.row().text('💾 Сохранить', 'confirm_1_transactions').text('🗑 Удалить', 'cancel_1_transactions')
 	}
 	if (hasPagination) {
 		kb.row()
@@ -205,9 +211,14 @@ export function confirmKeyboard(
 			.text('Сохранить изменения', 'save_edit_transaction')
 			.text('Удалить транзакцию', 'delete_transaction')
 		kb.row().text('← Назад к списку', 'back_to_transactions')
+	} else if (total > 1) {
+		kb.row()
+			.text('💾 Сохранить всё', 'confirm_tx')
+			.text('🗑 Удалить всё', 'cancel_tx')
+		kb.row().text('🔁 Повторить', 'repeat_parse')
 	} else {
-		kb.row().text('Сохранить все', 'confirm_tx').text('Удалить все', 'cancel_tx')
-		kb.row().text('Повторить', 'repeat_parse')
+		kb.row().text('💾 Сохранить', 'confirm_tx').text('🗑 Удалить', 'cancel_tx')
+		kb.row().text('🔁 Повторить', 'repeat_parse')
 	}
 	return kb
 }

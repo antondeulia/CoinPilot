@@ -1,0 +1,2 @@
+ALTER TABLE "subscriptions"
+ADD COLUMN IF NOT EXISTS "autoRenew" BOOLEAN NOT NULL DEFAULT true;

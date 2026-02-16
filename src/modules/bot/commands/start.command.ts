@@ -1,9 +1,14 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { renderHome } from '../utils/render-home'
 
-export const startCommand = (bot: Bot<BotContext>, accountsService: AccountsService) => {
+export const startCommand = (
+	bot: Bot<BotContext>,
+	accountsService: AccountsService,
+	analyticsService: AnalyticsService
+) => {
 	bot.command('start', async ctx => {
 		if (ctx.session.tempMessageId != null) {
 			try {
@@ -39,6 +44,6 @@ export const startCommand = (bot: Bot<BotContext>, accountsService: AccountsServ
 		;(ctx.session as any).tagsSettingsMessageId = undefined
 		;(ctx.session as any).tagsSettingsHintMessageId = undefined
 		;(ctx.session as any).editingTransactionId = undefined
-		await renderHome(ctx, accountsService)
+		await renderHome(ctx, accountsService, analyticsService)
 	})
 }

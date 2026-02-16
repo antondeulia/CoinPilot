@@ -4,6 +4,7 @@ import { TransactionsService } from '../../../modules/transactions/transactions.
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { TagsService } from '../../../modules/tags/tags.service'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { renderHome } from '../utils/render-home'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard } from './confirm-tx'
@@ -18,7 +19,7 @@ async function refreshPreview(ctx: BotContext, accountsService: AccountsService)
 	const user = ctx.state.user as any
 	const accountId =
 		current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
-	let showConversion = true
+	let showConversion = false
 	if (accountId) {
 		const account = await accountsService.getOneWithAssets(
 			accountId,
@@ -56,7 +57,8 @@ export const saveDeleteCallback = (
 	transactionsService: TransactionsService,
 	accountsService: AccountsService,
 	tagsService: TagsService,
-	subscriptionService: SubscriptionService
+	subscriptionService: SubscriptionService,
+	analyticsService: AnalyticsService
 ) => {
 	bot.callbackQuery('confirm_1_transactions', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -70,13 +72,13 @@ export const saveDeleteCallback = (
 		const limit = await subscriptionService.canCreateTransaction(ctx.state.user.id)
 		if (!limit.allowed) {
 			await ctx.answerCallbackQuery({
-				text: '👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
+				text: '💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
 			})
 			await ctx.reply(
-				'👑 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
 				{
 					reply_markup: new InlineKeyboard()
-						.text('👑 Premium', 'view_premium')
+						.text('💠 Pro-тариф', 'view_premium')
 						.row()
 						.text('Закрыть', 'hide_message')
 				}
@@ -89,13 +91,13 @@ export const saveDeleteCallback = (
 			const limit = await subscriptionService.canCreateTag(ctx.state.user.id)
 			if (!limit.allowed) {
 				await ctx.answerCallbackQuery({
-					text: '👑 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
+					text: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
 				})
 				await ctx.reply(
-					'👑 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
+					'💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
 					{
 						reply_markup: new InlineKeyboard()
-							.text('👑 Premium', 'view_premium')
+							.text('💠 Pro-тариф', 'view_premium')
 							.row()
 							.text('Закрыть', 'hide_message')
 					}
@@ -108,6 +110,11 @@ export const saveDeleteCallback = (
 		if (tagId) await tagsService.incrementUsage(tagId)
 
 		const isTransfer = draft.direction === 'transfer'
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(
+			ctx.state.user.id
+		)
+		const outsideWalletId =
+			allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
 		await transactionsService.create({
 			accountId: draft.accountId || account.id,
 			amount: draft.amount!,
@@ -116,7 +123,7 @@ export const saveDeleteCallback = (
 			...(isTransfer
 				? {
 						fromAccountId: draft.accountId || account.id,
-						toAccountId: draft.toAccountId ?? undefined
+						toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
 					}
 				: { category: draft.category ?? 'Не выбрано' }),
 			description: draft.description,
@@ -128,7 +135,9 @@ export const saveDeleteCallback = (
 			fromAccountId: isTransfer
 				? draft.accountId || account.id
 				: draft.fromAccountId,
-			toAccountId: draft.toAccountId,
+			toAccountId: isTransfer
+				? draft.toAccountId ?? outsideWalletId ?? undefined
+				: draft.toAccountId,
 			tagId: tagId ?? undefined,
 			convertedAmount: draft.convertedAmount,
 			convertToCurrency: draft.convertToCurrency
@@ -158,7 +167,7 @@ export const saveDeleteCallback = (
 			)
 			ctx.session.tempMessageId = msg.message_id
 
-			await renderHome(ctx as any, accountsService)
+			await renderHome(ctx as any, accountsService, analyticsService)
 
 			return
 		}
