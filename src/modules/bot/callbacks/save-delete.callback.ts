@@ -125,7 +125,7 @@ export const saveDeleteCallback = (
 						fromAccountId: draft.accountId || account.id,
 						toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
 					}
-				: { category: draft.category ?? 'Не выбрано' }),
+				: { category: draft.category ?? '📦Другое' }),
 			description: draft.description,
 			rawText: draft.rawText || '',
 			userId: ctx.state.user.id,
@@ -162,7 +162,10 @@ export const saveDeleteCallback = (
 			const msg = await ctx.reply(
 				'✅ Транзакция успешно сохранена.\n\nВозвращаюсь на главный экран.',
 				{
-					parse_mode: 'HTML'
+					parse_mode: 'HTML',
+					reply_markup: {
+						inline_keyboard: [[{ text: 'Закрыть', callback_data: 'hide_message' }]]
+					}
 				}
 			)
 			ctx.session.tempMessageId = msg.message_id

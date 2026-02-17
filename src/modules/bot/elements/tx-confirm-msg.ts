@@ -30,6 +30,7 @@ export function renderConfirmMessage(
 			: '—'
 	const signPrefix =
 		tx.direction === 'expense' ? '-' : tx.direction === 'income' ? '+' : ''
+	const isDeletedCurrency = !!(draft as any).currencyDeleted
 
 	const date = tx.transactionDate ? new Date(tx.transactionDate) : new Date()
 	const dateText = formatTransactionDate(date)
@@ -39,12 +40,16 @@ export function renderConfirmMessage(
 			: ''
 
 	let amountLine = `Сумма: ${signPrefix}${amountText}`
+	if (isDeletedCurrency) {
+		amountLine = `Сумма: <s>${signPrefix}${amountText}</s> <code>deleted</code>`
+	}
 	if (
 		typeof tx.amount === 'number' &&
 		tx.currency &&
 		tx.convertToCurrency &&
 		tx.convertedAmount != null &&
-		tx.currency !== tx.convertToCurrency
+		tx.currency !== tx.convertToCurrency &&
+		!isDeletedCurrency
 	) {
 		const sym = getCurrencySymbol(tx.convertToCurrency)
 		const convertedStr = Math.abs(tx.convertedAmount).toLocaleString('ru-RU', {

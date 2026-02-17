@@ -34,7 +34,7 @@ async function renderTransactionsList(
 				orderBy: { transactionDate: 'desc' },
 				skip,
 				take: PAGE_SIZE,
-				include: { account: true, toAccount: true, tag: true }
+				include: { account: { include: { assets: true } }, toAccount: true, tag: true }
 			}),
 			prisma.transaction.count({ where: { userId } }),
 			prisma.transaction.count({ where: monthWhere }),
@@ -82,6 +82,11 @@ async function renderTransactionsList(
 }
 
 function txToDraft(tx: any) {
+	const accountCurrencies = new Set(
+		(tx.account?.assets ?? []).map((a: any) => (a.currency || '').toUpperCase())
+	)
+	const currencyDeleted =
+		tx.currency && accountCurrencies.size > 0 && !accountCurrencies.has(tx.currency.toUpperCase())
 	return {
 		action: 'create_transaction' as const,
 		accountId: tx.accountId,
@@ -89,7 +94,7 @@ function txToDraft(tx: any) {
 		amount: tx.amount,
 		currency: tx.currency,
 		direction: tx.direction,
-		category: tx.category ?? 'Не выбрано',
+		category: tx.category ?? '📦Другое',
 		description: tx.description ?? null,
 		transactionDate: tx.transactionDate
 			? new Date(tx.transactionDate).toISOString()
@@ -100,7 +105,8 @@ function txToDraft(tx: any) {
 		convertToCurrency: tx.convertToCurrency ?? undefined,
 		convertedAmount: tx.convertedAmount ?? undefined,
 		toAccountId: tx.toAccountId ?? undefined,
-		toAccount: tx.toAccount?.name ?? undefined
+		toAccount: tx.toAccount?.name ?? undefined,
+		currencyDeleted
 	}
 }
 
@@ -144,7 +150,7 @@ export const viewTransactionsCallback = (
 		const txId = ctx.callbackQuery.data.split(':')[1]
 		const tx = await prisma.transaction.findUnique({
 			where: { id: txId, userId: ctx.state.user.id },
-			include: { account: true, tag: true, toAccount: true }
+			include: { account: { include: { assets: true } }, tag: true, toAccount: true }
 		})
 		if (!tx) return
 		const msgId = ctx.callbackQuery?.message?.message_id

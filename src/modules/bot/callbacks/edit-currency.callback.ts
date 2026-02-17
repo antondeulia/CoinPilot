@@ -27,12 +27,13 @@ function buildCurrencyKeyboard(
 	}
 
 	const totalPages = Math.max(1, Math.ceil(codes.length / pageSize))
-
-	rows.push([
-		{ text: '« Назад', callback_data: 'tx_currency_page:prev' },
-		{ text: `${page + 1}/${totalPages}`, callback_data: 'tx_currency_page:noop' },
-		{ text: 'Вперёд »', callback_data: 'tx_currency_page:next' }
-	])
+	if (totalPages > 1) {
+		rows.push([
+			{ text: '« Назад', callback_data: 'tx_currency_page:prev' },
+			{ text: `${page + 1}/${totalPages}`, callback_data: 'tx_currency_page:noop' },
+			{ text: 'Вперёд »', callback_data: 'tx_currency_page:next' }
+		])
+	}
 
 	rows.push([{ text: 'Закрыть', callback_data: 'back_to_preview' }])
 

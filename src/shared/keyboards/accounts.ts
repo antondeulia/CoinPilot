@@ -29,10 +29,12 @@ export function accountSwitchKeyboard(
 		kb.row()
 	}
 
-	kb.text('« Назад', 'accounts_page_prev')
-		.text(`${page + 1}/${totalPages}`, 'accounts_page_current')
-		.text('Вперёд »', 'accounts_page_next')
-		.row()
+	if (totalPages > 1) {
+		kb.text('« Назад', 'accounts_page_prev')
+			.text(`${page + 1}/${totalPages}`, 'accounts_page_current')
+			.text('Вперёд »', 'accounts_page_next')
+			.row()
+	}
 
 	if (selectedId) {
 		if (selectedFrozen) {
@@ -41,7 +43,7 @@ export function accountSwitchKeyboard(
 			kb.text('Jarvis-редактирование', 'accounts_jarvis_edit_details')
 				.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
 		}
-		kb.text('Снять выделение', 'accounts_unselect').row()
+		kb.text('← Назад', 'accounts_back')
 	} else {
 		kb.text('+ Добавить счёт', 'add_account').row()
 		kb.text('← Назад', 'accounts_back')

@@ -112,7 +112,7 @@ export const confirmTxCallback = (
 							fromAccountId: accountId,
 							toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
 						}
-					: { category: draft.category ?? 'Не выбрано' }),
+					: { category: draft.category ?? '📦Другое' }),
 				description: draft.description,
 				rawText: draft.rawText || '',
 				userId: ctx.state.user.id,

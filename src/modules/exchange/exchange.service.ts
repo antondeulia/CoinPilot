@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { Cron } from '@nestjs/schedule'
 import { PrismaService } from '../prisma/prisma.service'
 
 const FIAT_CACHE_MS = 24 * 60 * 60 * 1000
@@ -8,6 +9,7 @@ const COINGECKO_LIST_CACHE_MS = 24 * 60 * 60 * 1000
 
 @Injectable()
 export class ExchangeService {
+	private readonly logger = new Logger(ExchangeService.name)
 	private cache: { rates: Record<string, number>; fetchedAt: number } | null = null
 	private cryptoCache: {
 		prices: Record<string, number>
@@ -25,6 +27,57 @@ export class ExchangeService {
 		private readonly config: ConfigService,
 		private readonly prisma: PrismaService
 	) {}
+
+	private toDayStartUtc(date: Date): Date {
+		return new Date(
+			Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0)
+		)
+	}
+
+	private normalizeRates(input: Record<string, unknown>): Record<string, number> {
+		const out: Record<string, number> = { USD: 1 }
+		for (const [k, v] of Object.entries(input)) {
+			if (typeof v !== 'number' || Number.isNaN(v) || v <= 0) continue
+			out[k.toUpperCase()] = v
+		}
+		return out
+	}
+
+	private async getLatestSnapshotRates(): Promise<Record<string, number> | null> {
+		const prismaAny = this.prisma as any
+		const row = await prismaAny.exchangeRateSnapshot?.findFirst?.({
+			where: { baseCurrency: 'USD' },
+			orderBy: { date: 'desc' }
+		})
+		if (!row?.rates || typeof row.rates !== 'object') return null
+		return this.normalizeRates(row.rates as Record<string, unknown>)
+	}
+
+	private async upsertSnapshot(partialRates: Record<string, number>): Promise<void> {
+		const prismaAny = this.prisma as any
+		if (!prismaAny.exchangeRateSnapshot?.findUnique) return
+		const date = this.toDayStartUtc(new Date())
+		const key = { date_baseCurrency: { date, baseCurrency: 'USD' } }
+		const existing = await prismaAny.exchangeRateSnapshot.findUnique({ where: key })
+		const current = existing?.rates && typeof existing.rates === 'object'
+			? this.normalizeRates(existing.rates as Record<string, unknown>)
+			: { USD: 1 }
+		const merged = { ...current, ...this.normalizeRates(partialRates) }
+		if (existing) {
+			await prismaAny.exchangeRateSnapshot.update({
+				where: key,
+				data: { rates: merged }
+			})
+			return
+		}
+		await prismaAny.exchangeRateSnapshot.create({
+			data: {
+				date,
+				baseCurrency: 'USD',
+				rates: merged
+			}
+		})
+	}
 
 	/** Коды валют из БД (только они участвуют в конвертации). */
 	async getKnownCurrencies(): Promise<{
@@ -59,7 +112,10 @@ export class ExchangeService {
 			return this.cache.rates
 		}
 		const key = this.config.get<string>('EXCHANGE_API_KEY')
-		if (!key) return { USD: 1 }
+		if (!key) {
+			this.logger.warn('EXCHANGE_API_KEY is missing, using cache/snapshot fallback')
+			return this.cache?.rates ?? (await this.getLatestSnapshotRates()) ?? { USD: 1 }
+		}
 		try {
 			const res = await fetch(
 				`https://v6.exchangerate-api.com/v6/${key}/latest/USD`
@@ -71,9 +127,10 @@ export class ExchangeService {
 				normalized[k.toUpperCase()] = v as number
 			}
 			this.cache = { rates: normalized, fetchedAt: Date.now() }
+			await this.upsertSnapshot(normalized)
 			return normalized
 		} catch {
-			return this.cache?.rates ?? { USD: 1 }
+			return this.cache?.rates ?? (await this.getLatestSnapshotRates()) ?? { USD: 1 }
 		}
 	}
 
@@ -171,8 +228,69 @@ export class ExchangeService {
 		}
 		if (Object.keys(prices).length > 0) {
 			this.cryptoCache = { prices, fetchedAt: Date.now() }
+			await this.upsertSnapshot(prices)
 		}
 		return this.cryptoCache?.prices ?? prices
+	}
+
+	@Cron('0 1 * * *')
+	async refreshFiatRatesSnapshot(): Promise<void> {
+		const rates = await this.getRates()
+		await this.upsertSnapshot(rates)
+	}
+
+	@Cron('0 */3 * * *')
+	async refreshCryptoRatesSnapshot(): Promise<void> {
+		const prices = await this.getCryptoRates()
+		if (Object.keys(prices).length === 0) return
+		await this.upsertSnapshot(prices)
+	}
+
+	async getHistoricalRate(
+		date: Date,
+		fromCurrency: string,
+		toCurrency: string
+	): Promise<number | null> {
+		const from = (fromCurrency || '').toUpperCase()
+		const to = (toCurrency || '').toUpperCase()
+		if (from === to) return 1
+		const known = await this.getKnownCurrencies()
+		const fromKnown = known.fiat.has(from) || known.crypto.has(from)
+		const toKnown = known.fiat.has(to) || known.crypto.has(to)
+		if (!fromKnown || !toKnown) return null
+		const prismaAny = this.prisma as any
+		const row = await prismaAny.exchangeRateSnapshot?.findFirst?.({
+			where: {
+				baseCurrency: 'USD',
+				date: { lte: this.toDayStartUtc(date) }
+			},
+			orderBy: { date: 'desc' }
+		})
+		if (!row?.rates || typeof row.rates !== 'object') return null
+		const rates = this.normalizeRates(row.rates as Record<string, unknown>)
+		const fromFiat = known.fiat.has(from)
+		const toFiat = known.fiat.has(to)
+		let usdValueForOneUnit: number
+		if (fromFiat) {
+			const rate = rates[from]
+			if (rate == null) return null
+			usdValueForOneUnit = 1 / rate
+		} else {
+			const price = rates[from]
+			if (price == null) return null
+			usdValueForOneUnit = price
+		}
+		let targetValueForOneUnit: number
+		if (toFiat) {
+			const rate = rates[to]
+			if (rate == null) return null
+			targetValueForOneUnit = usdValueForOneUnit * rate
+		} else {
+			const price = rates[to]
+			if (price == null) return null
+			targetValueForOneUnit = usdValueForOneUnit / price
+		}
+		return targetValueForOneUnit
 	}
 
 	/** Конвертация. null = валюта неизвестна или нет курса — не учитывать в итогах. */

@@ -27,14 +27,16 @@ function buildCategoriesKeyboard(
 	}
 
 	const totalPages = Math.max(1, Math.ceil(categories.length / CATEGORY_PAGE_SIZE))
-	rows.push([
-		{ text: '« Назад', callback_data: 'categories_page:prev' },
-		{
-			text: `${page + 1}/${totalPages}`,
-			callback_data: 'categories_page:noop'
-		},
-		{ text: 'Вперёд »', callback_data: 'categories_page:next' }
-	])
+	if (totalPages > 1) {
+		rows.push([
+			{ text: '« Назад', callback_data: 'categories_page:prev' },
+			{
+				text: `${page + 1}/${totalPages}`,
+				callback_data: 'categories_page:noop'
+			},
+			{ text: 'Вперёд »', callback_data: 'categories_page:next' }
+		])
+	}
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
 	return { inline_keyboard: rows }
@@ -54,7 +56,7 @@ export const editCategoryCallback = (
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index]
 		const currentName =
-			current?.category && current.category !== 'Не выбрано'
+			current?.category && current.category !== '📦Другое'
 				? current.category
 				: null
 
@@ -94,7 +96,7 @@ export const editCategoryCallback = (
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index]
 		const currentName =
-			current?.category && current.category !== 'Не выбрано'
+			current?.category && current.category !== '📦Другое'
 				? current.category
 				: null
 
@@ -129,7 +131,7 @@ export const editCategoryCallback = (
 		if (!category) return
 
 		if (current.category === category.name) {
-			current.category = 'Не выбрано'
+			current.category = '📦Другое'
 		} else {
 			current.category = category.name
 		}

@@ -36,6 +36,7 @@ export const closeEditCallback = (
 		}
 
 		ctx.session.awaitingAccountInput = undefined
+		;(ctx.session as any).accountInputHintMessageId = undefined
 	})
 
 	bot.callbackQuery('close_edit_account', async ctx => {

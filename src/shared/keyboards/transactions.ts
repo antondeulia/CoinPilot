@@ -85,11 +85,13 @@ export function transactionsListKeyboard(
 		kb.row()
 	}
 	const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-	kb.text('« Назад', 'transactions_page:prev')
-		.text(`${page + 1}/${totalPages}`, 'transactions_page:noop')
-		.text('Вперёд »', 'transactions_page:next')
-		.row()
-		.text('← Назад', 'go_home')
+	if (totalPages > 1) {
+		kb.text('« Назад', 'transactions_page:prev')
+			.text(`${page + 1}/${totalPages}`, 'transactions_page:noop')
+			.text('Вперёд »', 'transactions_page:next')
+			.row()
+	}
+	kb.text('← Назад', 'go_home')
 	return kb
 }
 

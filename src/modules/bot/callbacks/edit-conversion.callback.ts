@@ -27,12 +27,13 @@ function buildConversionKeyboard(
 	}
 
 	const totalPages = Math.max(1, Math.ceil(codes.length / pageSize))
-
-	rows.push([
-		{ text: '« Назад', callback_data: 'conversion_page:prev' },
-		{ text: `${page + 1}/${totalPages}`, callback_data: 'conversion_page:noop' },
-		{ text: 'Вперёд »', callback_data: 'conversion_page:next' }
-	])
+	if (totalPages > 1) {
+		rows.push([
+			{ text: '« Назад', callback_data: 'conversion_page:prev' },
+			{ text: `${page + 1}/${totalPages}`, callback_data: 'conversion_page:noop' },
+			{ text: 'Вперёд »', callback_data: 'conversion_page:next' }
+		])
+	}
 
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
