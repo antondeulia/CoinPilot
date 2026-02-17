@@ -169,7 +169,11 @@ console.log(event)
 			return
 		}
 console.log(stripeSub, "stripeSub here")
-		const end = new Date(stripeSub.current_period_end * 1000)
+let end: Date | null = null;
+if (stripeSub.current_period_end) {
+
+	 end = new Date(stripeSub.current_period_end * 1000)
+}
 
 		const plan =
 			planMeta === 'monthly'
@@ -218,7 +222,11 @@ console.log(stripeSub, "stripeSub here")
 		const userId = meta.user_id
 		if (!userId) return
 console.log(stripeSub, "stripeSub here 2")
-		const end = new Date(stripeSub.current_period_end * 1000)
+let end: Date | null = null;
+if (stripeSub.current_period_end) {
+
+	 end = new Date(stripeSub.current_period_end * 1000)
+}
 
 		await this.prisma.$transaction([
 			this.prisma.user.update({
@@ -240,7 +248,11 @@ console.log(stripeSub, "stripeSub here 2")
 		const userId = meta.user_id
 		if (!userId) return
 console.log(stripeSub, "stripeSub here 3")
-		const end = new Date(stripeSub.current_period_end * 1000)
+let end: Date | null = null;
+if (stripeSub.current_period_end) {
+
+	 end = new Date(stripeSub.current_period_end * 1000)
+}
 		const status = stripeSub.status
 
 		const isActive = status === 'active' || status === 'trialing'
