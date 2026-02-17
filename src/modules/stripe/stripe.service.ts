@@ -168,7 +168,7 @@ console.log(event)
 			this.logger.error('Не удалось получить Stripe subscription', e as any)
 			return
 		}
-
+console.log(stripeSub, "stripeSub here")
 		const end = new Date(stripeSub.current_period_end * 1000)
 
 		const plan =
@@ -217,7 +217,7 @@ console.log(event)
 		const meta = stripeSub.metadata ?? {}
 		const userId = meta.user_id
 		if (!userId) return
-
+console.log(stripeSub, "stripeSub here 2")
 		const end = new Date(stripeSub.current_period_end * 1000)
 
 		await this.prisma.$transaction([
@@ -239,7 +239,7 @@ console.log(event)
 		const meta = stripeSub.metadata ?? {}
 		const userId = meta.user_id
 		if (!userId) return
-
+console.log(stripeSub, "stripeSub here 3")
 		const end = new Date(stripeSub.current_period_end * 1000)
 		const status = stripeSub.status
 
