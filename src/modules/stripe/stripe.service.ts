@@ -118,7 +118,7 @@ export class StripeService {
 			this.logger.error('Stripe webhook signature verification failed', err as any)
 			return
 		}
-
+console.log(event)
 		switch (event.type) {
 			case 'checkout.session.completed':
 				await this.handleCheckoutCompleted(

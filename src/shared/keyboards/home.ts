@@ -37,5 +37,5 @@ export function homeKeyboard() {
 		.text('📄 Список транзакций', 'view_transactions')
 		.text('📊 Аналитика', 'view_analytics')
 		.row()
-		.text('⚙️ Настройки', 'view_settings')
+		.text('⚙️ НастройкиААААА', 'view_settings')
 }
