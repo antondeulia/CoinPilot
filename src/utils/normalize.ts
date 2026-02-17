@@ -25,7 +25,6 @@ export function levenshtein(a: string, b: string): number {
 
 export function tagSimilarity(a: string, b: string): number {
 	if (a === b) return 1
-	if (a.includes(b) || b.includes(a)) return 0.9
 	const maxLen = Math.max(a.length, b.length)
 	if (maxLen === 0) return 1
 	return 1 - levenshtein(a, b) / maxLen

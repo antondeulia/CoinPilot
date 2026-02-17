@@ -6,8 +6,10 @@ import { SubscriptionService } from '../../../modules/subscription/subscription.
 import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { FREE_LIMITS } from '../../../modules/subscription/subscription.constants'
 import { refreshAccountsPreview } from './accounts-preview.callback'
-import { renderHome } from '../utils/render-home'
 import { PremiumEventType } from '../../../generated/prisma/enums'
+import { ExchangeService } from '../../../modules/exchange/exchange.service'
+import { viewAccountsListText } from '../elements/accounts'
+import { accountSwitchKeyboard } from '../../../shared/keyboards'
 
 const UPSELL_ACCOUNTS =
 	'💠 Вы достигли лимита — 2 счета в Free. Перейдите на Premium и управляйте финансами без ограничений!'
@@ -18,8 +20,42 @@ export const saveDeleteAccountsCallback = (
 	accountsService: AccountsService,
 	usersService: UsersService,
 	subscriptionService: SubscriptionService,
-	analyticsService: AnalyticsService
+	analyticsService: AnalyticsService,
+	exchangeService: ExchangeService
 ) => {
+	const refreshAccountsPanel = async (ctx: BotContext) => {
+		const user = await usersService.getOrCreateByTelegramId(String(ctx.from!.id))
+		;(ctx.state as any).user = user
+		;(ctx.state as any).activeAccount =
+			user.accounts.find(a => a.id === user.activeAccountId) ?? null
+		const [accountsWithAssets, frozen] = await Promise.all([
+			accountsService.getAllWithAssets(user.id),
+			subscriptionService.getFrozenItems(user.id)
+		])
+		const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+		const visibleAccounts = (user.accounts ?? []).filter(
+			(a: { isHidden?: boolean }) => !a.isHidden
+		)
+		const text = await viewAccountsListText(
+			accountsWithAssets,
+			user.mainCurrency ?? 'USD',
+			exchangeService,
+			analyticsService,
+			user.id,
+			(user as any).lastTipText
+		)
+		await ctx.api.editMessageText(ctx.chat!.id, ctx.session.homeMessageId, text, {
+			parse_mode: 'HTML',
+			reply_markup: accountSwitchKeyboard(
+				visibleAccounts,
+				user.activeAccountId,
+				ctx.session.accountsViewPage ?? 0,
+				null,
+				user.defaultAccountId ?? undefined,
+				frozenAccountIds
+			)
+		})
+	}
 	bot.callbackQuery('confirm_1_accounts', async ctx => {
 		const drafts = ctx.session.draftAccounts
 		const index = ctx.session.currentAccountIndex ?? 0
@@ -105,14 +141,24 @@ export const saveDeleteAccountsCallback = (
 				} catch {}
 				ctx.session.tempMessageId = undefined
 			}
+			const hintId = (ctx.session as any).accountInputHintMessageId
+			if (hintId != null) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, hintId)
+				} catch {}
+				;(ctx.session as any).accountInputHintMessageId = undefined
+			}
+			for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, msgId)
+				} catch {}
+			}
+			;(ctx.session as any).accountInputMessageIds = []
 
-			await ctx.reply('Счёт сохранён.')
-
-			const user = await usersService.getOrCreateByTelegramId(String(ctx.from!.id))
-			;(ctx.state as any).user = user
-			;(ctx.state as any).activeAccount =
-				user.accounts.find(a => a.id === user.activeAccountId) ?? null
-			await renderHome(ctx, accountsService, analyticsService)
+			await ctx.reply(`✅ Счёт сохранён: ${draft.name}`, {
+				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+			})
+			await refreshAccountsPanel(ctx)
 			return
 		}
 
@@ -141,6 +187,19 @@ export const saveDeleteAccountsCallback = (
 				} catch {}
 				ctx.session.tempMessageId = undefined
 			}
+			const hintId = (ctx.session as any).accountInputHintMessageId
+			if (hintId != null) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, hintId)
+				} catch {}
+				;(ctx.session as any).accountInputHintMessageId = undefined
+			}
+			for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, msgId)
+				} catch {}
+			}
+			;(ctx.session as any).accountInputMessageIds = []
 
 			return
 		}
@@ -216,10 +275,12 @@ export const saveDeleteAccountsCallback = (
 
 		ctx.session.draftAccounts = undefined
 		let created = 0
+		const createdNames: string[] = []
 		for (const draft of drafts) {
 			try {
 				await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
 				created++
+				if (draft?.name) createdNames.push(draft.name)
 			} catch {}
 		}
 
@@ -233,16 +294,29 @@ export const saveDeleteAccountsCallback = (
 			} catch {}
 			ctx.session.tempMessageId = undefined
 		}
+		const hintId = (ctx.session as any).accountInputHintMessageId
+		if (hintId != null) {
+			try {
+				await ctx.api.deleteMessage(ctx.chat!.id, hintId)
+			} catch {}
+			;(ctx.session as any).accountInputHintMessageId = undefined
+		}
+		for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
+			try {
+				await ctx.api.deleteMessage(ctx.chat!.id, msgId)
+			} catch {}
+		}
+		;(ctx.session as any).accountInputMessageIds = []
 
 		await ctx.reply(
-			created > 0 ? `Счета сохранены: ${created}.` : 'Не удалось сохранить счета.'
+			created > 0
+				? `✅ Счета сохранены: ${createdNames.join(', ')}`
+				: 'Не удалось сохранить счета.',
+			{
+				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+			}
 		)
-
-		const user = await usersService.getOrCreateByTelegramId(String(ctx.from!.id))
-		;(ctx.state as any).user = user
-		;(ctx.state as any).activeAccount =
-			user.accounts.find(a => a.id === user.activeAccountId) ?? null
-		await renderHome(ctx, accountsService, analyticsService)
+		await refreshAccountsPanel(ctx)
 		sessionAny.savingAllAccounts = false
 	})
 
@@ -257,5 +331,18 @@ export const saveDeleteAccountsCallback = (
 			} catch {}
 			ctx.session.tempMessageId = undefined
 		}
+		const hintId = (ctx.session as any).accountInputHintMessageId
+		if (hintId != null) {
+			try {
+				await ctx.api.deleteMessage(ctx.chat!.id, hintId)
+			} catch {}
+			;(ctx.session as any).accountInputHintMessageId = undefined
+		}
+		for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
+			try {
+				await ctx.api.deleteMessage(ctx.chat!.id, msgId)
+			} catch {}
+		}
+		;(ctx.session as any).accountInputMessageIds = []
 	})
 }

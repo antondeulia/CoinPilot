@@ -56,6 +56,7 @@ export const ModelName = {
   Account: 'Account',
   AccountAsset: 'AccountAsset',
   Transaction: 'Transaction',
+  ExchangeRateSnapshot: 'ExchangeRateSnapshot',
   Category: 'Category',
   Tag: 'Tag',
   TagAlias: 'TagAlias',
@@ -149,10 +150,23 @@ export const TransactionScalarFieldEnum = {
   toAccountId: 'toAccountId',
   tagId: 'tagId',
   convertedAmount: 'convertedAmount',
-  convertToCurrency: 'convertToCurrency'
+  convertToCurrency: 'convertToCurrency',
+  amountUsd: 'amountUsd'
 } as const
 
 export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
+
+
+export const ExchangeRateSnapshotScalarFieldEnum = {
+  id: 'id',
+  date: 'date',
+  baseCurrency: 'baseCurrency',
+  rates: 'rates',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ExchangeRateSnapshotScalarFieldEnum = (typeof ExchangeRateSnapshotScalarFieldEnum)[keyof typeof ExchangeRateSnapshotScalarFieldEnum]
 
 
 export const CategoryScalarFieldEnum = {

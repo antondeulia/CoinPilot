@@ -10,6 +10,24 @@ export class AccountsService {
 		private readonly exchangeService: ExchangeService
 	) {}
 
+	private async ensureCurrenciesSupported(currencies: string[]) {
+		const normalized = Array.from(
+			new Set(currencies.map(c => (c || '').toUpperCase().trim()).filter(Boolean))
+		)
+		if (!normalized.length) return
+		const rows = await this.prisma.currency.findMany({
+			where: { code: { in: normalized } },
+			select: { code: true }
+		})
+		const existing = new Set(rows.map(r => r.code.toUpperCase()))
+		const unsupported = normalized.filter(c => !existing.has(c))
+		if (unsupported.length > 0) {
+			throw new Error(
+				`Валюта ${unsupported[0]} не поддерживается, свяжитесь с разработчиком.`
+			)
+		}
+	}
+
 	async createAccount(userId: string, name: string, currency: string) {
 		return this.prisma.account.create({
 			data: {
@@ -67,28 +85,12 @@ export class AccountsService {
 		userId: string,
 		draft: { name: string; assets: { currency: string; amount: number }[] }
 	) {
+		await this.ensureCurrenciesSupported(draft.assets.map(a => a.currency))
 		await this.prisma.$transaction(async tx => {
-			const oldAssets = await tx.accountAsset.findMany({
-				where: { accountId },
-				select: { currency: true }
-			})
 			await tx.account.update({
 				where: { id: accountId, userId },
 				data: { name: draft.name.trim() }
 			})
-			const oldCurrencies = new Set(oldAssets.map(a => a.currency))
-			const newCurrencies = new Set(draft.assets.map(a => a.currency))
-			const removedCurrencies = [...oldCurrencies].filter(
-				code => !newCurrencies.has(code)
-			)
-			if (removedCurrencies.length > 0) {
-				await tx.transaction.deleteMany({
-					where: {
-						accountId,
-						currency: { in: removedCurrencies }
-					}
-				})
-			}
 			await tx.accountAsset.deleteMany({ where: { accountId } })
 			for (const a of draft.assets) {
 				await tx.accountAsset.create({
@@ -295,6 +297,7 @@ export class AccountsService {
 		if (!assets.length) {
 			assets.push({ currency: 'USD', amount: 0 })
 		}
+		await this.ensureCurrenciesSupported(assets.map(a => a.currency))
 
 		return this.prisma.$transaction(async tx => {
 			let name = `${emoji} ${formattedName}`.trim()

@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { TransactionModel } from '../../generated/prisma/models'
+import { ExchangeService } from '../exchange/exchange.service'
 
 @Injectable()
 export class TransactionsService {
-	constructor(private prisma: PrismaService) {}
+	constructor(
+		private prisma: PrismaService,
+		private readonly exchangeService: ExchangeService
+	) {}
 
 	async create(params: {
 		userId: string
@@ -22,6 +26,11 @@ export class TransactionsService {
 		convertedAmount?: number
 		convertToCurrency?: string
 	}) {
+		const amountUsd = await this.exchangeService.convert(
+			Math.abs(params.amount),
+			params.currency,
+			'USD'
+		)
 		const tx = await this.prisma.transaction.create({
 			data: {
 				...params,
@@ -29,7 +38,8 @@ export class TransactionsService {
 				convertedAmount:
 					params.convertedAmount != null
 						? Math.abs(params.convertedAmount)
-						: undefined
+						: undefined,
+				amountUsd: amountUsd ?? undefined
 			}
 		})
 		await this.applyBalanceEffect(tx)
@@ -91,6 +101,9 @@ export class TransactionsService {
 		})
 		if (!existing) return null
 		await this.reverseBalanceEffect(existing as TransactionModel)
+		const amountRaw = params.amount != null ? Math.abs(params.amount) : existing.amount
+		const currencyRaw = params.currency ?? existing.currency
+		const amountUsd = await this.exchangeService.convert(amountRaw, currencyRaw, 'USD')
 		const updated = await this.prisma.transaction.update({
 			where: { id },
 			data: {
@@ -118,7 +131,8 @@ export class TransactionsService {
 				}),
 				...(params.toAccountId !== undefined && {
 					toAccountId: params.toAccountId
-				})
+				}),
+				amountUsd: amountUsd ?? null
 			}
 		})
 		await this.applyBalanceEffect(updated as TransactionModel)

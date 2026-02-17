@@ -75,6 +75,7 @@ import { hideMessageCallback } from './callbacks/hide-message.callback'
 import { categoriesListKb } from './callbacks/view-categories.callback'
 import { tagsListText } from './callbacks/view-tags.callback'
 import { buildSettingsView } from '../../shared/keyboards/settings'
+import { levenshtein } from '../../utils/normalize'
 
 @Injectable()
 export class BotService implements OnModuleInit {
@@ -243,7 +244,7 @@ Pro открывает:
 		)
 		editAccountCallback(this.bot, this.accountsService)
 		accountsPaginationCallback(this.bot, this.subscriptionService)
-		addAccountCallback(this.bot)
+		addAccountCallback(this.bot, this.subscriptionService)
 		accountsPreviewCallbacks(this.bot)
 		accountsJarvisEditCallback(this.bot, this.llmService)
 		saveDeleteAccountsCallback(
@@ -251,7 +252,8 @@ Pro открывает:
 			this.accountsService,
 			this.usersService,
 			this.subscriptionService,
-			this.analyticsService
+			this.analyticsService,
+			this.exchangeService
 		)
 		viewTransactionsCallback(
 			this.bot,
@@ -502,6 +504,43 @@ Pro открывает:
 			const user: any = ctx.state.user
 			if (!user) return
 			const accountId = ctx.callbackQuery.data.split(':')[1]
+			if (ctx.session.accountsViewSelectedId === accountId) {
+				ctx.session.accountsViewSelectedId = null
+				const page = ctx.session.accountsViewPage ?? 0
+				const [accountsWithAssets, frozen] = await Promise.all([
+					this.accountsService.getAllWithAssets(user.id),
+					this.subscriptionService.getFrozenItems(user.id)
+				])
+				const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+				const visibleAccounts = (user.accounts ?? []).filter(
+					(a: { isHidden?: boolean }) => !a.isHidden
+				)
+				const text = await viewAccountsListText(
+					accountsWithAssets,
+					user.mainCurrency ?? 'USD',
+					this.exchangeService,
+					this.analyticsService,
+					user.id,
+					user.lastTipText
+				)
+				await ctx.api.editMessageText(
+					ctx.chat!.id,
+					ctx.callbackQuery.message!.message_id,
+					text,
+					{
+						parse_mode: 'HTML',
+						reply_markup: accountSwitchKeyboard(
+							visibleAccounts,
+							user.activeAccountId,
+							page,
+							null,
+							user.defaultAccountId,
+							frozenAccountIds
+						)
+					}
+				)
+				return
+			}
 			const frozen = await this.subscriptionService.getFrozenItems(user.id)
 			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 			const account = await this.accountsService.getOneWithAssets(
@@ -708,24 +747,44 @@ Pro открывает:
 			const user: any = ctx.state.user
 			const account = await this.accountsService.getOneWithAssets(accountId, user.id)
 			if (!account) return
-			await ctx.api.editMessageText(
-				ctx.chat!.id,
-				ctx.callbackQuery.message!.message_id,
+			;(ctx.session as any).accountsDeleteSourceMessageId =
+				ctx.callbackQuery.message!.message_id
+			const msg = await ctx.reply(
 				`Удалить счёт «${account.name}»?\n\nТранзакции по счёту будут удалены.`,
 				{
 					reply_markup: new InlineKeyboard()
-						.text('Удалить', `account_delete_confirm:${accountId}`)
-						.text('Отмена', 'accounts_unselect')
+						.text('Подтвердить', `account_delete_confirm:${accountId}`)
+						.text('Отменить', `account_delete_cancel`)
 				}
 			)
+			;(ctx.session as any).accountsDeleteConfirmMessageId = msg.message_id
+		})
+
+		this.bot.callbackQuery('account_delete_cancel', async ctx => {
+			const confirmMsgId = (ctx.session as any).accountsDeleteConfirmMessageId
+			if (confirmMsgId != null) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, confirmMsgId)
+				} catch {}
+			}
+			;(ctx.session as any).accountsDeleteConfirmMessageId = undefined
+			;(ctx.session as any).accountsDeleteSourceMessageId = undefined
 		})
 
 		this.bot.callbackQuery(/^account_delete_confirm:/, async ctx => {
 			const accountId = ctx.callbackQuery.data.replace('account_delete_confirm:', '')
 			const user: any = ctx.state.user
+			const account = await this.accountsService.getOneWithAssets(accountId, user.id)
 			const deleted = await this.accountsService.deleteAccount(accountId, user.id)
 			if (!deleted) return
 			ctx.session.accountsViewSelectedId = null
+			const confirmMsgId = (ctx.session as any).accountsDeleteConfirmMessageId
+			if (confirmMsgId != null) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, confirmMsgId)
+				} catch {}
+			}
+			;(ctx.session as any).accountsDeleteConfirmMessageId = undefined
 			const freshUser = await this.prisma.user.findUnique({
 				where: { telegramId: String(ctx.from!.id) }
 			})
@@ -749,8 +808,9 @@ Pro открывает:
 			)
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
-				ctx.callbackQuery.message!.message_id,
-				'Счёт удалён.<br><br>' + text,
+				((ctx.session as any).accountsDeleteSourceMessageId as number) ??
+					ctx.callbackQuery.message!.message_id,
+				text,
 				{
 					parse_mode: 'HTML',
 					reply_markup: accountSwitchKeyboard(
@@ -763,6 +823,10 @@ Pro открывает:
 					)
 				}
 			)
+			;(ctx.session as any).accountsDeleteSourceMessageId = undefined
+			await ctx.reply(`✅ Счёт удалён: ${account?.name ?? ''}`, {
+				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+			})
 		})
 
 		this.bot.callbackQuery('add_account', async ctx => {
@@ -1028,12 +1092,22 @@ Pro открывает:
 					})
 					return
 				}
-				const similar = await this.tagsService.findSimilar(
-					ctx.state.user.id,
-					normalized
-				)
+				const allTags = await this.tagsService.getAllByUserId(ctx.state.user.id)
+				const exact = allTags.find(t => t.name === normalized)
+				const typo = !exact
+					? allTags.find(t => levenshtein(normalized, t.name) <= 1)
+					: null
+				const similar = await this.tagsService.findSimilar(ctx.state.user.id, normalized)
 				const best = similar[0]
-				if (best && best.similarity >= 0.85) {
+				if (exact) {
+					current.tagId = exact.id
+					current.tagName = exact.name
+					current.tagIsNew = false
+				} else if (typo) {
+					current.tagId = typo.id
+					current.tagName = typo.name
+					current.tagIsNew = false
+				} else if (best && best.similarity >= 0.85) {
 					current.tagId = best.tag.id
 					current.tagName = best.tag.name
 					current.tagIsNew = false
@@ -1977,6 +2051,10 @@ Pro открывает:
 			}
 
 			if (ctx.session.awaitingAccountInput) {
+				const accountInputMessageIds = ((ctx.session as any).accountInputMessageIds ??
+					[]) as number[]
+				accountInputMessageIds.push(ctx.message.message_id)
+				;(ctx.session as any).accountInputMessageIds = accountInputMessageIds
 				try {
 					const parsed = await this.llmService.parseAccount(text)
 
@@ -1989,16 +2067,6 @@ Pro открывает:
 					ctx.session.confirmingAccounts = true
 					ctx.session.draftAccounts = parsed as any
 					ctx.session.currentAccountIndex = 0
-
-					if (ctx.session.tempMessageId != null) {
-						try {
-							await ctx.api.deleteMessage(
-								ctx.chat!.id,
-								ctx.session.tempMessageId
-							)
-						} catch {}
-						ctx.session.tempMessageId = undefined
-					}
 
 					await refreshAccountsPreview(ctx as any)
 				} catch (e: any) {
@@ -2234,7 +2302,7 @@ Pro открывает:
 			const direction = tx.direction
 			const txDate = (tx.transactionDate || new Date().toISOString()).slice(0, 10)
 			const account = normalizeAccountAlias(tx.account ?? tx.fromAccount ?? '')
-			const category = tx.category ?? 'Не выбрано'
+			const category = tx.category ?? '📦Другое'
 			const currency = (tx.currency ?? '').toUpperCase()
 			if (direction === 'transfer') {
 				const key = `transfer|${txDate}|${currency}|${account}|${normalizeAccountAlias(
@@ -2262,6 +2330,11 @@ Pro открывает:
 			prev.description = labels.length <= 2 ? labels.join(', ') : 'Продукты'
 		}
 		const parsedNormalized = Array.from(merged.values()) as any[]
+		const knownCurrencies = await this.exchangeService.getKnownCurrencies()
+		const supportedCurrencies = new Set<string>([
+			...Array.from(knownCurrencies.fiat),
+			...Array.from(knownCurrencies.crypto)
+		])
 
 		const recentTx = await this.prisma.transaction.findMany({
 			where: { userId: user.id, description: { not: null } },
@@ -2282,6 +2355,18 @@ Pro открывает:
 		}
 
 		for (const tx of parsedNormalized) {
+			if (tx.currency) {
+				tx.currency = String(tx.currency).toUpperCase().trim()
+			}
+			if (tx.currency && !supportedCurrencies.has(tx.currency)) {
+				await ctx.reply(
+					`Валюта ${tx.currency} не поддерживается, свяжитесь с разработчиком.`,
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
 			tx.account = normalizeAccountAlias(tx.account)
 			tx.fromAccount = normalizeAccountAlias(tx.fromAccount)
 			tx.toAccount = normalizeAccountAlias(tx.toAccount)
@@ -2292,10 +2377,10 @@ Pro открывает:
 			if (transferHint) {
 				tx.direction = 'transfer'
 			}
-			if (!tx.category || tx.category === 'Не выбрано' || !tx.tag_text) {
+			if (!tx.category || tx.category === 'Не выбрано' || tx.category === '📦Другое' || !tx.tag_text) {
 				const similar = findSimilar(tx.description)
 				if (similar) {
-					if (!tx.category || tx.category === 'Не выбрано') {
+					if (!tx.category || tx.category === 'Не выбрано' || tx.category === '📦Другое') {
 						tx.category = similar.category ?? tx.category
 					}
 					if (!tx.tag_text && similar.tag?.name) {
@@ -2385,7 +2470,7 @@ Pro открывает:
 				return
 			}
 			if (!tx.category || !categoryNames.includes(tx.category)) {
-				tx.category = 'Не выбрано'
+				tx.category = '📦Другое'
 			}
 			if (tx.accountId && tx.currency && typeof tx.amount === 'number') {
 				const account = await this.accountsService.getOneWithAssets(

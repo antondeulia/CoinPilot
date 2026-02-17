@@ -47,6 +47,19 @@ export const addTxCallback = (
 	subscriptionService: SubscriptionService
 ) => {
 	bot.callbackQuery('add_transaction', async ctx => {
+		const txLimit = await subscriptionService.canCreateTransaction(ctx.state.user.id)
+		if (!txLimit.allowed) {
+			await ctx.reply(
+				'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				{
+					reply_markup: new InlineKeyboard()
+						.text('💠 Pro-тариф', 'view_premium')
+						.row()
+						.text('Закрыть', 'hide_message')
+				}
+			)
+			return
+		}
 		if (ctx.session.tempMessageId) {
 			try {
 				await ctx.api.deleteMessage(ctx.chat.id, ctx.session.tempMessageId)

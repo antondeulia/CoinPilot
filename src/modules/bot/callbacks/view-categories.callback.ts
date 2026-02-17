@@ -30,16 +30,17 @@ export function categoriesListKb(
 		}
 		kb.row()
 	}
-	kb.text('« Назад', SETTINGS_CAT_PAGE_PREFIX + 'prev')
-		.text(`${page + 1}/${totalPages}`, SETTINGS_CAT_PAGE_PREFIX + 'noop')
-		.text('Вперёд »', SETTINGS_CAT_PAGE_PREFIX + 'next')
-		.row()
+	if (totalPages > 1) {
+		kb.text('« Назад', SETTINGS_CAT_PAGE_PREFIX + 'prev')
+			.text(`${page + 1}/${totalPages}`, SETTINGS_CAT_PAGE_PREFIX + 'noop')
+			.text('Вперёд »', SETTINGS_CAT_PAGE_PREFIX + 'next')
+			.row()
+	}
 	if (selectedId) {
 		kb.text('🗑 Удалить', 'delete_category')
 			.text('✍️ Переименовать', 'rename_category')
 			.row()
-			.text('Снять выделение', 'deselect_category')
-			.row()
+			.text('← Назад', 'back_from_categories')
 	} else {
 		kb.text('+ Создать категорию', 'create_category').row()
 		kb.text('← Назад', 'back_from_categories')
@@ -131,36 +132,13 @@ export const viewCategoriesCallback = (
 			)
 			return
 		}
-		ctx.session.categoriesSelectedId = id
+		ctx.session.categoriesSelectedId =
+			ctx.session.categoriesSelectedId === id ? null : id
 		const page = ctx.session.categoriesPage ?? 0
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),
 			page,
 			id,
-			frozenSet
-		)
-		await ctx.api.editMessageText(
-			ctx.chat!.id,
-			ctx.session.categoriesMessageId,
-			'<b>Категории</b>',
-			{ parse_mode: 'HTML', reply_markup: kb }
-		)
-	})
-
-	bot.callbackQuery('deselect_category', async ctx => {
-		if (ctx.session.categoriesMessageId == null) return
-		ctx.session.categoriesSelectedId = null
-		const userId = ctx.state.user.id
-		const [categories, frozen] = await Promise.all([
-			categoriesService.getSelectableByUserId(userId),
-			subscriptionService.getFrozenItems(userId)
-		])
-		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
-		const page = ctx.session.categoriesPage ?? 0
-		const kb = categoriesListKb(
-			categories.map(c => ({ id: c.id, name: c.name })),
-			page,
-			null,
 			frozenSet
 		)
 		await ctx.api.editMessageText(

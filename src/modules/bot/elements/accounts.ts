@@ -148,7 +148,7 @@ async function assetsBlock(
 			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
 			lines.push(
 				converted != null
-					? `${i + 1}. ${a.currency} — ${amountStr} (${fmt(converted)} ${mainSym})`
+					? `${i + 1}. ${a.currency} — ${amountStr} (~ ${fmt(converted)} ${mainSym})`
 					: `${i + 1}. ${a.currency} — ${amountStr}`
 			)
 		}

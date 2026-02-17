@@ -389,6 +389,7 @@ export const ModelName = {
   Account: 'Account',
   AccountAsset: 'AccountAsset',
   Transaction: 'Transaction',
+  ExchangeRateSnapshot: 'ExchangeRateSnapshot',
   Category: 'Category',
   Tag: 'Tag',
   TagAlias: 'TagAlias',
@@ -412,7 +413,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "category" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent"
+    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "exchangeRateSnapshot" | "category" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -783,6 +784,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.TransactionCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.TransactionCountAggregateOutputType> | number
+        }
+      }
+    }
+    ExchangeRateSnapshot: {
+      payload: Prisma.$ExchangeRateSnapshotPayload<ExtArgs>
+      fields: Prisma.ExchangeRateSnapshotFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ExchangeRateSnapshotFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ExchangeRateSnapshotFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        findFirst: {
+          args: Prisma.ExchangeRateSnapshotFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ExchangeRateSnapshotFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        findMany: {
+          args: Prisma.ExchangeRateSnapshotFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>[]
+        }
+        create: {
+          args: Prisma.ExchangeRateSnapshotCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        createMany: {
+          args: Prisma.ExchangeRateSnapshotCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ExchangeRateSnapshotCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>[]
+        }
+        delete: {
+          args: Prisma.ExchangeRateSnapshotDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        update: {
+          args: Prisma.ExchangeRateSnapshotUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        deleteMany: {
+          args: Prisma.ExchangeRateSnapshotDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ExchangeRateSnapshotUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ExchangeRateSnapshotUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>[]
+        }
+        upsert: {
+          args: Prisma.ExchangeRateSnapshotUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        aggregate: {
+          args: Prisma.ExchangeRateSnapshotAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateExchangeRateSnapshot>
+        }
+        groupBy: {
+          args: Prisma.ExchangeRateSnapshotGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExchangeRateSnapshotGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ExchangeRateSnapshotCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExchangeRateSnapshotCountAggregateOutputType> | number
         }
       }
     }
@@ -1484,10 +1559,23 @@ export const TransactionScalarFieldEnum = {
   toAccountId: 'toAccountId',
   tagId: 'tagId',
   convertedAmount: 'convertedAmount',
-  convertToCurrency: 'convertToCurrency'
+  convertToCurrency: 'convertToCurrency',
+  amountUsd: 'amountUsd'
 } as const
 
 export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
+
+
+export const ExchangeRateSnapshotScalarFieldEnum = {
+  id: 'id',
+  date: 'date',
+  baseCurrency: 'baseCurrency',
+  rates: 'rates',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ExchangeRateSnapshotScalarFieldEnum = (typeof ExchangeRateSnapshotScalarFieldEnum)[keyof typeof ExchangeRateSnapshotScalarFieldEnum]
 
 
 export const CategoryScalarFieldEnum = {
@@ -1893,6 +1981,7 @@ export type GlobalOmitConfig = {
   account?: Prisma.AccountOmit
   accountAsset?: Prisma.AccountAssetOmit
   transaction?: Prisma.TransactionOmit
+  exchangeRateSnapshot?: Prisma.ExchangeRateSnapshotOmit
   category?: Prisma.CategoryOmit
   tag?: Prisma.TagOmit
   tagAlias?: Prisma.TagAliasOmit

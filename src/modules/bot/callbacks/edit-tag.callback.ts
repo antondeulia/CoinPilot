@@ -37,11 +37,13 @@ function buildTagsKeyboard(
 	}
 
 	const totalPages = Math.max(1, Math.ceil((tags.length || 1) / TAG_PAGE_SIZE))
-	rows.push([
-		{ text: '« Назад', callback_data: 'tags_page:prev' },
-		{ text: `${page + 1}/${totalPages}`, callback_data: 'tags_page:noop' },
-		{ text: 'Вперёд »', callback_data: 'tags_page:next' }
-	])
+	if (totalPages > 1) {
+		rows.push([
+			{ text: '« Назад', callback_data: 'tags_page:prev' },
+			{ text: `${page + 1}/${totalPages}`, callback_data: 'tags_page:noop' },
+			{ text: 'Вперёд »', callback_data: 'tags_page:next' }
+		])
+	}
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
 	return { inline_keyboard: rows }

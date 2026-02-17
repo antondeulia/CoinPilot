@@ -63,6 +63,11 @@ export type AccountAsset = Prisma.AccountAssetModel
  */
 export type Transaction = Prisma.TransactionModel
 /**
+ * Model ExchangeRateSnapshot
+ * 
+ */
+export type ExchangeRateSnapshot = Prisma.ExchangeRateSnapshotModel
+/**
  * Model Category
  * 
  */

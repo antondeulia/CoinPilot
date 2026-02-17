@@ -177,7 +177,13 @@ export class AnalyticsService {
 				tx.convertedAmount != null && tx.convertToCurrency
 					? tx.convertToCurrency
 					: tx.currency
-			const inMain = await this.toMainCurrency(amt, cur, mainCurrency)
+			const inMain = await this.toMainCurrency(
+				amt,
+				cur,
+				mainCurrency,
+				(tx as any).transactionDate,
+				(tx as any).amountUsd
+			)
 			const toExternal = tx.toAccount?.isHidden === true
 			net += toExternal ? -inMain : inMain
 		}
@@ -244,7 +250,13 @@ export class AnalyticsService {
 				r.convertedAmount != null && r.convertToCurrency
 					? r.convertToCurrency
 					: r.currency
-			total += await this.toMainCurrency(amt, cur, mainCurrency)
+			total += await this.toMainCurrency(
+				amt,
+				cur,
+				mainCurrency,
+				(r as any).transactionDate,
+				(r as any).amountUsd
+			)
 		}
 		return total
 	}
@@ -306,7 +318,13 @@ export class AnalyticsService {
 					r.convertedAmount != null && r.convertToCurrency
 						? r.convertToCurrency!
 						: r.currency
-				sum += await this.toMainCurrency(amt, cur, mainCurrency)
+				sum += await this.toMainCurrency(
+					amt,
+					cur,
+					mainCurrency,
+					(r as any).transactionDate,
+					(r as any).amountUsd
+				)
 				const label = r.tagId
 					? (tagIdToName.get(r.tagId) ?? '—')
 					: (r.description?.trim() || '—')
@@ -405,7 +423,13 @@ export class AnalyticsService {
 					t.convertedAmount != null && t.convertToCurrency
 						? t.convertToCurrency!
 						: t.currency
-				const inMain = await this.toMainCurrency(amt, cur, mainCurrency)
+				const inMain = await this.toMainCurrency(
+					amt,
+					cur,
+					mainCurrency,
+					(t as any).transactionDate,
+					(t as any).amountUsd
+				)
 				sum += inMain
 				if (t.tagId) {
 					const tagName = tagIdToName.get(t.tagId) ?? '—'
@@ -434,8 +458,22 @@ export class AnalyticsService {
 	private async toMainCurrency(
 		amount: number,
 		currency: string,
-		mainCurrency: string
+		mainCurrency: string,
+		transactionDate?: Date,
+		amountUsd?: number | null
 	): Promise<number> {
+		if (transactionDate) {
+			const rate = await this.exchange.getHistoricalRate(
+				transactionDate,
+				currency,
+				mainCurrency
+			)
+			if (rate != null) return amount * rate
+		}
+		if (amountUsd != null) {
+			const fromUsd = await this.exchange.convert(amountUsd, 'USD', mainCurrency)
+			if (fromUsd != null) return fromUsd
+		}
 		const v = await this.exchange.convert(amount, currency, mainCurrency)
 		if (v != null) return v
 		return amount
@@ -542,7 +580,13 @@ export class AnalyticsService {
 					r.convertedAmount != null && r.convertToCurrency
 						? r.convertToCurrency
 						: r.currency
-				total += await this.toMainCurrency(amt, cur, mainCurrency)
+				total += await this.toMainCurrency(
+					amt,
+					cur,
+					mainCurrency,
+					(r as any).transactionDate,
+					(r as any).amountUsd
+				)
 			}
 			return total
 		}
@@ -642,7 +686,13 @@ export class AnalyticsService {
 					t.convertedAmount != null && t.convertToCurrency
 						? t.convertToCurrency!
 						: t.currency
-				const inMain = await this.toMainCurrency(amt, cur, mainCurrency)
+				const inMain = await this.toMainCurrency(
+					amt,
+					cur,
+					mainCurrency,
+					(t as any).transactionDate,
+					(t as any).amountUsd
+				)
 				sum += inMain
 				if (t.tagId) {
 					const tagName = tagIdToName.get(t.tagId) ?? '—'
@@ -721,7 +771,13 @@ export class AnalyticsService {
 					t.convertedAmount != null && t.convertToCurrency
 						? t.convertToCurrency!
 						: t.currency
-				sum += await this.toMainCurrency(amt, cur, mainCurrency)
+				sum += await this.toMainCurrency(
+					amt,
+					cur,
+					mainCurrency,
+					(t as any).transactionDate,
+					(t as any).amountUsd
+				)
 			}
 			totalExpenses += sum
 			const tag = await this.prisma.tag.findUnique({
@@ -885,7 +941,13 @@ export class AnalyticsService {
 							t.convertToCurrency,
 							mainCurrency
 						)
-					: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
+					: await this.toMainCurrency(
+							t.amount,
+							t.currency,
+							mainCurrency,
+							t.transactionDate,
+							(t as any).amountUsd
+						)
 			if (amt >= effectiveThreshold) {
 				const tagOrCategory = t.tagId
 					? (tagIdToName.get(t.tagId) ?? null)
@@ -969,7 +1031,13 @@ export class AnalyticsService {
 							t.convertToCurrency,
 							mainCurrency
 						)
-					: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
+					: await this.toMainCurrency(
+							t.amount,
+							t.currency,
+							mainCurrency,
+							t.transactionDate,
+							(t as any).amountUsd
+						)
 			transactions.push({
 				transactionId: t.id,
 				amount: amt,
@@ -1037,7 +1105,13 @@ export class AnalyticsService {
 							t.convertToCurrency,
 							mainCurrency
 						)
-					: await this.toMainCurrency(t.amount, t.currency, mainCurrency)
+					: await this.toMainCurrency(
+							t.amount,
+							t.currency,
+							mainCurrency,
+							t.transactionDate,
+							(t as any).amountUsd
+						)
 			transactions.push({
 				transactionId: t.id,
 				amount: amt,

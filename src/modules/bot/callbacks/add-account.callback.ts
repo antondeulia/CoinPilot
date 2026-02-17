@@ -1,24 +1,65 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
+import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 
-export const addAccountCallback = (bot: Bot<BotContext>) => {
+async function buildAddAccountPrompt(
+	ctx: BotContext,
+	subscriptionService: SubscriptionService
+): Promise<string> {
+	if (ctx.state.isPremium) {
+		return `➕ <b>Добавление счёта</b>
+
+Введите данные одним из способов:
+<blockquote>• текстом
+• голосовым сообщением</blockquote>
+
+<code>🧠 AI-распознавание активировано.</code>`
+	}
+	const limit = await subscriptionService.canCreateAccount(ctx.state.user.id)
+	return `➕ <b>Добавление счёта</b>
+
+Введите данные одним из способов:
+<blockquote>• текстом
+• голосовым сообщением</blockquote>
+
+— — —
+
+📊 Лимиты тарифа Basic:
+Счета: <i>${limit.current}/${limit.limit}</i>.
+
+💠 В Pro-тарифе лимиты отсутствуют.`
+}
+
+export const addAccountCallback = (
+	bot: Bot<BotContext>,
+	subscriptionService: SubscriptionService
+) => {
 	bot.callbackQuery('add_account', async ctx => {
+		const limit = await subscriptionService.canCreateAccount(ctx.state.user.id)
+		if (!limit.allowed) {
+			await ctx.reply(
+				'💠 Вы достигли лимита — 2 счета в Free. Перейдите на Premium и управляйте финансами без ограничений!',
+				{
+					reply_markup: new InlineKeyboard()
+						.text('💠 Pro-тариф', 'view_premium')
+						.row()
+						.text('Закрыть', 'hide_message')
+				}
+			)
+			return
+		}
 		ctx.session.awaitingAccountInput = true
 		ctx.session.confirmingAccounts = false
 		ctx.session.draftAccounts = undefined
 		ctx.session.currentAccountIndex = undefined
 
-		const msg = await ctx.reply(
-			`➕ <b>Добавь счёт</b>
+		const prompt = await buildAddAccountPrompt(ctx, subscriptionService)
+		const msg = await ctx.reply(prompt, {
+			parse_mode: 'HTML',
+			reply_markup: new InlineKeyboard().text('Закрыть', 'close_add_account')
+		})
 
-Например:
-monobank 3k EUR 500k UAH and 30k usd, Wise 1000 GBP`,
-			{
-				parse_mode: 'HTML',
-				reply_markup: new InlineKeyboard().text('Закрыть', 'close_add_account')
-			}
-		)
-
-		ctx.session.tempMessageId = msg.message_id
+		;(ctx.session as any).accountInputHintMessageId = msg.message_id
+		ctx.session.tempMessageId = undefined
 	})
 }

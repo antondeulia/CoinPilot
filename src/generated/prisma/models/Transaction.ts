@@ -29,11 +29,13 @@ export type AggregateTransaction = {
 export type TransactionAvgAggregateOutputType = {
   amount: number | null
   convertedAmount: number | null
+  amountUsd: number | null
 }
 
 export type TransactionSumAggregateOutputType = {
   amount: number | null
   convertedAmount: number | null
+  amountUsd: number | null
 }
 
 export type TransactionMinAggregateOutputType = {
@@ -53,6 +55,7 @@ export type TransactionMinAggregateOutputType = {
   tagId: string | null
   convertedAmount: number | null
   convertToCurrency: string | null
+  amountUsd: number | null
 }
 
 export type TransactionMaxAggregateOutputType = {
@@ -72,6 +75,7 @@ export type TransactionMaxAggregateOutputType = {
   tagId: string | null
   convertedAmount: number | null
   convertToCurrency: string | null
+  amountUsd: number | null
 }
 
 export type TransactionCountAggregateOutputType = {
@@ -91,6 +95,7 @@ export type TransactionCountAggregateOutputType = {
   tagId: number
   convertedAmount: number
   convertToCurrency: number
+  amountUsd: number
   _all: number
 }
 
@@ -98,11 +103,13 @@ export type TransactionCountAggregateOutputType = {
 export type TransactionAvgAggregateInputType = {
   amount?: true
   convertedAmount?: true
+  amountUsd?: true
 }
 
 export type TransactionSumAggregateInputType = {
   amount?: true
   convertedAmount?: true
+  amountUsd?: true
 }
 
 export type TransactionMinAggregateInputType = {
@@ -122,6 +129,7 @@ export type TransactionMinAggregateInputType = {
   tagId?: true
   convertedAmount?: true
   convertToCurrency?: true
+  amountUsd?: true
 }
 
 export type TransactionMaxAggregateInputType = {
@@ -141,6 +149,7 @@ export type TransactionMaxAggregateInputType = {
   tagId?: true
   convertedAmount?: true
   convertToCurrency?: true
+  amountUsd?: true
 }
 
 export type TransactionCountAggregateInputType = {
@@ -160,6 +169,7 @@ export type TransactionCountAggregateInputType = {
   tagId?: true
   convertedAmount?: true
   convertToCurrency?: true
+  amountUsd?: true
   _all?: true
 }
 
@@ -266,6 +276,7 @@ export type TransactionGroupByOutputType = {
   tagId: string | null
   convertedAmount: number | null
   convertToCurrency: string | null
+  amountUsd: number | null
   _count: TransactionCountAggregateOutputType | null
   _avg: TransactionAvgAggregateOutputType | null
   _sum: TransactionSumAggregateOutputType | null
@@ -308,6 +319,7 @@ export type TransactionWhereInput = {
   tagId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   convertedAmount?: Prisma.FloatNullableFilter<"Transaction"> | number | null
   convertToCurrency?: Prisma.StringNullableFilter<"Transaction"> | string | null
+  amountUsd?: Prisma.FloatNullableFilter<"Transaction"> | number | null
   account?: Prisma.XOR<Prisma.AccountScalarRelationFilter, Prisma.AccountWhereInput>
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   fromAccount?: Prisma.XOR<Prisma.AccountNullableScalarRelationFilter, Prisma.AccountWhereInput> | null
@@ -332,6 +344,7 @@ export type TransactionOrderByWithRelationInput = {
   tagId?: Prisma.SortOrderInput | Prisma.SortOrder
   convertedAmount?: Prisma.SortOrderInput | Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrderInput | Prisma.SortOrder
+  amountUsd?: Prisma.SortOrderInput | Prisma.SortOrder
   account?: Prisma.AccountOrderByWithRelationInput
   user?: Prisma.UserOrderByWithRelationInput
   fromAccount?: Prisma.AccountOrderByWithRelationInput
@@ -359,6 +372,7 @@ export type TransactionWhereUniqueInput = Prisma.AtLeast<{
   tagId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   convertedAmount?: Prisma.FloatNullableFilter<"Transaction"> | number | null
   convertToCurrency?: Prisma.StringNullableFilter<"Transaction"> | string | null
+  amountUsd?: Prisma.FloatNullableFilter<"Transaction"> | number | null
   account?: Prisma.XOR<Prisma.AccountScalarRelationFilter, Prisma.AccountWhereInput>
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   fromAccount?: Prisma.XOR<Prisma.AccountNullableScalarRelationFilter, Prisma.AccountWhereInput> | null
@@ -383,6 +397,7 @@ export type TransactionOrderByWithAggregationInput = {
   tagId?: Prisma.SortOrderInput | Prisma.SortOrder
   convertedAmount?: Prisma.SortOrderInput | Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrderInput | Prisma.SortOrder
+  amountUsd?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.TransactionCountOrderByAggregateInput
   _avg?: Prisma.TransactionAvgOrderByAggregateInput
   _max?: Prisma.TransactionMaxOrderByAggregateInput
@@ -410,6 +425,7 @@ export type TransactionScalarWhereWithAggregatesInput = {
   tagId?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
   convertedAmount?: Prisma.FloatNullableWithAggregatesFilter<"Transaction"> | number | null
   convertToCurrency?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
+  amountUsd?: Prisma.FloatNullableWithAggregatesFilter<"Transaction"> | number | null
 }
 
 export type TransactionCreateInput = {
@@ -424,6 +440,7 @@ export type TransactionCreateInput = {
   createdAt?: Date | string
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
@@ -448,6 +465,7 @@ export type TransactionUncheckedCreateInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionUpdateInput = {
@@ -462,6 +480,7 @@ export type TransactionUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
@@ -486,6 +505,7 @@ export type TransactionUncheckedUpdateInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionCreateManyInput = {
@@ -505,6 +525,7 @@ export type TransactionCreateManyInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionUpdateManyMutationInput = {
@@ -519,6 +540,7 @@ export type TransactionUpdateManyMutationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUncheckedUpdateManyInput = {
@@ -538,6 +560,7 @@ export type TransactionUncheckedUpdateManyInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionListRelationFilter = {
@@ -567,11 +590,13 @@ export type TransactionCountOrderByAggregateInput = {
   tagId?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
 }
 
 export type TransactionAvgOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
 }
 
 export type TransactionMaxOrderByAggregateInput = {
@@ -591,6 +616,7 @@ export type TransactionMaxOrderByAggregateInput = {
   tagId?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
 }
 
 export type TransactionMinOrderByAggregateInput = {
@@ -610,11 +636,13 @@ export type TransactionMinOrderByAggregateInput = {
   tagId?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
 }
 
 export type TransactionSumOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
 }
 
 export type TransactionCreateNestedManyWithoutUserInput = {
@@ -851,6 +879,7 @@ export type TransactionCreateWithoutUserInput = {
   createdAt?: Date | string
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
   toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
@@ -873,6 +902,7 @@ export type TransactionUncheckedCreateWithoutUserInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionCreateOrConnectWithoutUserInput = {
@@ -921,6 +951,7 @@ export type TransactionScalarWhereInput = {
   tagId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   convertedAmount?: Prisma.FloatNullableFilter<"Transaction"> | number | null
   convertToCurrency?: Prisma.StringNullableFilter<"Transaction"> | string | null
+  amountUsd?: Prisma.FloatNullableFilter<"Transaction"> | number | null
 }
 
 export type TransactionCreateWithoutAccountInput = {
@@ -935,6 +966,7 @@ export type TransactionCreateWithoutAccountInput = {
   createdAt?: Date | string
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
   toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
@@ -957,6 +989,7 @@ export type TransactionUncheckedCreateWithoutAccountInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionCreateOrConnectWithoutAccountInput = {
@@ -981,6 +1014,7 @@ export type TransactionCreateWithoutFromAccountInput = {
   createdAt?: Date | string
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
@@ -1003,6 +1037,7 @@ export type TransactionUncheckedCreateWithoutFromAccountInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionCreateOrConnectWithoutFromAccountInput = {
@@ -1027,6 +1062,7 @@ export type TransactionCreateWithoutToAccountInput = {
   createdAt?: Date | string
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
@@ -1049,6 +1085,7 @@ export type TransactionUncheckedCreateWithoutToAccountInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionCreateOrConnectWithoutToAccountInput = {
@@ -1121,6 +1158,7 @@ export type TransactionCreateWithoutTagInput = {
   createdAt?: Date | string
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
@@ -1143,6 +1181,7 @@ export type TransactionUncheckedCreateWithoutTagInput = {
   toAccountId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionCreateOrConnectWithoutTagInput = {
@@ -1187,6 +1226,7 @@ export type TransactionCreateManyUserInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionUpdateWithoutUserInput = {
@@ -1201,6 +1241,7 @@ export type TransactionUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
   toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
@@ -1223,6 +1264,7 @@ export type TransactionUncheckedUpdateWithoutUserInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutUserInput = {
@@ -1241,6 +1283,7 @@ export type TransactionUncheckedUpdateManyWithoutUserInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionCreateManyAccountInput = {
@@ -1259,6 +1302,7 @@ export type TransactionCreateManyAccountInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionCreateManyFromAccountInput = {
@@ -1277,6 +1321,7 @@ export type TransactionCreateManyFromAccountInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionCreateManyToAccountInput = {
@@ -1295,6 +1340,7 @@ export type TransactionCreateManyToAccountInput = {
   tagId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionUpdateWithoutAccountInput = {
@@ -1309,6 +1355,7 @@ export type TransactionUpdateWithoutAccountInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
   toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
@@ -1331,6 +1378,7 @@ export type TransactionUncheckedUpdateWithoutAccountInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutAccountInput = {
@@ -1349,6 +1397,7 @@ export type TransactionUncheckedUpdateManyWithoutAccountInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUpdateWithoutFromAccountInput = {
@@ -1363,6 +1412,7 @@ export type TransactionUpdateWithoutFromAccountInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
@@ -1385,6 +1435,7 @@ export type TransactionUncheckedUpdateWithoutFromAccountInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutFromAccountInput = {
@@ -1403,6 +1454,7 @@ export type TransactionUncheckedUpdateManyWithoutFromAccountInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUpdateWithoutToAccountInput = {
@@ -1417,6 +1469,7 @@ export type TransactionUpdateWithoutToAccountInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
@@ -1439,6 +1492,7 @@ export type TransactionUncheckedUpdateWithoutToAccountInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutToAccountInput = {
@@ -1457,6 +1511,7 @@ export type TransactionUncheckedUpdateManyWithoutToAccountInput = {
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionCreateManyTagInput = {
@@ -1475,6 +1530,7 @@ export type TransactionCreateManyTagInput = {
   toAccountId?: string | null
   convertedAmount?: number | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
 }
 
 export type TransactionUpdateWithoutTagInput = {
@@ -1489,6 +1545,7 @@ export type TransactionUpdateWithoutTagInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
@@ -1511,6 +1568,7 @@ export type TransactionUncheckedUpdateWithoutTagInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutTagInput = {
@@ -1529,6 +1587,7 @@ export type TransactionUncheckedUpdateManyWithoutTagInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
 }
 
 
@@ -1550,6 +1609,7 @@ export type TransactionSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   tagId?: boolean
   convertedAmount?: boolean
   convertToCurrency?: boolean
+  amountUsd?: boolean
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
@@ -1574,6 +1634,7 @@ export type TransactionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   tagId?: boolean
   convertedAmount?: boolean
   convertToCurrency?: boolean
+  amountUsd?: boolean
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
@@ -1598,6 +1659,7 @@ export type TransactionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   tagId?: boolean
   convertedAmount?: boolean
   convertToCurrency?: boolean
+  amountUsd?: boolean
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
@@ -1622,9 +1684,10 @@ export type TransactionSelectScalar = {
   tagId?: boolean
   convertedAmount?: boolean
   convertToCurrency?: boolean
+  amountUsd?: boolean
 }
 
-export type TransactionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "accountId" | "amount" | "currency" | "direction" | "category" | "description" | "rawText" | "transactionDate" | "createdAt" | "userId" | "fromAccountId" | "toAccountId" | "tagId" | "convertedAmount" | "convertToCurrency", ExtArgs["result"]["transaction"]>
+export type TransactionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "accountId" | "amount" | "currency" | "direction" | "category" | "description" | "rawText" | "transactionDate" | "createdAt" | "userId" | "fromAccountId" | "toAccountId" | "tagId" | "convertedAmount" | "convertToCurrency" | "amountUsd", ExtArgs["result"]["transaction"]>
 export type TransactionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1673,6 +1736,7 @@ export type $TransactionPayload<ExtArgs extends runtime.Types.Extensions.Interna
     tagId: string | null
     convertedAmount: number | null
     convertToCurrency: string | null
+    amountUsd: number | null
   }, ExtArgs["result"]["transaction"]>
   composites: {}
 }
@@ -2117,6 +2181,7 @@ export interface TransactionFieldRefs {
   readonly tagId: Prisma.FieldRef<"Transaction", 'String'>
   readonly convertedAmount: Prisma.FieldRef<"Transaction", 'Float'>
   readonly convertToCurrency: Prisma.FieldRef<"Transaction", 'String'>
+  readonly amountUsd: Prisma.FieldRef<"Transaction", 'Float'>
 }
     
 
