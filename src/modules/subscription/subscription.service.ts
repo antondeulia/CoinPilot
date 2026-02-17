@@ -4,7 +4,7 @@ import { PremiumEventType, SubscriptionPlan } from '../../generated/prisma/enums
 import { PrismaService } from '../prisma/prisma.service'
 import { FREE_LIMITS, TRIAL_DAYS } from './subscription.constants'
 
-function addDays(date: Date, days: number): Date {
+export function addDays(date: Date, days: number): Date {
 	const r = new Date(date)
 	r.setDate(r.getDate() + days)
 	return r

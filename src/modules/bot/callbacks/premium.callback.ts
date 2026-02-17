@@ -70,7 +70,7 @@ function formatSubscriptionMessage(d: {
 
 🟢 Статус: Активна
 ${tariffLine}
-📅 Следующее списание: ${endStr}${autoRenewLine}`
+// 📅 Следующее списание: ${endStr}${autoRenewLine}`
 }
 
 export const premiumCallback = (

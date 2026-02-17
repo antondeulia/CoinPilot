@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import Stripe from 'stripe'
 import { PrismaService } from '../prisma/prisma.service'
 import { SubscriptionPlan } from '../../generated/prisma/enums'
+import { addDays } from '../subscription/subscription.service'
 
 @Injectable()
 export class StripeService {
@@ -174,7 +175,9 @@ if (stripeSub.current_period_end) {
 
 	 end = new Date(stripeSub.current_period_end * 1000)
 }
-
+if (stripeSub.status === 'trialing') {
+	end = addDays(new Date(), 7)
+}
 		const plan =
 			planMeta === 'monthly'
 				? SubscriptionPlan.monthly
