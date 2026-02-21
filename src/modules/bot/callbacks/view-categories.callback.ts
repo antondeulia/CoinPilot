@@ -134,11 +134,12 @@ export const viewCategoriesCallback = (
 		}
 		ctx.session.categoriesSelectedId =
 			ctx.session.categoriesSelectedId === id ? null : id
+		const selectedId = ctx.session.categoriesSelectedId
 		const page = ctx.session.categoriesPage ?? 0
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),
 			page,
-			id,
+			selectedId,
 			frozenSet
 		)
 		await ctx.api.editMessageText(

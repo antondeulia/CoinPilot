@@ -2,8 +2,10 @@ import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { ExchangeService } from '../../../modules/exchange/exchange.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 function buildConversionKeyboard(
 	codes: string[],
@@ -43,7 +45,8 @@ function buildConversionKeyboard(
 export const editConversionCallback = (
 	bot: Bot<BotContext>,
 	accountsService: AccountsService,
-	exchangeService: ExchangeService
+	exchangeService: ExchangeService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:conversion', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -167,6 +170,7 @@ export const editConversionCallback = (
 			ctx.state.user.id,
 			accountsService
 		)
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

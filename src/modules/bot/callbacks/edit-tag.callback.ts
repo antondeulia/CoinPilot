@@ -2,8 +2,10 @@ import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { TagsService } from '../../../modules/tags/tags.service'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 const TAG_PAGE_SIZE = 9
 
@@ -52,7 +54,8 @@ function buildTagsKeyboard(
 export const editTagCallback = (
 	bot: Bot<BotContext>,
 	tagsService: TagsService,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:tag', async ctx => {
 		const userId = ctx.state.user.id
@@ -77,7 +80,7 @@ export const editTagCallback = (
 				await ctx.api.editMessageText(
 					ctx.chat!.id,
 					ctx.session.tempMessageId,
-					'Выберите тег или отправьте название нового тега (до 15 символов):',
+					'Выберите тег или отправьте название нового тега (до 20 символов):',
 					{ reply_markup: kb }
 				)
 			} catch {}
@@ -142,6 +145,7 @@ export const editTagCallback = (
 				ctx.state.user.id,
 				accountsService
 			)
+			await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 			try {
 				await ctx.api.editMessageText(
 					ctx.chat!.id,
@@ -183,6 +187,7 @@ export const editTagCallback = (
 			ctx.state.user.id,
 			accountsService
 		)
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

@@ -1,8 +1,10 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 function typeLabel(
 	current: string | undefined,
@@ -15,7 +17,8 @@ function typeLabel(
 
 export const editTypeCallback = (
 	bot: Bot<BotContext>,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:type', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -95,6 +98,7 @@ export const editTypeCallback = (
 			ctx.state.user.id,
 			accountsService
 		)
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

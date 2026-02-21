@@ -190,6 +190,53 @@ export class AnalyticsService {
 		return net
 	}
 
+	async getExternalTransferOutTotal(
+		userId: string,
+		period: AnalyticsPeriod,
+		mainCurrency: string,
+		accountId?: string
+	): Promise<number> {
+		const { from, to } = dateRange(period)
+		const rows = await this.prisma.transaction.findMany({
+			where: {
+				userId,
+				direction: 'transfer',
+				transactionDate: { gte: from, lte: to },
+				...(accountId
+					? { accountId, toAccount: { isHidden: true } }
+					: {
+							account: { userId, isHidden: false },
+							toAccount: { isHidden: true }
+						})
+			},
+			select: {
+				amount: true,
+				currency: true,
+				convertedAmount: true,
+				convertToCurrency: true
+			}
+		})
+		let total = 0
+		for (const r of rows) {
+			const amt =
+				r.convertedAmount != null && r.convertToCurrency
+					? r.convertedAmount
+					: r.amount
+			const cur =
+				r.convertedAmount != null && r.convertToCurrency
+					? r.convertToCurrency
+					: r.currency
+			total += await this.toMainCurrency(
+				amt,
+				cur,
+				mainCurrency,
+				(r as any).transactionDate,
+				(r as any).amountUsd
+			)
+		}
+		return total
+	}
+
 	async getCashflow(
 		userId: string,
 		period: AnalyticsPeriod,

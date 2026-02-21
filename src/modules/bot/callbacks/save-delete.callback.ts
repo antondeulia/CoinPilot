@@ -8,6 +8,7 @@ import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { renderHome } from '../utils/render-home'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard } from './confirm-tx'
+import { normalizeTxDate } from '../../../utils/date'
 
 async function refreshPreview(ctx: BotContext, accountsService: AccountsService) {
 	const drafts = ctx.session.draftTransactions
@@ -60,6 +61,56 @@ export const saveDeleteCallback = (
 	subscriptionService: SubscriptionService,
 	analyticsService: AnalyticsService
 ) => {
+	bot.callbackQuery('ask_cancel_1_transactions', async ctx => {
+		if (ctx.session.tempMessageId == null) return
+		try {
+			await ctx.api.editMessageText(
+				ctx.chat!.id,
+				ctx.session.tempMessageId,
+				'Удалить текущую операцию из предпросмотра?',
+				{
+					reply_markup: new InlineKeyboard()
+						.text('Да', 'cancel_1_transactions_confirm_yes')
+						.text('Нет', 'cancel_1_transactions_confirm_no')
+				}
+			)
+		} catch {}
+	})
+
+	bot.callbackQuery('cancel_1_transactions_confirm_no', async ctx => {
+		await refreshPreview(ctx, accountsService)
+	})
+
+	bot.callbackQuery('cancel_1_transactions_confirm_yes', async ctx => {
+		const drafts = ctx.session.draftTransactions
+		const index = ctx.session.currentTransactionIndex ?? 0
+
+		if (!drafts || !drafts.length) return
+		const current = drafts[index] as any
+		if (current?.id) {
+			await transactionsService.delete(current.id, ctx.state.user.id)
+		}
+		drafts.splice(index, 1)
+
+		if (!drafts.length) {
+			ctx.session.draftTransactions = undefined
+			ctx.session.currentTransactionIndex = undefined
+			ctx.session.confirmingTransaction = false
+
+			if (ctx.session.tempMessageId != null) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
+				} catch {}
+				ctx.session.tempMessageId = undefined
+			}
+			return
+		}
+
+		ctx.session.currentTransactionIndex =
+			index >= drafts.length ? drafts.length - 1 : index
+		await refreshPreview(ctx, accountsService)
+	})
+
 	bot.callbackQuery('confirm_1_transactions', async ctx => {
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0
@@ -68,6 +119,25 @@ export const saveDeleteCallback = (
 		if (!drafts || !drafts.length || !account) return
 
 		const draft = drafts[index] as any
+		if (draft?.id) {
+			drafts.splice(index, 1)
+			if (!drafts.length) {
+				ctx.session.draftTransactions = undefined
+				ctx.session.currentTransactionIndex = undefined
+				ctx.session.confirmingTransaction = false
+				if (ctx.session.tempMessageId != null) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
+					} catch {}
+					ctx.session.tempMessageId = undefined
+				}
+				return
+			}
+			ctx.session.currentTransactionIndex =
+				index >= drafts.length ? drafts.length - 1 : index
+			await refreshPreview(ctx, accountsService)
+			return
+		}
 		// Лимит транзакций для Free
 		const limit = await subscriptionService.canCreateTransaction(ctx.state.user.id)
 		if (!limit.allowed) {
@@ -89,18 +159,29 @@ export const saveDeleteCallback = (
 		let tagId = draft.tagId
 		if (draft.tagIsNew && draft.tagName) {
 			const limit = await subscriptionService.canCreateTag(ctx.state.user.id)
-			if (!limit.allowed) {
+			if (
+				!limit.allowed ||
+				(!ctx.state.isPremium && limit.current + 1 > limit.limit)
+			) {
 				await ctx.answerCallbackQuery({
-					text: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
+					text: ctx.state.isPremium
+						? 'Достигнут системный лимит тегов.'
+						: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
 				})
 				await ctx.reply(
-					'💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
-					{
-						reply_markup: new InlineKeyboard()
-							.text('💠 Pro-тариф', 'view_premium')
-							.row()
-							.text('Закрыть', 'hide_message')
-					}
+					ctx.state.isPremium
+						? 'Достигнут системный лимит тегов. Удалите лишние теги и попробуйте снова.'
+						: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
+					ctx.state.isPremium
+						? {
+								reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+							}
+						: {
+								reply_markup: new InlineKeyboard()
+									.text('💠 Pro-тариф', 'view_premium')
+									.row()
+									.text('Закрыть', 'hide_message')
+							}
 				)
 				return
 			}
@@ -130,7 +211,7 @@ export const saveDeleteCallback = (
 			rawText: draft.rawText || '',
 			userId: ctx.state.user.id,
 			transactionDate: draft.transactionDate
-				? new Date(draft.transactionDate)
+				? (normalizeTxDate(draft.transactionDate) ?? undefined)
 				: undefined,
 			fromAccountId: isTransfer
 				? draft.accountId || account.id
@@ -186,6 +267,10 @@ export const saveDeleteCallback = (
 		const index = ctx.session.currentTransactionIndex ?? 0
 
 		if (!drafts || !drafts.length) return
+		const current = drafts[index] as any
+		if (current?.id) {
+			await transactionsService.delete(current.id, ctx.state.user.id)
+		}
 
 		drafts.splice(index, 1)
 

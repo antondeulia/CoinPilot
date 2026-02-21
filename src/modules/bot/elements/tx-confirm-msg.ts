@@ -23,7 +23,7 @@ export function renderConfirmMessage(
 	const tagLine =
 		tagName.length > 0
 			? `Тег:\n<blockquote>${tagName}${tagIsNew ? ' (новый)' : ''}</blockquote>`
-			: 'Теги: —'
+			: 'Тег: -'
 	const amountText =
 		typeof tx.amount === 'number' && tx.currency
 			? formatAmount(Math.abs(tx.amount), tx.currency)

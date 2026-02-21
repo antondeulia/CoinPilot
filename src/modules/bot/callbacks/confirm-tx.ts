@@ -6,6 +6,7 @@ import { TagsService } from '../../../modules/tags/tags.service'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { renderHome } from '../utils/render-home'
+import { normalizeTxDate } from '../../../utils/date'
 
 export async function getShowConversion(
 	draft: any,
@@ -38,6 +39,19 @@ export const confirmTxCallback = (
 			ctx.session.awaitingTransaction = true
 			return
 		}
+		if ((drafts as any[]).every((d: any) => !!d.id)) {
+			ctx.session.confirmingTransaction = false
+			ctx.session.draftTransactions = undefined
+			ctx.session.currentTransactionIndex = undefined
+			ctx.session.editingField = undefined
+			if (ctx.session.tempMessageId) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
+				} catch {}
+				ctx.session.tempMessageId = undefined
+			}
+			return
+		}
 
 		// Лимит транзакций для Free
 		const newCount = drafts.length
@@ -65,19 +79,27 @@ export const confirmTxCallback = (
 			const limit = await subscriptionService.canCreateTag(ctx.state.user.id)
 			if (
 				!limit.allowed ||
-				limit.current + newTagCount > limit.limit
+				(!ctx.state.isPremium && limit.current + newTagCount > limit.limit)
 			) {
 				await ctx.answerCallbackQuery({
-					text: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
+					text: ctx.state.isPremium
+						? 'Достигнут системный лимит тегов.'
+						: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
 				})
 				await ctx.reply(
-					'💠 10 кастомных тегов использовано. Разблокируйте безлимит с Premium!',
-					{
-						reply_markup: new InlineKeyboard()
-							.text('💠 Pro-тариф', 'view_premium')
-							.row()
-							.text('Закрыть', 'hide_message')
-					}
+					ctx.state.isPremium
+						? 'Достигнут системный лимит тегов. Удалите лишние теги и попробуйте снова.'
+						: '💠 3 кастомных тега использовано. Разблокируйте безлимит с Premium!',
+					ctx.state.isPremium
+						? {
+								reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+							}
+						: {
+								reply_markup: new InlineKeyboard()
+									.text('💠 Pro-тариф', 'view_premium')
+									.row()
+									.text('Закрыть', 'hide_message')
+							}
 				)
 				return
 			}
@@ -120,7 +142,7 @@ export const confirmTxCallback = (
 				convertedAmount: draft.convertedAmount,
 				convertToCurrency: draft.convertToCurrency,
 				transactionDate: draft.transactionDate
-					? new Date(draft.transactionDate)
+					? (normalizeTxDate(draft.transactionDate) ?? undefined)
 					: undefined
 			})
 		}
@@ -198,7 +220,7 @@ export function confirmKeyboard(
 	kb.text('Теги', 'edit:tag')
 
 	if (!isEditingExisting && total > 1) {
-		kb.row().text('💾 Сохранить', 'confirm_1_transactions').text('🗑 Удалить', 'cancel_1_transactions')
+		kb.row().text('🗑 Удалить', 'ask_cancel_1_transactions')
 	}
 	if (hasPagination) {
 		kb.row()
@@ -207,18 +229,16 @@ export function confirmKeyboard(
 			.text('Вперёд »', 'pagination_forward_transactions')
 	}
 	if (isEditingExisting) {
-		kb.row()
-			.text('Сохранить изменения', 'save_edit_transaction')
-			.text('Удалить транзакцию', 'delete_transaction')
+		kb.row().text('Удалить транзакцию', 'delete_transaction')
 		kb.row().text('← Назад к списку', 'back_to_transactions')
 	} else if (total > 1) {
 		kb.row()
-			.text('💾 Сохранить всё', 'confirm_tx')
-			.text('🗑 Удалить всё', 'cancel_tx')
-		kb.row().text('🔁 Повторить', 'repeat_parse')
+			.text('🗑 Удалить всё', 'ask_cancel_tx')
+			.text('🔁 Повторить', 'repeat_parse')
+		kb.row().text('Закрыть', 'close_preview')
 	} else {
-		kb.row().text('💾 Сохранить', 'confirm_tx').text('🗑 Удалить', 'cancel_tx')
-		kb.row().text('🔁 Повторить', 'repeat_parse')
+		kb.row().text('🗑 Удалить', 'ask_cancel_tx').text('🔁 Повторить', 'repeat_parse')
+		kb.row().text('Закрыть', 'close_preview')
 	}
 	return kb
 }

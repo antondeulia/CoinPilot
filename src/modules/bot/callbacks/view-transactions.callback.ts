@@ -8,6 +8,7 @@ import { transactionsListKeyboard } from '../../../shared/keyboards/transactions
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 import { getCurrencySymbol } from '../../../utils/format'
+import { normalizeTxDate } from '../../../utils/date'
 
 const PAGE_SIZE = 9
 
@@ -88,6 +89,7 @@ function txToDraft(tx: any) {
 	const currencyDeleted =
 		tx.currency && accountCurrencies.size > 0 && !accountCurrencies.has(tx.currency.toUpperCase())
 	return {
+		id: tx.id,
 		action: 'create_transaction' as const,
 		accountId: tx.accountId,
 		account: tx.account?.name ?? null,
@@ -201,7 +203,7 @@ export const viewTransactionsCallback = (
 			category: draft.category,
 			description: draft.description,
 			transactionDate: draft.transactionDate
-				? new Date(draft.transactionDate)
+				? (normalizeTxDate(draft.transactionDate) ?? undefined)
 				: undefined,
 			tagId: draft.tagId ?? null,
 			convertedAmount: draft.convertedAmount ?? null,

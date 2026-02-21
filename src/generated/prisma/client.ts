@@ -107,3 +107,8 @@ export type Subscription = Prisma.SubscriptionModel
  * 
  */
 export type PremiumEvent = Prisma.PremiumEventModel
+/**
+ * Model LlmUserMemory
+ * 
+ */
+export type LlmUserMemory = Prisma.LlmUserMemoryModel

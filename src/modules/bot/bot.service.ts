@@ -76,6 +76,10 @@ import { categoriesListKb } from './callbacks/view-categories.callback'
 import { tagsListText } from './callbacks/view-tags.callback'
 import { buildSettingsView } from '../../shared/keyboards/settings'
 import { levenshtein } from '../../utils/normalize'
+import { normalizeTxDate, pickTransactionDate } from '../../utils/date'
+import { LlmMemoryService } from '../llm-memory/llm-memory.service'
+import { buildAddTransactionPrompt } from './callbacks/add-transaction.command'
+import { isCryptoCurrency } from '../../utils/format'
 
 @Injectable()
 export class BotService implements OnModuleInit {
@@ -94,7 +98,8 @@ export class BotService implements OnModuleInit {
 		private readonly exchangeService: ExchangeService,
 		private readonly analyticsService: AnalyticsService,
 		private readonly subscriptionService: SubscriptionService,
-		private readonly stripeService: StripeService
+		private readonly stripeService: StripeService,
+		private readonly llmMemoryService: LlmMemoryService
 	) {
 		const token = this.config.getOrThrow<string>('BOT_TOKEN')
 		this.bot = new Bot<BotContext>(token)
@@ -219,21 +224,54 @@ Pro открывает:
 			this.subscriptionService,
 			this.analyticsService
 		)
-		cancelTxCallback(this.bot, this.accountsService, this.analyticsService)
+		cancelTxCallback(
+			this.bot,
+			this.transactionsService,
+			this.accountsService,
+			this.analyticsService
+		)
 		editTxCallback(this.bot, this.accountsService)
-		editTypeCallback(this.bot, this.accountsService)
+		editTypeCallback(this.bot, this.accountsService, this.transactionsService)
 		editDescriptionCallback(this.bot)
 		editAmountCallback(this.bot)
-		editAccountCallback(this.bot, this.accountsService)
-		editTargetAccountCallback(this.bot, this.accountsService)
+		editAccountCallback(this.bot, this.accountsService, this.transactionsService)
+		editTargetAccountCallback(
+			this.bot,
+			this.accountsService,
+			this.transactionsService
+		)
 		editDateCallback(this.bot)
-		editCategoryCallback(this.bot, this.categoriesService, this.accountsService)
-		editTagCallback(this.bot, this.tagsService, this.accountsService)
-		editCurrencyCallback(this.bot, this.accountsService, this.exchangeService)
-		editConversionCallback(this.bot, this.accountsService, this.exchangeService)
+		editCategoryCallback(
+			this.bot,
+			this.categoriesService,
+			this.accountsService,
+			this.transactionsService
+		)
+		editTagCallback(
+			this.bot,
+			this.tagsService,
+			this.accountsService,
+			this.transactionsService
+		)
+		editCurrencyCallback(
+			this.bot,
+			this.accountsService,
+			this.exchangeService,
+			this.transactionsService
+		)
+		editConversionCallback(
+			this.bot,
+			this.accountsService,
+			this.exchangeService,
+			this.transactionsService
+		)
 		paginationTransactionsCallback(this.bot, this.accountsService)
 		closeEditCallback(this.bot, this.accountsService)
-		repeatParseCallback(this.bot, this.subscriptionService)
+		repeatParseCallback(
+			this.bot,
+			this.subscriptionService,
+			this.transactionsService
+		)
 		saveDeleteCallback(
 			this.bot,
 			this.transactionsService,
@@ -242,7 +280,7 @@ Pro открывает:
 			this.subscriptionService,
 			this.analyticsService
 		)
-		editAccountCallback(this.bot, this.accountsService)
+		editAccountCallback(this.bot, this.accountsService, this.transactionsService)
 		accountsPaginationCallback(this.bot, this.subscriptionService)
 		addAccountCallback(this.bot, this.subscriptionService)
 		accountsPreviewCallbacks(this.bot)
@@ -396,7 +434,7 @@ Pro открывает:
 		})
 
 		this.bot.callbackQuery('view_accounts', async ctx => {
-			if (!ctx.session.awaitingTransaction) {
+			if (!ctx.session.awaitingTransaction && !ctx.session.confirmingTransaction) {
 				await this.closeTemp(ctx)
 			}
 
@@ -599,6 +637,7 @@ Pro открывает:
 					topIncome,
 					anomalies,
 					transfersTotal,
+					externalTransferOut,
 					cashflow,
 					burnRate
 				] =
@@ -608,6 +647,12 @@ Pro открывает:
 						this.analyticsService.getTopIncomeCategories(user.id, 'month', mainCurrency, beg, 3, accountId),
 						this.analyticsService.getAnomalies(user.id, 'month', mainCurrency, 100, accountId, beg),
 						this.analyticsService.getTransfersTotal(user.id, 'month', mainCurrency, accountId),
+						this.analyticsService.getExternalTransferOutTotal(
+							user.id,
+							'month',
+							mainCurrency,
+							accountId
+						),
 						this.analyticsService.getCashflow(user.id, 'month', mainCurrency, accountId),
 						this.analyticsService.getBurnRate(user.id, 'month', mainCurrency, accountId)
 					])
@@ -622,7 +667,7 @@ Pro открывает:
 				)
 				analyticsData = {
 					beginningBalance: beg,
-					expenses: summary.expenses,
+					expenses: summary.expenses + externalTransferOut,
 					income: summary.income,
 					transfersTotal,
 					balance: summary.balance,
@@ -833,8 +878,118 @@ Pro открывает:
 			// заглушка, реальная логика вынесена в addAccountCallback
 		})
 
+		this.bot.callbackQuery('account_delta_create_tx_close', async ctx => {
+			const msgId = ctx.session.accountDeltaPromptMessageId
+			if (msgId != null) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, msgId)
+				} catch {}
+			}
+			ctx.session.accountDeltaPromptMessageId = undefined
+			ctx.session.pendingAccountDeltaOps = undefined
+		})
+
+		this.bot.callbackQuery('account_delta_create_tx_yes', async ctx => {
+			const ops = ctx.session.pendingAccountDeltaOps ?? []
+			const user = ctx.state.user as any
+			if (!ops.length) {
+				ctx.session.accountDeltaPromptMessageId = undefined
+				ctx.session.pendingAccountDeltaOps = undefined
+				return
+			}
+			const allAccounts = await this.accountsService.getAllByUserIdIncludingHidden(user.id)
+			const outside = allAccounts.find(a => a.name === 'Вне Wallet')
+			if (!outside) {
+				await ctx.reply('Системный счёт "Вне Wallet" не найден.', {
+					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+				})
+				return
+			}
+			const createdDrafts: any[] = []
+			for (const op of ops) {
+				const account = allAccounts.find(a => a.id === op.accountId)
+				if (!account) continue
+				const fromAccountId = op.direction === 'in' ? outside.id : account.id
+				const toAccountId = op.direction === 'in' ? account.id : outside.id
+				const created = await this.transactionsService.create({
+					userId: user.id,
+					accountId: fromAccountId,
+					amount: op.amount,
+					currency: op.currency,
+					direction: 'transfer',
+					fromAccountId,
+					toAccountId,
+					description: 'Корректировка баланса',
+					rawText: `ACCOUNT_DELTA:${op.accountId}:${op.currency}`
+				})
+				createdDrafts.push({
+					id: created.id,
+					action: 'create_transaction',
+					accountId: fromAccountId,
+					account: op.direction === 'in' ? 'Вне Wallet' : account.name,
+					amount: created.amount,
+					currency: created.currency,
+					direction: created.direction,
+					category: created.category ?? '📦Другое',
+					description: created.description ?? null,
+					transactionDate: created.transactionDate.toISOString(),
+					tagId: undefined,
+					tagName: undefined,
+					tagIsNew: false,
+					convertToCurrency: created.convertToCurrency ?? undefined,
+					convertedAmount: created.convertedAmount ?? undefined,
+					toAccountId,
+					toAccount: op.direction === 'in' ? account.name : 'Вне Wallet'
+				})
+			}
+			if (!createdDrafts.length) {
+				ctx.session.accountDeltaPromptMessageId = undefined
+				ctx.session.pendingAccountDeltaOps = undefined
+				return
+			}
+			const promptId = ctx.session.accountDeltaPromptMessageId
+			if (promptId != null) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, promptId)
+				} catch {}
+			}
+			ctx.session.accountDeltaPromptMessageId = undefined
+			ctx.session.pendingAccountDeltaOps = undefined
+			ctx.session.awaitingTransaction = false
+			ctx.session.confirmingTransaction = true
+			ctx.session.draftTransactions = createdDrafts as any
+			ctx.session.currentTransactionIndex = 0
+
+			const first = createdDrafts[0]
+			const showConversion = await getShowConversion(
+				first,
+				first.accountId ?? null,
+				user.id,
+				this.accountsService
+			)
+			if (ctx.session.tempMessageId != null) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
+				} catch {}
+			}
+			const msg = await ctx.reply(
+				renderConfirmMessage(first, 0, createdDrafts.length, user.defaultAccountId),
+				{
+					parse_mode: 'HTML',
+					reply_markup: confirmKeyboard(
+						createdDrafts.length,
+						0,
+						showConversion,
+						true,
+						false
+					)
+				}
+			)
+			ctx.session.tempMessageId = msg.message_id
+		})
+
 		this.bot.callbackQuery('view_settings', async ctx => {
-			if (!ctx.session.awaitingTransaction) {
+			if (!ctx.session.awaitingTransaction && !ctx.session.confirmingTransaction) {
 				await this.closeTemp(ctx)
 			}
 
@@ -867,8 +1022,20 @@ Pro открывает:
 			;(ctx.session as any).mainCurrencyHintMessageId = hint.message_id
 			;(ctx.session as any).mainCurrencyErrorMessageIds = []
 		})
+		this.bot.callbackQuery('timezone_open', async ctx => {
+			const hint = await ctx.reply(
+				'Введите часовой пояс в формате IANA (например Europe/Berlin) или UTC-смещение (+03:00).',
+				{
+					reply_markup: new InlineKeyboard().text('Закрыть', 'back_to_settings')
+				}
+			)
+			ctx.session.editingTimezone = true
+			ctx.session.timezoneHintMessageId = hint.message_id
+			ctx.session.timezoneErrorMessageIds = []
+		})
 		this.bot.callbackQuery('back_to_settings', async ctx => {
 			;(ctx.session as any).editingMainCurrency = false
+			ctx.session.editingTimezone = false
 			const hintMessageId = (ctx.session as any).mainCurrencyHintMessageId as
 				| number
 				| undefined
@@ -887,6 +1054,18 @@ Pro открывает:
 				} catch {}
 			}
 			;(ctx.session as any).mainCurrencyErrorMessageIds = []
+			if (ctx.session.timezoneHintMessageId) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.timezoneHintMessageId)
+				} catch {}
+				ctx.session.timezoneHintMessageId = undefined
+			}
+			for (const id of ctx.session.timezoneErrorMessageIds ?? []) {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, id)
+				} catch {}
+			}
+			ctx.session.timezoneErrorMessageIds = []
 			const user: any = ctx.state.user
 			const alertsEnabledCount = await this.prisma.alertConfig.count({
 				where: { userId: user.id, enabled: true }
@@ -1064,15 +1243,69 @@ Pro открывает:
 				return
 			}
 
+			if (text === 'На главное меню') {
+				ctx.session.awaitingTransaction = false
+				ctx.session.confirmingTransaction = false
+				ctx.session.draftTransactions = undefined
+				ctx.session.currentTransactionIndex = undefined
+				ctx.session.editingField = undefined
+				ctx.session.editMessageId = undefined
+				;(ctx.session as any).editingTransactionId = undefined
+				await renderHome(ctx, this.accountsService, this.analyticsService)
+				return
+			}
+			if (text === '➕ Добавить транзакцию') {
+				const txLimit = await this.subscriptionService.canCreateTransaction(
+					ctx.state.user.id
+				)
+				if (!txLimit.allowed) {
+					await ctx.reply(
+						'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+						{
+							reply_markup: new InlineKeyboard()
+								.text('💠 Pro-тариф', 'view_premium')
+								.row()
+								.text('Закрыть', 'hide_message')
+						}
+					)
+					return
+				}
+				ctx.session.awaitingTransaction = true
+				const promptText = await buildAddTransactionPrompt(
+					ctx as any,
+					this.subscriptionService
+				)
+				const msg = await ctx.reply(promptText, {
+					parse_mode: 'HTML',
+					reply_markup: new InlineKeyboard().text('Закрыть', 'close_add_transaction')
+				})
+				ctx.session.tempMessageId = msg.message_id
+				return
+			}
+			if (text === 'Помощь') {
+				await ctx.reply(
+					'📘 Помощь\n\nИспользуйте кнопку «➕ Добавить транзакцию», отправляйте текст или фото операции.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+
 			if (ctx.session.awaitingTagInput && ctx.session.draftTransactions) {
 				const drafts = ctx.session.draftTransactions
 				if (!drafts.length) return
 				const index = ctx.session.currentTransactionIndex ?? 0
 				const current = drafts[index] as any
+				const prevTag = {
+					tagId: current.tagId,
+					tagName: current.tagName,
+					tagIsNew: current.tagIsNew
+				}
 				const raw = text.trim()
-				if (raw.length > 15) {
+				if (raw.length > 20) {
 					await ctx.reply(
-						'Название тега не должно превышать 15 символов. Введите короче.',
+						'Название тега не должно превышать 20 символов. Введите короче.',
 						{
 							reply_markup: new InlineKeyboard().text(
 								'Закрыть',
@@ -1107,14 +1340,62 @@ Pro открывает:
 					current.tagId = typo.id
 					current.tagName = typo.name
 					current.tagIsNew = false
-				} else if (best && best.similarity >= 0.85) {
+				} else if (best && best.similarity >= 0.7) {
 					current.tagId = best.tag.id
 					current.tagName = best.tag.name
 					current.tagIsNew = false
 				} else {
-					current.tagId = undefined
-					current.tagName = normalized
-					current.tagIsNew = true
+					const tagLimit = await this.subscriptionService.canCreateTag(
+						ctx.state.user.id
+					)
+					if (!tagLimit.allowed) {
+						current.tagId = prevTag.tagId
+						current.tagName = prevTag.tagName
+						current.tagIsNew = prevTag.tagIsNew
+						if (ctx.state.isPremium) {
+							await ctx.reply(
+								'Достигнут системный лимит тегов. Удалите лишние теги и попробуйте снова.',
+								{
+									reply_markup: new InlineKeyboard().text(
+										'Закрыть',
+										'hide_message'
+									)
+								}
+							)
+						} else {
+							await ctx.reply(
+								'💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
+								{
+									reply_markup: new InlineKeyboard()
+										.text('💠 Pro-тариф', 'view_premium')
+										.row()
+										.text('Закрыть', 'hide_message')
+								}
+							)
+						}
+						return
+					}
+					try {
+						const createdTag = await this.tagsService.create(
+							ctx.state.user.id,
+							normalized
+						)
+						current.tagId = createdTag.id
+						current.tagName = createdTag.name
+						current.tagIsNew = false
+						await this.tagsService.incrementUsage(createdTag.id)
+					} catch (e: any) {
+						await ctx.reply(e?.message ?? 'Не удалось создать тег.', {
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						})
+						return
+					}
+				}
+				const txId = current.id ?? ctx.session.editingTransactionId
+				if (txId) {
+					await this.transactionsService.update(txId, ctx.state.user.id, {
+						tagId: current.tagId ?? null
+					})
 				}
 				ctx.session.awaitingTagInput = false
 				try {
@@ -1281,6 +1562,7 @@ Pro открывает:
 				const current = drafts[index]
 				const field = ctx.session.editingField
 				const value = text
+				const beforeFieldValue = String((current as any)?.[field] ?? '')
 
 				switch (field) {
 					case 'description': {
@@ -1319,6 +1601,35 @@ Pro открывает:
 
 					default:
 						break
+				}
+				const afterFieldValue = String((current as any)?.[field] ?? '')
+				await this.llmMemoryService.rememberCorrection({
+					userId: ctx.state.user.id,
+					rawText: (current as any)?.rawText ?? '',
+					before: beforeFieldValue,
+					after: afterFieldValue,
+					field
+				})
+				const txId = (current as any)?.id ?? ctx.session.editingTransactionId
+				if (txId) {
+					await this.transactionsService.update(txId, ctx.state.user.id, {
+						accountId: (current as any).accountId,
+						amount: (current as any).amount,
+						currency: (current as any).currency,
+						direction: (current as any).direction,
+						category: (current as any).category,
+						description: (current as any).description,
+						transactionDate:
+							normalizeTxDate((current as any).transactionDate) ?? undefined,
+						tagId: (current as any).tagId ?? null,
+						convertedAmount: (current as any).convertedAmount ?? null,
+						convertToCurrency: (current as any).convertToCurrency ?? null,
+						fromAccountId:
+							(current as any).direction === 'transfer'
+								? ((current as any).accountId ?? null)
+								: null,
+						toAccountId: (current as any).toAccountId ?? null
+					})
 				}
 
 				// успешное редактирование
@@ -1375,6 +1686,67 @@ Pro открывает:
 					} catch {}
 				}
 
+				return
+			}
+
+			if (ctx.session.editingTimezone) {
+				const value = text.trim()
+				const isUtcOffset = /^[+-]\d{2}:\d{2}$/.test(value)
+				const isUtcPrefixOffset = /^UTC[+-]\d{2}:\d{2}$/i.test(value)
+				const normalizedOffset = isUtcPrefixOffset
+					? value.replace(/^UTC/i, '')
+					: value
+				let timezoneToSave = value
+				try {
+					if (isUtcOffset || isUtcPrefixOffset) {
+						timezoneToSave = normalizedOffset
+					} else {
+						new Intl.DateTimeFormat('ru-RU', { timeZone: value }).format(new Date())
+						timezoneToSave = value
+					}
+				} catch {
+					const err = await ctx.reply(
+						'Неверный часовой пояс. Пример: Europe/Berlin или +03:00',
+						{
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						}
+					)
+					const ids = ctx.session.timezoneErrorMessageIds ?? []
+					ids.push(err.message_id)
+					ctx.session.timezoneErrorMessageIds = ids
+					return
+				}
+				await (this.prisma as any).user.update({
+					where: { id: ctx.state.user.id },
+					data: { timezone: timezoneToSave }
+				})
+				if (ctx.session.timezoneHintMessageId) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.timezoneHintMessageId)
+					} catch {}
+					ctx.session.timezoneHintMessageId = undefined
+				}
+				for (const id of ctx.session.timezoneErrorMessageIds ?? []) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, id)
+					} catch {}
+				}
+				ctx.session.timezoneErrorMessageIds = []
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+				} catch {}
+				ctx.session.editingTimezone = false
+				const user: any = await this.usersService.getOrCreateByTelegramId(
+					String(ctx.from!.id)
+				)
+				const alertsEnabledCount = await this.prisma.alertConfig.count({
+					where: { userId: user.id, enabled: true }
+				})
+				const view = buildSettingsView(user as any, alertsEnabledCount)
+				await ctx.api.editMessageText(ctx.chat!.id, ctx.session.homeMessageId, view.text, {
+					parse_mode: 'HTML',
+					reply_markup: view.keyboard
+				})
 				return
 			}
 
@@ -1493,6 +1865,9 @@ Pro открывает:
 						amount: a.amount
 					}))
 				}
+				let updatedDraft:
+					| { name: string; assets: { currency: string; amount: number }[] }
+					| undefined
 				try {
 					const updated = await this.llmService.parseAccountEdit(current, text)
 					if (
@@ -1513,7 +1888,14 @@ Pro открывает:
 									.text('Закрыть', 'hide_message')
 							}
 						)
-						return
+							return
+						}
+					updatedDraft = {
+						name: updated.name,
+						assets: updated.assets.map(a => ({
+							currency: a.currency,
+							amount: a.amount
+						}))
 					}
 					await this.accountsService.updateAccountWithAssets(
 						accountId,
@@ -1591,6 +1973,7 @@ Pro открывает:
 							topIncome,
 							anomalies,
 							transfersTotal,
+							externalTransferOut,
 							cashflow,
 							burnRate
 						] =
@@ -1631,6 +2014,12 @@ Pro открывает:
 									mainCurrency,
 									accountId
 								),
+								this.analyticsService.getExternalTransferOutTotal(
+									user.id,
+									'month',
+									mainCurrency,
+									accountId
+								),
 								this.analyticsService.getCashflow(
 									user.id,
 									'month',
@@ -1655,7 +2044,7 @@ Pro открывает:
 						)
 						analyticsData = {
 							beginningBalance: beg,
-							expenses: summary.expenses,
+							expenses: summary.expenses + externalTransferOut,
 							income: summary.income,
 							transfersTotal,
 							balance: summary.balance,
@@ -1724,6 +2113,50 @@ Pro открывает:
 						}
 					)
 				}
+				if (updatedDraft) {
+					const beforeMap = new Map<string, number>()
+					for (const a of current.assets) {
+						beforeMap.set(String(a.currency).toUpperCase(), Number(a.amount))
+					}
+					const afterMap = new Map<string, number>()
+					for (const a of updatedDraft.assets) {
+						afterMap.set(String(a.currency).toUpperCase(), Number(a.amount))
+					}
+					const allCurrencies = new Set<string>([
+						...Array.from(beforeMap.keys()),
+						...Array.from(afterMap.keys())
+					])
+					const ops: Array<{
+						accountId: string
+						currency: string
+						amount: number
+						direction: 'in' | 'out'
+					}> = []
+					for (const currency of allCurrencies) {
+						const before = beforeMap.get(currency) ?? 0
+						const after = afterMap.get(currency) ?? 0
+						const delta = Number((after - before).toFixed(8))
+						if (!delta) continue
+						ops.push({
+							accountId,
+							currency,
+							amount: Math.abs(delta),
+							direction: delta > 0 ? 'in' : 'out'
+						})
+					}
+					ctx.session.pendingAccountDeltaOps = ops
+					if (ops.length > 0) {
+						const prompt = await ctx.reply(
+							'Создать операцию для этого действия?',
+							{
+								reply_markup: new InlineKeyboard()
+									.text('Да', 'account_delta_create_tx_yes')
+									.text('Закрыть', 'account_delta_create_tx_close')
+							}
+						)
+						ctx.session.accountDeltaPromptMessageId = prompt.message_id
+					}
+				}
 				ctx.session.editingAccountDetailsId = undefined
 				return
 			}
@@ -1778,18 +2211,27 @@ Pro открывает:
 					delete: string[]
 					rename: { from: string; to: string }[]
 				}
+				const applied = {
+					add: [] as string[],
+					delete: [] as string[],
+					rename: [] as { from: string; to: string }[]
+				}
 				try {
 					result = await this.llmService.parseTagEdit(currentTagNames, text)
 					for (const name of result.delete) {
 						const normalized = this.tagsService.normalizeTag(name)
 						const tag = tags.find(t => t.name === normalized)
-						if (tag) await this.tagsService.delete(tag.id, userId)
+						if (tag) {
+							await this.tagsService.delete(tag.id, userId)
+							applied.delete.push(tag.name)
+						}
 					}
 					for (const { from, to } of result.rename) {
 						const fromNorm = this.tagsService.normalizeTag(from)
 						const tag = tags.find(t => t.name === fromNorm)
 						if (tag) {
-							await this.tagsService.rename(tag.id, userId, to)
+							const updated = await this.tagsService.rename(tag.id, userId, to)
+							applied.rename.push({ from: tag.name, to: updated.name })
 							tags = await this.tagsService.getAllByUserId(userId)
 						}
 					}
@@ -1797,7 +2239,8 @@ Pro открывает:
 						const limitTag = await this.subscriptionService.canCreateTag(userId)
 						if (
 							!limitTag.allowed ||
-							limitTag.current + result.add.length > limitTag.limit
+							(!ctx.state.isPremium &&
+								limitTag.current + result.add.length > limitTag.limit)
 						) {
 							await ctx.reply(
 								'💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
@@ -1812,7 +2255,8 @@ Pro открывает:
 						}
 					}
 					for (const name of result.add) {
-						await this.tagsService.create(userId, name)
+						const created = await this.tagsService.create(userId, name)
+						applied.add.push(created.name)
 					}
 				} catch (e: any) {
 					await ctx.reply(e?.message ?? 'Не удалось применить изменения.')
@@ -1855,22 +2299,22 @@ Pro открывает:
 					} catch {}
 				}
 				const summaryLines: string[] = []
-				if (result.rename?.length) {
+				if (applied.rename.length) {
 					summaryLines.push(
 						'Переименовано: ' +
-							result.rename.map(r => `«${r.from}» → «${r.to}»`).join(', ')
+							applied.rename.map(r => `«${r.from}» → «${r.to}»`).join(', ')
 					)
 				}
-				if (result.delete?.length) {
-					summaryLines.push('Удалено: ' + result.delete.join(', '))
+				if (applied.delete.length) {
+					summaryLines.push('Удалено: ' + applied.delete.join(', '))
 				}
-				if (result.add?.length) {
-					summaryLines.push('Создано: ' + result.add.join(', '))
+				if (applied.add.length) {
+					summaryLines.push('Создано: ' + applied.add.join(', '))
 				}
 				const summaryText =
 					summaryLines.length > 0
 						? '✅ Изменения применены.\n\n' + summaryLines.join('\n')
-						: '✅ Изменения применены.'
+						: 'ℹ️ Изменений не обнаружено.'
 				await ctx.reply(summaryText, {
 					parse_mode: 'HTML',
 					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
@@ -2006,17 +2450,16 @@ Pro открывает:
 				const accountNames = visibleAccounts
 					.map((a: any) => a.name)
 					.filter((n: string) => n !== 'Вне Wallet')
-				const outsideWalletAccount = userAccounts.find(
-					(a: any) => a.name === 'Вне Wallet'
-				)
-				const outsideWalletId = outsideWalletAccount?.id ?? null
+				const memoryHints = await this.llmMemoryService.getHints(user.id)
+				await this.llmMemoryService.rememberRuleFromText(user.id, text)
 
 				try {
 					parsed = await this.llmService.parseTransaction(
 						text,
 						categoryNames,
 						existingTags,
-						accountNames
+						accountNames,
+						memoryHints
 					)
 				} catch (e: unknown) {
 					const err = e instanceof Error ? e : new Error(String(e))
@@ -2114,6 +2557,7 @@ Pro открывает:
 			const accountNames = visibleAccounts
 				.map((a: any) => a.name)
 				.filter((n: string) => n !== 'Вне Wallet')
+			const memoryHints = await this.llmMemoryService.getHints(user.id)
 
 			const photos = ctx.message.photo
 			if (!photos?.length) return
@@ -2142,6 +2586,9 @@ Pro открывает:
 			}
 
 			const userCaption = ctx.message.caption?.trim() || ''
+			if (userCaption) {
+				await this.llmMemoryService.rememberRuleFromText(user.id, userCaption)
+			}
 			let parsed: LlmTransaction[]
 			try {
 				parsed = await this.llmService.parseTransactionFromImage(
@@ -2149,7 +2596,8 @@ Pro открывает:
 					categoryNames,
 					existingTags,
 					accountNames,
-					userCaption || undefined
+					userCaption || undefined,
+					memoryHints
 				)
 			} catch (e: unknown) {
 				const err = e instanceof Error ? e : new Error(String(e))
@@ -2178,7 +2626,7 @@ Pro открывает:
 			const parseToken = `PHOTO_PARSE:${new Date().toISOString().slice(0, 7)}:${largest.file_unique_id}`
 			parsed = parsed.map(tx => ({
 				...tx,
-				rawText: parseToken
+				rawText: userCaption ? `${parseToken} ${userCaption}` : parseToken
 			}))
 			await this.processParsedTransactions(ctx, parsed)
 		})
@@ -2187,6 +2635,7 @@ Pro открывает:
 	}
 
 	async closeTemp(ctx) {
+		if (ctx.session.confirmingTransaction) return
 		const tempId = ctx.session.tempMessageId
 		if (tempId && tempId !== ctx.session.homeMessageId) {
 			try {
@@ -2294,16 +2743,81 @@ Pro открывает:
 					return { id: acc.id, name: acc.name }
 				}
 			}
+			let best: { id: string; name: string; dist: number } | null = null
+			const compact = lower.replace(/\s+/g, '')
+			for (const acc of userAccounts as any[]) {
+				if (acc.name === 'Вне Wallet') continue
+				const accCompact = String(acc.name).toLowerCase().replace(/\s+/g, '')
+				const dist = levenshtein(compact, accCompact)
+				if (!best || dist < best.dist) {
+					best = { id: acc.id, name: acc.name, dist }
+				}
+			}
+			if (best && best.dist <= 2) return { id: best.id, name: best.name }
+			return null
+		}
+
+		const normalizeDescriptionKey = (value?: string | null): string =>
+			String(value ?? '')
+				.toLowerCase()
+				.replace(/[^\p{L}\p{N}]+/gu, '')
+				.trim()
+
+		const isGenericTransferDescription = (value?: string | null): boolean => {
+			const key = normalizeDescriptionKey(value)
+			return (
+				!key ||
+				key === 'перевод' ||
+				key === 'transfer' ||
+				key === 'transaction' ||
+				key === 'транзакция' ||
+				key === 'операция'
+			)
+		}
+
+		const extractTransferCounterparty = (value?: string | null): string | null => {
+			const text = String(value ?? '').replace(/\s+/g, ' ').trim()
+			if (!text) return null
+			const normalizeCandidate = (candidate: string): string | null => {
+				const cleaned = candidate
+					.replace(/[.,;:!?]+$/g, '')
+					.replace(/\s+/g, ' ')
+					.trim()
+				if (!cleaned) return null
+				const tokens = cleaned.split(' ').slice(0, 2)
+				return tokens.join(' ')
+			}
+			const verbMatch = text.match(
+				/(?:отправил|перев[её]л|перекинул|скинул)\s+([^\d,+\-()]{2,40}?)(?=\s+\d|$|\s+(?:евро|eur|usd|usdt|rub|руб|грн|uah|btc|eth)\b)/iu
+			)
+			if (verbMatch) {
+				const candidate = normalizeCandidate(verbMatch[1])
+				if (candidate) return candidate.toLowerCase()
+			}
+			const dativeMatch = text.match(
+				/\b(бате|папе|маме|брату|сестре|жене|мужу|сыну|дочери|дочке|другу|подруге)\b/iu
+			)
+			if (dativeMatch) return dativeMatch[1].toLowerCase()
 			return null
 		}
 
 		const merged = new Map<string, any>()
 		for (const tx of parsed as any[]) {
 			const direction = tx.direction
-			const txDate = (tx.transactionDate || new Date().toISOString()).slice(0, 10)
+			const chosenDate = pickTransactionDate({
+				userText: tx.rawText ?? '',
+				llmDate: tx.transactionDate
+			})
+			tx.transactionDate = chosenDate.toISOString()
+			const txDate = chosenDate.toISOString().slice(0, 10)
 			const account = normalizeAccountAlias(tx.account ?? tx.fromAccount ?? '')
 			const category = tx.category ?? '📦Другое'
 			const currency = (tx.currency ?? '').toUpperCase()
+			const merchantKey = String(tx.description ?? '')
+				.toLowerCase()
+				.replace(/[^\p{L}\p{N}\s]/gu, ' ')
+				.replace(/\s+/g, ' ')
+				.trim()
 			if (direction === 'transfer') {
 				const key = `transfer|${txDate}|${currency}|${account}|${normalizeAccountAlias(
 					tx.toAccount ?? ''
@@ -2315,7 +2829,7 @@ Pro открывает:
 				}
 				continue
 			}
-			const key = `${direction}|${txDate}|${currency}|${account}|${category}|${
+			const key = `${direction}|${txDate}|${currency}|${account}|${category}|${merchantKey}|${
 				tx.tag_text ?? ''
 			}`
 			if (!merged.has(key)) {
@@ -2324,12 +2838,50 @@ Pro открывает:
 			}
 			const prev = merged.get(key)
 			prev.amount = Number(prev.amount ?? 0) + Number(tx.amount ?? 0)
-			const labels = [prev.description, tx.description]
-				.map((v: string | undefined) => String(v ?? '').trim())
-				.filter(Boolean)
-			prev.description = labels.length <= 2 ? labels.join(', ') : 'Продукты'
+			if (!prev.description && tx.description) {
+				prev.description = tx.description
+			}
 		}
 		const parsedNormalized = Array.from(merged.values()) as any[]
+		const withFeeTransactions: any[] = []
+		for (const tx of parsedNormalized) {
+			withFeeTransactions.push(tx)
+			const raw = String(tx.rawText ?? '').toLowerCase()
+			if (
+				tx.direction !== 'transfer' ||
+				!isCryptoCurrency(String(tx.currency ?? '')) ||
+				!/комисси|fee/u.test(raw)
+			) {
+				continue
+			}
+			const feeMatch = raw.match(
+				/(?:комисси[яиюе]|fee)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*([a-z]{2,10})?/iu
+			)
+			const feeAltMatch = raw.match(
+				/(\d+(?:[.,]\d+)?)\s*([a-z]{2,10})\s*(?:комисси[яиюе]|fee)/iu
+			)
+			const m = feeMatch ?? feeAltMatch
+			if (!m) continue
+			const feeRaw = Number(String(m[1]).replace(',', '.'))
+			if (!isFinite(feeRaw) || feeRaw <= 0) continue
+			const feeCurrency = String((m[2] ?? tx.currency) || '').toUpperCase()
+			if (feeCurrency !== String(tx.currency ?? '').toUpperCase()) continue
+			const amount = Number(tx.amount ?? 0)
+			if (!(amount > feeRaw)) continue
+			const netAmount = Number((amount - feeRaw).toFixed(8))
+			tx.amount = netAmount
+			const feeTx = {
+				...tx,
+				amount: feeRaw,
+				direction: 'expense',
+				category: '📉Финансовые расходы',
+				description: 'Комиссия за перевод',
+				tag_text: 'комиссия',
+				normalized_tag: 'комиссия',
+				tag_confidence: 0.99
+			}
+			withFeeTransactions.push(feeTx)
+		}
 		const knownCurrencies = await this.exchangeService.getKnownCurrencies()
 		const supportedCurrencies = new Set<string>([
 			...Array.from(knownCurrencies.fiat),
@@ -2354,7 +2906,7 @@ Pro открывает:
 			)
 		}
 
-		for (const tx of parsedNormalized) {
+		for (const tx of withFeeTransactions) {
 			if (tx.currency) {
 				tx.currency = String(tx.currency).toUpperCase().trim()
 			}
@@ -2374,8 +2926,16 @@ Pro открывает:
 			const transferHint =
 				/(перев[её]л|перевод|перекинул|вывел|снял в нал|в нал)/.test(sourceText) &&
 				/(с |из ).+( в | на )/.test(sourceText)
-			if (transferHint) {
+			const explicitTransferType =
+				/тип\s*[:\-]?\s*перевод|это\s+перевод|\(тип\s*перевод\)/.test(sourceText)
+			if (transferHint || explicitTransferType) {
 				tx.direction = 'transfer'
+			}
+			if (tx.direction === 'transfer' && isGenericTransferDescription(tx.description)) {
+				const counterparty = extractTransferCounterparty(tx.rawText)
+				if (counterparty) {
+					tx.description = `Перевод ${counterparty}`
+				}
 			}
 			if (!tx.category || tx.category === 'Не выбрано' || tx.category === '📦Другое' || !tx.tag_text) {
 				const similar = findSimilar(tx.description)
@@ -2395,7 +2955,7 @@ Pro открывает:
 			}
 		}
 
-		for (const tx of parsedNormalized) {
+		for (const tx of withFeeTransactions) {
 			const isTransfer = tx.direction === 'transfer'
 			const parsedAccountStr = isTransfer
 				? (tx.fromAccount && String(tx.fromAccount).trim()) || (tx.account && String(tx.account).trim()) || ''
@@ -2511,7 +3071,7 @@ Pro открывает:
 			}
 		}
 
-		const first = parsedNormalized[0]
+		const first = withFeeTransactions[0]
 		const hasAnyField =
 			typeof first.amount === 'number' ||
 			(typeof first.description === 'string' &&
@@ -2527,9 +3087,82 @@ Pro открывает:
 			return
 		}
 
+		const txLimit = await this.subscriptionService.canCreateTransaction(user.id)
+		if (
+			!txLimit.allowed ||
+			(!ctx.state.isPremium && txLimit.current + withFeeTransactions.length > txLimit.limit)
+		) {
+			await ctx.reply(
+				'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				{
+					reply_markup: new InlineKeyboard()
+						.text('💠 Pro-тариф', 'view_premium')
+						.row()
+						.text('Закрыть', 'hide_message')
+				}
+			)
+			return
+		}
+
+		for (const tx of withFeeTransactions) {
+			const isTransfer = tx.direction === 'transfer'
+			const effectiveAccountId =
+				tx.accountId ?? defaultAccountId ?? outsideWalletId ?? null
+			if (!effectiveAccountId) continue
+			let tagId = tx.tagId as string | undefined
+			if (tx.tagIsNew && tx.tagName) {
+				const tagLimit = await this.subscriptionService.canCreateTag(user.id)
+				if (
+					!tagLimit.allowed ||
+					(!ctx.state.isPremium && tagLimit.current + 1 > tagLimit.limit)
+				) {
+					tx.tagIsNew = false
+					tx.tagName = undefined
+					tagId = undefined
+				} else {
+					try {
+						const createdTag = await this.tagsService.create(user.id, tx.tagName)
+						tagId = createdTag.id
+						tx.tagId = createdTag.id
+						tx.tagName = createdTag.name
+						tx.tagIsNew = false
+					} catch {
+						tagId = undefined
+					}
+				}
+			}
+			if (tagId) {
+				await this.tagsService.incrementUsage(tagId)
+			}
+			const created = await this.transactionsService.create({
+				userId: user.id,
+				accountId: effectiveAccountId,
+				amount: tx.amount ?? 0,
+				currency: tx.currency ?? 'USD',
+				direction: tx.direction,
+				...(isTransfer
+					? {
+							fromAccountId: effectiveAccountId,
+							toAccountId: tx.toAccountId ?? outsideWalletId ?? undefined
+						}
+					: { category: tx.category ?? '📦Другое' }),
+				description: tx.description,
+				rawText: tx.rawText || '',
+				transactionDate: pickTransactionDate({
+					userText: tx.rawText ?? '',
+					llmDate: tx.transactionDate
+				}),
+				tagId: tagId ?? undefined,
+				convertedAmount: tx.convertedAmount,
+				convertToCurrency: tx.convertToCurrency
+			})
+			tx.id = created.id
+			tx.transactionDate = created.transactionDate.toISOString()
+		}
+
 		ctx.session.awaitingTransaction = false
 		ctx.session.confirmingTransaction = true
-		ctx.session.draftTransactions = parsedNormalized
+		ctx.session.draftTransactions = withFeeTransactions
 		ctx.session.currentTransactionIndex = 0
 
 		const firstAccountId = (first as any)?.accountId ?? defaultAccountId
@@ -2561,13 +3194,13 @@ Pro открывает:
 			renderConfirmMessage(
 				first,
 				0,
-				parsedNormalized.length,
+				withFeeTransactions.length,
 				user.defaultAccountId
 			),
 			{
 				parse_mode: 'HTML',
 				reply_markup: confirmKeyboard(
-					parsedNormalized.length,
+					withFeeTransactions.length,
 					0,
 					showConversion,
 					first?.direction === 'transfer',
@@ -2576,5 +3209,7 @@ Pro открывает:
 			}
 		)
 		ctx.session.tempMessageId = msg.message_id
+		await renderHome(ctx, this.accountsService, this.analyticsService)
 	}
 }
+
