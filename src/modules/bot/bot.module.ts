@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule'
 import { BotService } from './bot.service'
 import { PremiumCronService } from './premium-cron.service'
 import { DailyTipCronService } from './daily-tip-cron.service'
+import { TransactionReminderCronService } from './transaction-reminder-cron.service'
 import { UsersModule } from '../users/users.module'
 import { TransactionsModule } from '../transactions/transactions.module'
 import { LLMModule } from '../llm/llm.module'
@@ -13,6 +14,7 @@ import { ExchangeModule } from '../exchange/exchange.module'
 import { AnalyticsModule } from '../analytics/analytics.module'
 import { SubscriptionModule } from '../subscription/subscription.module'
 import { StripeModule } from '../stripe/stripe.module'
+import { LlmMemoryModule } from '../llm-memory/llm-memory.module'
 
 @Module({
 	imports: [
@@ -26,8 +28,14 @@ import { StripeModule } from '../stripe/stripe.module'
 		ExchangeModule,
 		AnalyticsModule,
 		SubscriptionModule,
-		StripeModule
+		StripeModule,
+		LlmMemoryModule
 	],
-	providers: [BotService, PremiumCronService, DailyTipCronService]
+	providers: [
+		BotService,
+		PremiumCronService,
+		DailyTipCronService,
+		TransactionReminderCronService
+	]
 })
 export class BotModule {}

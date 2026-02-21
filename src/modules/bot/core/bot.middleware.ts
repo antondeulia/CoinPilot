@@ -58,6 +58,16 @@ export type BotContext = Context & {
 		awaitingDeleteConfirm?: boolean
 		mainCurrencyHintMessageId?: number
 		mainCurrencyErrorMessageIds?: number[]
+		editingTimezone?: boolean
+		timezoneHintMessageId?: number
+		timezoneErrorMessageIds?: number[]
+		accountDeltaPromptMessageId?: number
+		pendingAccountDeltaOps?: Array<{
+			accountId: string
+			currency: string
+			amount: number
+			direction: 'in' | 'out'
+		}>
 	}
 	chat: {
 		id: string

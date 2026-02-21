@@ -1,16 +1,30 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { buildAddTransactionPrompt } from './add-transaction.command'
 
 export const repeatParseCallback = (
 	bot: Bot<BotContext>,
-	subscriptionService: SubscriptionService
+	subscriptionService: SubscriptionService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('repeat_parse', async ctx => {
+		const drafts = ctx.session.draftTransactions ?? []
+		for (const draft of drafts as any[]) {
+			if (draft?.id) {
+				await transactionsService.delete(draft.id, ctx.state.user.id).catch(() => {})
+			}
+		}
+
 		if (ctx.session.tempMessageId) {
 			try {
 				await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
+			} catch {}
+		}
+		if (ctx.session.editMessageId) {
+			try {
+				await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
 			} catch {}
 		}
 
@@ -18,6 +32,9 @@ export const repeatParseCallback = (
 		ctx.session.confirmingTransaction = false
 		ctx.session.draftTransactions = undefined
 		ctx.session.currentTransactionIndex = undefined
+		ctx.session.editingField = undefined
+		ctx.session.editMessageId = undefined
+		;(ctx.session as any).editingTransactionId = undefined
 
 		const text = await buildAddTransactionPrompt(ctx, subscriptionService)
 		const msg = await ctx.reply(text, {

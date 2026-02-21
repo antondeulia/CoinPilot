@@ -17,6 +17,7 @@ export const startCommand = (
 		}
 		;(ctx.session as any).editingCurrency = false
 		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingTimezone = false
 		ctx.session.editingField = undefined
 		ctx.session.editMessageId = undefined
 		ctx.session.accountsPage = undefined
@@ -44,6 +45,10 @@ export const startCommand = (
 		;(ctx.session as any).tagsSettingsMessageId = undefined
 		;(ctx.session as any).tagsSettingsHintMessageId = undefined
 		;(ctx.session as any).editingTransactionId = undefined
+		;(ctx.session as any).timezoneHintMessageId = undefined
+		;(ctx.session as any).timezoneErrorMessageIds = undefined
+		;(ctx.session as any).accountDeltaPromptMessageId = undefined
+		;(ctx.session as any).pendingAccountDeltaOps = undefined
 		await renderHome(ctx, accountsService, analyticsService)
 	})
 }

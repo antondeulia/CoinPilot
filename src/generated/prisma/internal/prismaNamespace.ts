@@ -397,7 +397,8 @@ export const ModelName = {
   SavedAnalyticsView: 'SavedAnalyticsView',
   AlertConfig: 'AlertConfig',
   Subscription: 'Subscription',
-  PremiumEvent: 'PremiumEvent'
+  PremiumEvent: 'PremiumEvent',
+  LlmUserMemory: 'LlmUserMemory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -413,7 +414,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "exchangeRateSnapshot" | "category" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent"
+    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "exchangeRateSnapshot" | "category" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent" | "llmUserMemory"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1453,6 +1454,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    LlmUserMemory: {
+      payload: Prisma.$LlmUserMemoryPayload<ExtArgs>
+      fields: Prisma.LlmUserMemoryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.LlmUserMemoryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.LlmUserMemoryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        findFirst: {
+          args: Prisma.LlmUserMemoryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.LlmUserMemoryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        findMany: {
+          args: Prisma.LlmUserMemoryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>[]
+        }
+        create: {
+          args: Prisma.LlmUserMemoryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        createMany: {
+          args: Prisma.LlmUserMemoryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.LlmUserMemoryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>[]
+        }
+        delete: {
+          args: Prisma.LlmUserMemoryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        update: {
+          args: Prisma.LlmUserMemoryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        deleteMany: {
+          args: Prisma.LlmUserMemoryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.LlmUserMemoryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.LlmUserMemoryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>[]
+        }
+        upsert: {
+          args: Prisma.LlmUserMemoryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        aggregate: {
+          args: Prisma.LlmUserMemoryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLlmUserMemory>
+        }
+        groupBy: {
+          args: Prisma.LlmUserMemoryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LlmUserMemoryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.LlmUserMemoryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LlmUserMemoryCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1514,6 +1589,8 @@ export const UserScalarFieldEnum = {
   stripeCustomerId: 'stripeCustomerId',
   lastTipText: 'lastTipText',
   lastTipDate: 'lastTipDate',
+  timezone: 'timezone',
+  lastDailyReminderAt: 'lastDailyReminderAt',
   createdAt: 'createdAt'
 } as const
 
@@ -1673,6 +1750,21 @@ export const PremiumEventScalarFieldEnum = {
 } as const
 
 export type PremiumEventScalarFieldEnum = (typeof PremiumEventScalarFieldEnum)[keyof typeof PremiumEventScalarFieldEnum]
+
+
+export const LlmUserMemoryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  key: 'key',
+  value: 'value',
+  confidence: 'confidence',
+  hits: 'hits',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LlmUserMemoryScalarFieldEnum = (typeof LlmUserMemoryScalarFieldEnum)[keyof typeof LlmUserMemoryScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1990,6 +2082,7 @@ export type GlobalOmitConfig = {
   alertConfig?: Prisma.AlertConfigOmit
   subscription?: Prisma.SubscriptionOmit
   premiumEvent?: Prisma.PremiumEventOmit
+  llmUserMemory?: Prisma.LlmUserMemoryOmit
 }
 
 /* Types for Logging */

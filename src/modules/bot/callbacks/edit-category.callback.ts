@@ -2,8 +2,10 @@ import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { CategoriesService } from '../../../modules/categories/categories.service'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 const CATEGORY_PAGE_SIZE = 9
 
@@ -45,7 +47,8 @@ function buildCategoriesKeyboard(
 export const editCategoryCallback = (
 	bot: Bot<BotContext>,
 	categoriesService: CategoriesService,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:category', async ctx => {
 		const userId = ctx.state.user.id
@@ -147,6 +150,7 @@ export const editCategoryCallback = (
 			ctx.state.user.id,
 			accountsService
 		)
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

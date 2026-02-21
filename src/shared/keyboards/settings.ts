@@ -4,6 +4,7 @@ type SettingsViewUser = {
 	id: string
 	telegramId: string
 	mainCurrency?: string
+	timezone?: string
 	defaultAccountId?: string | null
 	accounts: { id: string; name: string }[]
 	isPremium: boolean
@@ -43,12 +44,15 @@ export function buildSettingsView(
 
 💠 Ваш тариф: ${tariffStr}
 🌍 Основная валюта: ${mainCode}
+🕒 Часовой пояс: ${user.timezone ?? 'UTC'}
 🏦 Основной счёт: ${defaultAccountName}
 
 🆔 Ваш Telegram ID: ${user.telegramId}
 📅 Дата регистрации: ${createdAtStr}`
 	const keyboard = new InlineKeyboard()
 		.text('🌍 Основная валюта', 'main_currency_open')
+		.text('🕒 Часовой пояс', 'timezone_open')
+		.row()
 		.text('🏦 Основной счёт', 'default_account_open')
 		.row()
 		.text('📂 Категории', 'view_categories')

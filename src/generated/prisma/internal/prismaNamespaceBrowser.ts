@@ -64,7 +64,8 @@ export const ModelName = {
   SavedAnalyticsView: 'SavedAnalyticsView',
   AlertConfig: 'AlertConfig',
   Subscription: 'Subscription',
-  PremiumEvent: 'PremiumEvent'
+  PremiumEvent: 'PremiumEvent',
+  LlmUserMemory: 'LlmUserMemory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -105,6 +106,8 @@ export const UserScalarFieldEnum = {
   stripeCustomerId: 'stripeCustomerId',
   lastTipText: 'lastTipText',
   lastTipDate: 'lastTipDate',
+  timezone: 'timezone',
+  lastDailyReminderAt: 'lastDailyReminderAt',
   createdAt: 'createdAt'
 } as const
 
@@ -264,6 +267,21 @@ export const PremiumEventScalarFieldEnum = {
 } as const
 
 export type PremiumEventScalarFieldEnum = (typeof PremiumEventScalarFieldEnum)[keyof typeof PremiumEventScalarFieldEnum]
+
+
+export const LlmUserMemoryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  key: 'key',
+  value: 'value',
+  confidence: 'confidence',
+  hits: 'hits',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LlmUserMemoryScalarFieldEnum = (typeof LlmUserMemoryScalarFieldEnum)[keyof typeof LlmUserMemoryScalarFieldEnum]
 
 
 export const SortOrder = {

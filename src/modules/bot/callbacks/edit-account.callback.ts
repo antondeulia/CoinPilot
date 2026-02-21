@@ -1,9 +1,11 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard } from './confirm-tx'
 import { formatAccountName } from '../../../utils/format'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 function buildAccountsKeyboard(
 	accounts: { id: string; name: string }[],
@@ -50,7 +52,8 @@ function buildAccountsKeyboard(
 
 export const editAccountCallback = (
 	bot: Bot<BotContext>,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:account', async ctx => {
 		const userId = ctx.state.user.id
@@ -137,6 +140,11 @@ export const editAccountCallback = (
 			new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
 		)
 		const showConversion = !accountCurrencies.includes(current.currency)
+		if (!showConversion) {
+			current.convertToCurrency = undefined
+			current.convertedAmount = undefined
+		}
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

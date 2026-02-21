@@ -7,6 +7,8 @@ import { ConfigService } from '@nestjs/config'
 @Injectable()
 export class LLMService {
 	private readonly openai: OpenAI
+	private readonly txModelFast = 'gpt-4.1-mini'
+	private readonly txModelQuality = 'gpt-4.1'
 
 	constructor(private readonly config: ConfigService) {
 		this.openai = new OpenAI({
@@ -44,20 +46,42 @@ export class LLMService {
 		throw last
 	}
 
+	private shouldEscalateTxParse(transactions: any[], sourceText: string): boolean {
+		if (!transactions.length) return true
+		const lowered = sourceText.toLowerCase()
+		const hasExplicitDateHint =
+			/\bсегодня\b|\bвчера\b|\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b/u.test(
+				lowered
+			)
+		const badCount = transactions.filter(tx => {
+			const desc = String(tx.description ?? '').trim().toLowerCase()
+			const category = String(tx.category ?? '').trim()
+			const weakDesc = !desc || desc === 'транзакция'
+			const weakCategory = !category || category === '📦Другое'
+			return weakDesc || weakCategory
+		}).length
+		const weakShare = badCount / Math.max(1, transactions.length)
+		if (weakShare >= 0.6) return true
+		if (hasExplicitDateHint && transactions.some(tx => !tx.transactionDate)) return true
+		return false
+	}
+
 	async parseTransaction(
 		text: string,
 		categoryNames: string[] = [],
 		existingTags: string[] = [],
-		accountNames: string[] = []
+		accountNames: string[] = [],
+		memoryHints: string[] = []
 	) {
 		const { systemContent } = this.buildTransactionParseInstructions(
 			categoryNames,
 			existingTags,
-			accountNames
+			accountNames,
+			memoryHints
 		)
-		const response = await this.withRetry(() =>
+		const callParser = async (model: string) =>
 			this.openai.chat.completions.create({
-				model: 'gpt-4o-mini',
+				model,
 				temperature: 0,
 				messages: [
 					{ role: 'system', content: systemContent },
@@ -121,7 +145,7 @@ export class LLMService {
 				],
 				function_call: { name: 'create_transaction' }
 			})
-		)
+		const response = await this.withRetry(() => callParser(this.txModelFast))
 
 		const call = response.choices[0].message.function_call
 
@@ -130,15 +154,25 @@ export class LLMService {
 		}
 
 		const parsedJson = JSON.parse(call.arguments)
-		const { transactions } = LlmTransactionListSchema.parse(parsedJson)
-
+		const { transactions: fastTransactions } = LlmTransactionListSchema.parse(parsedJson)
+		if (!this.shouldEscalateTxParse(fastTransactions as any[], text)) {
+			return fastTransactions
+		}
+		const qualityResponse = await this.withRetry(() =>
+			callParser(this.txModelQuality)
+		)
+		const qualityCall = qualityResponse.choices[0].message.function_call
+		if (!qualityCall?.arguments) return fastTransactions
+		const qualityJson = JSON.parse(qualityCall.arguments)
+		const { transactions } = LlmTransactionListSchema.parse(qualityJson)
 		return transactions
 	}
 
 	private buildTransactionParseInstructions(
 		categoryNames: string[],
 		existingTags: string[],
-		accountNames: string[]
+		accountNames: string[],
+		memoryHints: string[] = []
 	) {
 		const categoryList =
 			categoryNames.length > 0
@@ -163,7 +197,13 @@ export class LLMService {
 		const directionInstruction =
 			` Direction (тип транзакции): определяй по тексту или визуальным подсказкам. Сегодня: ${todayIso}. В тексте: "перевёл", "перевод", "перевел", "с X на Y" (между счетами), "вывел", "перекинул", "снял в нал" = transfer. Если в тексте явно указаны два счета/кармана пользователя ("со шпаркассе в нал", "с биржи на карту"), это transfer, не expense. На скриншоте: знак «+» или зелёный цвет суммы = income (доход); знак «-» или красный цвет суммы = expense (расход). Если сумма отображена со знаком или цветом — direction задавай строго по нему, не по догадке.`
 		const parsingRules =
-			' Правила парсинга: (0) Нет описания на скриншоте: если на изображении только идентификаторы (F17..., MO 56...), числа и суммы, без названия мерчанта, примечания и названия банка/счёта — категория "📦Другое", тег пустой, description нейтральное (например "Транзакция"). (1) Description всегда с заглавной буквы, максимум 1-2 слова, предпочтительно 1 слово. (2) Категория обязательна всегда: если неуверен — "📦Другое". (3) Категория первична, тег уточняет. Если описание однозначное (продукты, мороженое, такси и т.п.) — обязательно выбери подходящий тег из списка пользователя. (4) Для бытовых/сленговых слов определяй по контексту (например "шкары" => обувь => категория "🛒Покупки"). (5) Мерчант по названию: DB/Deutsche Bahn => "🚇Транспорт", LINK.COM/онлайн => "💳Платежи" или "🛒Покупки", TEDi => "🛒Покупки", Apotheke => "🛒Покупки", REWE/продукты/мороженое => "🍔Еда и напитки".'
+			' Правила парсинга: (0) Нет описания на скриншоте: если на изображении только идентификаторы (F17..., MO 56...), числа и суммы, без названия мерчанта, примечания и названия банка/счёта — категория "📦Другое", тег пустой, description нейтральное (например "Транзакция"). (1) Description всегда с заглавной буквы, максимум 1-2 слова, предпочтительно 1 слово. (2) Категория обязательна всегда: если неуверен — "📦Другое". (3) Категория первична, тег уточняет. Если описание однозначное (продукты, мороженое, такси и т.п.) — обязательно выбери подходящий тег из списка пользователя. (4) Для бытовых/сленговых слов определяй по контексту (например "шкары" => обувь => категория "🛒Покупки"). (5) Мерчант по названию: DB/Deutsche Bahn => "🚇Транспорт", LINK.COM/онлайн => "💳Платежи" или "🛒Покупки", TEDi => "🛒Покупки", Apotheke => "🛒Покупки", REWE/продукты/мороженое => "🍔Еда и напитки". (6) Не выбирай "📦Другое" и description "Транзакция", если по названию/мерчанту можно дать более точную классификацию. (7) Если пользователь явно указал дату в тексте или подписи, эта дата приоритетна над датой со скриншота.'
+		const memoryInstruction =
+			memoryHints.length > 0
+				? ` Персональные правила пользователя (высокий приоритет): ${memoryHints.join(
+						' | '
+					)}.`
+				: ''
 		return {
 			systemContent:
 				'Ты парсер финансовых операций. Верни только JSON согласно схеме.' +
@@ -172,7 +212,8 @@ export class LLMService {
 				tagInstruction +
 				accountInstruction +
 				cryptoInstruction +
-				parsingRules
+				parsingRules +
+				memoryInstruction
 		}
 	}
 
@@ -181,12 +222,14 @@ export class LLMService {
 		categoryNames: string[] = [],
 		existingTags: string[] = [],
 		accountNames: string[] = [],
-		userCaption?: string
+		userCaption?: string,
+		memoryHints: string[] = []
 	) {
 		const { systemContent } = this.buildTransactionParseInstructions(
 			categoryNames,
 			existingTags,
-			accountNames
+			accountNames,
+			memoryHints
 		)
 		const captionTrimmed = userCaption?.trim() || ''
 		const userTextParts: string[] = [
@@ -200,9 +243,9 @@ export class LLMService {
 		userTextParts.push(
 			'По скриншоту не выводи категорию и тег только если нет мерчанта/примечания. По названию мерчанта всегда выбирай категорию и тег из списка пользователя: DB Vertrieb / Deutsche Bahn → Транспорт, тег проездной/поезд. LINK.COM, сайт в названии → Платежи или Покупки, тег онлайн-покупка. TEDi → Покупки, тег канцелярия. Apotheke/аптека → Покупки (не Здоровье), тег аптека. REWE → Еда и напитки. Hauptbahnhof/Regionalverkehr без DB → Транспорт, тег пустой. Суммы всегда положительные числа (8, 63). Тип транзакции (расход/доход) определяется полем direction, а не знаком суммы.'
 		)
-		const response = await this.withRetry(() =>
+		const callParser = async (model: string) =>
 			this.openai.chat.completions.create({
-				model: 'gpt-4o-mini',
+				model,
 				temperature: 0,
 				messages: [
 					{ role: 'system', content: systemContent },
@@ -275,14 +318,25 @@ export class LLMService {
 				],
 				function_call: { name: 'create_transaction' }
 			})
-		)
+		const response = await this.withRetry(() => callParser(this.txModelFast))
 
 		const call = response.choices[0].message.function_call
 		if (!call?.arguments) {
 			throw new Error('LLM did not return function arguments')
 		}
 		const parsedJson = JSON.parse(call.arguments)
-		const { transactions } = LlmTransactionListSchema.parse(parsedJson)
+		const { transactions: fastTransactions } = LlmTransactionListSchema.parse(parsedJson)
+		const qualitySource = `${captionTrimmed} image-parse`
+		if (!this.shouldEscalateTxParse(fastTransactions as any[], qualitySource)) {
+			return fastTransactions
+		}
+		const qualityResponse = await this.withRetry(() =>
+			callParser(this.txModelQuality)
+		)
+		const qualityCall = qualityResponse.choices[0].message.function_call
+		if (!qualityCall?.arguments) return fastTransactions
+		const qualityJson = JSON.parse(qualityCall.arguments)
+		const { transactions } = LlmTransactionListSchema.parse(qualityJson)
 		return transactions
 	}
 
@@ -438,14 +492,15 @@ export class LLMService {
 	}
 
 	async parseDate(text: string): Promise<Date | null> {
+		const currentYear = new Date().getFullYear()
 		const response = await this.openai.chat.completions.create({
-			model: 'gpt-4o-mini',
+			model: this.txModelFast,
 			temperature: 0,
 			messages: [
 				{
 					role: 'system',
 					content:
-						'Ты парсер дат. Пользователь пишет дату на русском или в виде числа. Всегда используй текущий год 2026 для выражений вроде "Сегодня", "Вчера" и подобных относительных формулировок. Верни только JSON вида {"date": "ISO_8601"}.'
+						`Ты парсер дат. Пользователь пишет дату на русском или в виде числа. Всегда используй текущий год ${currentYear} для выражений вроде "Сегодня", "Вчера" и подобных относительных формулировок. Верни только JSON вида {"date": "ISO_8601"}.`
 				},
 				{
 					role: 'user',

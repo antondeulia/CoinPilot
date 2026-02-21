@@ -116,8 +116,11 @@ export async function renderAnalyticsMain(
 	)
 	const avgExpensePerDay = summary.expenses / totalDays
 	const savingsRatio =
-		summary.expenses > 0
-			? Math.max(0, Math.round((summary.income / summary.expenses) * 100))
+		summary.income > 0
+			? Math.max(
+					0,
+					Math.round(((summary.income - summary.expenses) / summary.income) * 100)
+				)
 			: 0
 
 	let body = `📊 Финансы — обзор за ${title}
@@ -133,7 +136,7 @@ export async function renderAnalyticsMain(
 <b>Средний расход в день:</b> ${fmt(avgExpensePerDay)} ${symbol}
 
 Коэффициент сбережений: ${savingsRatio}%
-(Доходы / Расходы)
+(Доходы − Расходы) / Доходы
 
 — — —
 `

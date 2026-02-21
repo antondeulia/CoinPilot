@@ -36,6 +36,9 @@ model User {
   alertConfigs         AlertConfig[]
   subscriptions        Subscription[]
   premiumEvents        PremiumEvent[]
+  llmMemories          LlmUserMemory[]
+  timezone             String   @default("UTC")
+  lastDailyReminderAt  DateTime?
   createdAt            DateTime @default(now())
 
   @@map("users")
@@ -206,6 +209,23 @@ model PremiumEvent {
   createdAt DateTime         @default(now())
 
   @@map("premium_events")
+}
+
+model LlmUserMemory {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // rule | correction
+  key         String
+  value       String
+  confidence  Float    @default(1)
+  hits        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, type, key])
+  @@index([userId, updatedAt])
+  @@map("llm_user_memories")
 }
 
 // Enums
