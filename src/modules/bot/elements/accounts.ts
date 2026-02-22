@@ -107,8 +107,8 @@ export async function viewAccountsListText(
 <i>0,00 ${mainSym} (<b>0.0%</b>)</i>
 
 📊 Структура портфеля
-<blockquote>Фиат — <i>0,00 ${mainSym} (0%)</i>
-Крипто — <i>0,00 ${mainSym} (0%)</i></blockquote>
+Фиат — <i>0,00 ${mainSym} (0%)</i>
+Крипто — <i>0,00 ${mainSym} (0%)</i>
 
 🏦 Всего счетов: 0
 🌍 Основная валюта: ${mainCurrency}
@@ -122,8 +122,8 @@ export async function viewAccountsListText(
 <i>${totalStr} ${mainSym} (<b>${growthStr}</b>)</i>
 
 📊 Структура портфеля
-<blockquote>Фиат — <i>${fiatStr} ${mainSym} (${pctFiat}%)</i>
-Крипто — <i>${cryptoStr} ${mainSym} (${pctCrypto}%)</i></blockquote>
+Фиат — <i>${fiatStr} ${mainSym} (${pctFiat}%)</i>
+Крипто — <i>${cryptoStr} ${mainSym} (${pctCrypto}%)</i>
 
 🏦 Всего счетов: ${accountsCount}
 🌍 Основная валюта: ${mainCurrency}

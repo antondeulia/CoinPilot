@@ -28,6 +28,7 @@ export interface CategorySum {
 	sum: number
 	pct: number
 	tagDetails?: { tagName: string; sum: number }[]
+	detailItems?: { label: string; amount: number; currency: string }[]
 }
 
 export interface TransferSum {
@@ -36,6 +37,7 @@ export interface TransferSum {
 	sum: number
 	pct: number
 	descriptions: string[]
+	detailItems?: { label: string; amount: number; currency: string }[]
 }
 
 export interface TagSum {
@@ -352,10 +354,21 @@ export class AnalyticsService {
 			if (!keyToRows.has(key)) keyToRows.set(key, [])
 			keyToRows.get(key)!.push(t)
 		}
-		const sums: { key: string; sum: number; descriptions: string[] }[] = []
+		const sums: {
+			key: string
+			sum: number
+			descriptions: string[]
+			detailItems: { label: string; amount: number; currency: string; inMain: number }[]
+		}[] = []
 		for (const [, rows] of keyToRows) {
 			let sum = 0
 			const descriptions: string[] = []
+			const detailItems: {
+				label: string
+				amount: number
+				currency: string
+				inMain: number
+			}[] = []
 			for (const r of rows) {
 				const amt =
 					r.convertedAmount != null && r.convertToCurrency
@@ -365,22 +378,30 @@ export class AnalyticsService {
 					r.convertedAmount != null && r.convertToCurrency
 						? r.convertToCurrency!
 						: r.currency
-				sum += await this.toMainCurrency(
+				const inMain = await this.toMainCurrency(
 					amt,
 					cur,
 					mainCurrency,
 					(r as any).transactionDate,
 					(r as any).amountUsd
 				)
-				const label = r.tagId
-					? (tagIdToName.get(r.tagId) ?? '—')
-					: (r.description?.trim() || '—')
+				sum += inMain
+				const tagName = r.tagId ? tagIdToName.get(r.tagId) ?? '' : ''
+				const hasUsableTag = !!tagName && tagName !== 'Не выбрано' && tagName !== '-'
+				const label = hasUsableTag ? tagName : (r.description?.trim() || '—')
 				descriptions.push(label)
+				detailItems.push({
+					label,
+					amount: Math.abs(r.amount),
+					currency: r.currency,
+					inMain
+				})
 			}
 			sums.push({
 				key: rows[0] ? `${rows[0].fromAccountId}\t${rows[0].toAccountId}` : '',
 				sum,
-				descriptions: [...new Set(descriptions)]
+				descriptions: [...new Set(descriptions)],
+				detailItems
 			})
 		}
 		sums.sort((a, b) => b.sum - a.sum)
@@ -400,12 +421,17 @@ export class AnalyticsService {
 			beginningBalance != null && beginningBalance > 0 ? beginningBalance : 1
 		return top.map(s => {
 			const [fromId, toId] = s.key.split('\t')
+			const detailItems = [...s.detailItems]
+				.sort((a, b) => b.inMain - a.inMain)
+				.slice(0, 3)
+				.map(({ label, amount, currency }) => ({ label, amount, currency }))
 			return {
 				fromAccountName: idToName.get(fromId) ?? (fromId ? '—' : 'Вне Wallet'),
 				toAccountName: idToName.get(toId) ?? (toId ? '—' : 'Вне Wallet'),
 				sum: s.sum,
 				pct: (s.sum / denom) * 100,
-				descriptions: s.descriptions
+				descriptions: s.descriptions,
+				detailItems
 			}
 		})
 	}
@@ -433,7 +459,12 @@ export class AnalyticsService {
 			},
 			_sum: { amount: true }
 		})
-		const withConverted: { name: string; sum: number; tagSums: Map<string, number> }[] = []
+		const withConverted: {
+			name: string
+			sum: number
+			tagSums: Map<string, number>
+			detailItems: { label: string; amount: number; currency: string; inMain: number }[]
+		}[] = []
 		for (const r of rows) {
 			const txs = await this.prisma.transaction.findMany({
 				where: {
@@ -448,11 +479,18 @@ export class AnalyticsService {
 					currency: true,
 					convertedAmount: true,
 					convertToCurrency: true,
-					tagId: true
+					tagId: true,
+					description: true
 				}
 			})
 			let sum = 0
 			const tagSums = new Map<string, number>()
+			const detailItems: {
+				label: string
+				amount: number
+				currency: string
+				inMain: number
+			}[] = []
 			const tagIds = [...new Set(txs.map(t => t.tagId).filter(Boolean))] as string[]
 			const tags = tagIds.length
 				? await this.prisma.tag.findMany({
@@ -478,12 +516,21 @@ export class AnalyticsService {
 					(t as any).amountUsd
 				)
 				sum += inMain
+				const tagName = t.tagId ? tagIdToName.get(t.tagId) ?? '' : ''
+				const hasUsableTag = !!tagName && tagName !== 'Не выбрано' && tagName !== '-'
+				const label = hasUsableTag ? tagName : (t.description?.trim() || '—')
+				detailItems.push({
+					label,
+					amount: Math.abs(t.amount),
+					currency: t.currency,
+					inMain
+				})
 				if (t.tagId) {
 					const tagName = tagIdToName.get(t.tagId) ?? '—'
 					tagSums.set(tagName, (tagSums.get(tagName) ?? 0) + inMain)
 				}
 			}
-			withConverted.push({ name: r.category!, sum, tagSums })
+			withConverted.push({ name: r.category!, sum, tagSums, detailItems })
 		}
 		withConverted.sort((a, b) => b.sum - a.sum)
 		const topNames = withConverted.slice(0, limit).map(c => c.name)
@@ -498,7 +545,11 @@ export class AnalyticsService {
 			categoryName: c.name,
 			sum: c.sum,
 			pct: (c.sum / denom) * 100,
-			tagDetails: Array.from(c.tagSums.entries()).map(([tagName, s]) => ({ tagName, sum: s }))
+			tagDetails: Array.from(c.tagSums.entries()).map(([tagName, s]) => ({ tagName, sum: s })),
+			detailItems: [...c.detailItems]
+				.sort((a, b) => b.inMain - a.inMain)
+				.slice(0, 3)
+				.map(({ label, amount, currency }) => ({ label, amount, currency }))
 		}))
 	}
 
@@ -696,7 +747,12 @@ export class AnalyticsService {
 			_count: true
 		})
 
-		const withConverted: { name: string; sum: number; tagSums: Map<string, number> }[] = []
+		const withConverted: {
+			name: string
+			sum: number
+			tagSums: Map<string, number>
+			detailItems: { label: string; amount: number; currency: string; inMain: number }[]
+		}[] = []
 		for (const r of rows) {
 			const txs = await this.prisma.transaction.findMany({
 				where: {
@@ -711,11 +767,18 @@ export class AnalyticsService {
 					currency: true,
 					convertedAmount: true,
 					convertToCurrency: true,
-					tagId: true
+					tagId: true,
+					description: true
 				}
 			})
 			let sum = 0
 			const tagSums = new Map<string, number>()
+			const detailItems: {
+				label: string
+				amount: number
+				currency: string
+				inMain: number
+			}[] = []
 			const tagIds = [...new Set(txs.map(t => t.tagId).filter(Boolean))] as string[]
 			const tags = tagIds.length
 				? await this.prisma.tag.findMany({
@@ -741,12 +804,21 @@ export class AnalyticsService {
 					(t as any).amountUsd
 				)
 				sum += inMain
+				const tagName = t.tagId ? tagIdToName.get(t.tagId) ?? '' : ''
+				const hasUsableTag = !!tagName && tagName !== 'Не выбрано' && tagName !== '-'
+				const label = hasUsableTag ? tagName : (t.description?.trim() || '—')
+				detailItems.push({
+					label,
+					amount: Math.abs(t.amount),
+					currency: t.currency,
+					inMain
+				})
 				if (t.tagId) {
 					const tagName = tagIdToName.get(t.tagId) ?? '—'
 					tagSums.set(tagName, (tagSums.get(tagName) ?? 0) + inMain)
 				}
 			}
-			withConverted.push({ name: r.category!, sum, tagSums })
+			withConverted.push({ name: r.category!, sum, tagSums, detailItems })
 		}
 		withConverted.sort((a, b) => b.sum - a.sum)
 		const topNames = withConverted.slice(0, limit).map(c => c.name)
@@ -761,7 +833,11 @@ export class AnalyticsService {
 			categoryName: c.name,
 			sum: c.sum,
 			pct: (c.sum / denom) * 100,
-			tagDetails: Array.from(c.tagSums.entries()).map(([tagName, s]) => ({ tagName, sum: s }))
+			tagDetails: Array.from(c.tagSums.entries()).map(([tagName, s]) => ({ tagName, sum: s })),
+			detailItems: [...c.detailItems]
+				.sort((a, b) => b.inMain - a.inMain)
+				.slice(0, 3)
+				.map(({ label, amount, currency }) => ({ label, amount, currency }))
 		}))
 	}
 

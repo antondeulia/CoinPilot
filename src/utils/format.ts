@@ -73,10 +73,6 @@ export function getCurrencySymbol(currency: string): string {
 		GBP: '£',
 		PLN: 'zł',
 		SEK: 'kr',
-		USDT: '₮',
-		USDC: '₮',
-		BTC: '₿',
-		ETH: 'Ξ'
 	}
 	return map[currency] ?? currency
 }

@@ -61,6 +61,7 @@ export type BotContext = Context & {
 		editingTimezone?: boolean
 		timezoneHintMessageId?: number
 		timezoneErrorMessageIds?: number[]
+		quickMenuMessageId?: number
 		accountDeltaPromptMessageId?: number
 		pendingAccountDeltaOps?: Array<{
 			accountId: string
