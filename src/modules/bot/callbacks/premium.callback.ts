@@ -69,8 +69,8 @@ function formatSubscriptionMessage(d: {
 	return `⭐️ Подписка
 
 🟢 Статус: Активна
-${tariffLine}
-// 📅 Следующее списание: ${endStr}${autoRenewLine}`
+${tariffLine}`
+// 📅 Следующее списание: ${endStr}${autoRenewLine}
 }
 
 export const premiumCallback = (

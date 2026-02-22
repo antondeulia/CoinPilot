@@ -2,12 +2,20 @@ import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { BotContext } from '../core/bot.middleware'
 import { homeKeyboard, homeText } from '../../../shared/keyboards/home'
 import { AnalyticsService } from '../../../modules/analytics/analytics.service'
+import { appReplyKeyboard } from '../../../shared/keyboards/reply'
 
 export async function renderHome(
 	ctx: BotContext,
 	accountsService: AccountsService,
 	analyticsService: AnalyticsService
 ) {
+	const quickMenuId = (ctx.session as any).quickMenuMessageId as number | undefined
+	if (quickMenuId != null) {
+		try {
+			await ctx.api.deleteMessage(ctx.chat!.id, quickMenuId)
+		} catch {}
+		;(ctx.session as any).quickMenuMessageId = undefined
+	}
 	;(ctx.session as any).editingCurrency = false
 	;(ctx.session as any).editingMainCurrency = false
 	ctx.session.editingField = undefined
@@ -46,4 +54,11 @@ export async function renderHome(
 	}
 
 	ctx.session.homeMessageId = msg.message_id
+
+	try {
+		const quick = await ctx.reply('Быстрые действия 👇', {
+			reply_markup: appReplyKeyboard(true)
+		} as any)
+		;(ctx.session as any).quickMenuMessageId = quick.message_id
+	} catch {}
 }

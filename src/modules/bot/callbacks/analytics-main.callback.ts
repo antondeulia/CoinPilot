@@ -4,7 +4,7 @@ import {
 	AnalyticsService,
 	type AnalyticsPeriod
 } from '../../../modules/analytics/analytics.service'
-import { getCurrencySymbol } from '../../../utils/format'
+import { formatAmount, getCurrencySymbol } from '../../../utils/format'
 
 const MONTH_NAMES = [
 	'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
@@ -53,6 +53,11 @@ function fmt(num: number): string {
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2
 	})
+}
+
+function fmtSigned(num: number): string {
+	const sign = num > 0 ? '+' : num < 0 ? '-' : ''
+	return `${sign}${fmt(Math.abs(num))}`
 }
 
 function escapeHtml(s: string): string {
@@ -115,6 +120,7 @@ export async function renderAnalyticsMain(
 		Math.ceil((days.to.getTime() - days.from.getTime()) / (24 * 60 * 60 * 1000))
 	)
 	const avgExpensePerDay = summary.expenses / totalDays
+	const avgExpensePerDaySigned = avgExpensePerDay === 0 ? 0 : -Math.abs(avgExpensePerDay)
 	const savingsRatio =
 		summary.income > 0
 			? Math.max(
@@ -132,11 +138,10 @@ export async function renderAnalyticsMain(
 🟢 Доходы: +${fmt(summary.income)} ${symbol}
 ⚪ Переводы: ${fmt(transfersTotal)} ${symbol}
 
-<b>Денежный поток:</b> ${cashflow >= 0 ? '+' : ''}${fmt(cashflow)} ${symbol}
-<b>Средний расход в день:</b> ${fmt(avgExpensePerDay)} ${symbol}
+<b>Денежный поток:</b> ${fmtSigned(cashflow)} ${symbol}
+<b>Средний расход в день:</b> ${fmtSigned(avgExpensePerDaySigned)} ${symbol}
 
 Коэффициент сбережений: ${savingsRatio}%
-(Доходы − Расходы) / Доходы
 
 — — —
 `
@@ -145,9 +150,9 @@ export async function renderAnalyticsMain(
 		body += '\n<b>Топ расходов:</b>\n'
 		topCategories.forEach((c, i) => {
 			body += `${i + 1}. ${c.categoryName} — ${c.sum.toFixed(0)} ${symbol} (${c.pct.toFixed(0)}%)\n`
-			if (c.tagDetails?.length) {
-				const tagLine = c.tagDetails
-					.map(t => `${t.tagName} ${t.sum.toFixed(0)} ${symbol}`)
+			if (c.detailItems?.length) {
+				const tagLine = c.detailItems
+					.map(t => `${t.label} ${formatAmount(Math.abs(t.amount), t.currency)}`)
 					.join(' · ')
 				body += `<blockquote>${escapeHtml(tagLine)}</blockquote>\n`
 			}
@@ -158,9 +163,9 @@ export async function renderAnalyticsMain(
 		body += '\n<b>Топ доходов:</b>\n'
 		topIncome.forEach((c, i) => {
 			body += `${i + 1}. ${c.categoryName} — ${c.sum.toFixed(0)} ${symbol} (${c.pct.toFixed(0)}%)\n`
-			if (c.tagDetails?.length) {
-				const tagLine = c.tagDetails
-					.map(t => `${t.tagName} ${t.sum.toFixed(0)} ${symbol}`)
+			if (c.detailItems?.length) {
+				const tagLine = c.detailItems
+					.map(t => `${t.label} ${formatAmount(Math.abs(t.amount), t.currency)}`)
 					.join(' · ')
 				body += `<blockquote>${escapeHtml(tagLine)}</blockquote>\n`
 			}
@@ -170,6 +175,12 @@ export async function renderAnalyticsMain(
 	if (topTransfers.length > 0) {
 		const t = topTransfers[0]
 		body += `\n<b>Крупнейший перевод:</b>\n${t.fromAccountName} → ${t.toAccountName} — ${t.sum.toFixed(0)} ${symbol} (${t.pct.toFixed(0)}%)\n`
+		if (t.detailItems?.length) {
+			const line = t.detailItems
+				.map(d => `${d.label} ${formatAmount(Math.abs(d.amount), d.currency)}`)
+				.join(' · ')
+			body += `<blockquote>${escapeHtml(line)}</blockquote>\n`
+		}
 	}
 
 	return body.trim()

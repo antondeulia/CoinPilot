@@ -148,7 +148,14 @@ export class BotService implements OnModuleInit {
 		)
 
 		this.bot.catch(err => {
-			if (err.message?.includes('message is not modified')) return
+			const msg = err.message ?? ''
+			if (
+				msg.includes('message is not modified') ||
+				msg.includes('message to edit not found') ||
+				msg.includes("message can't be edited")
+			) {
+				return
+			}
 			console.error('Bot error:', err.message)
 		})
 
@@ -1243,7 +1250,7 @@ Pro открывает:
 				return
 			}
 
-			if (text === 'На главное меню') {
+			if (text === 'На главное меню' || text === '🏠 На главное меню') {
 				ctx.session.awaitingTransaction = false
 				ctx.session.confirmingTransaction = false
 				ctx.session.draftTransactions = undefined
@@ -1282,7 +1289,7 @@ Pro открывает:
 				ctx.session.tempMessageId = msg.message_id
 				return
 			}
-			if (text === 'Помощь') {
+			if (text === 'Помощь' || text === '❓ Помощь') {
 				await ctx.reply(
 					'📘 Помощь\n\nИспользуйте кнопку «➕ Добавить транзакцию», отправляйте текст или фото операции.',
 					{

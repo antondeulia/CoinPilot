@@ -56,7 +56,7 @@ export function renderConfirmMessage(
 			minimumFractionDigits: 2,
 			maximumFractionDigits: 2
 		})
-		amountLine = `Сумма: ${signPrefix}${amountText} (🠒 ${convertedStr} ${sym})`
+		amountLine = `Сумма: ${signPrefix}${amountText} (→ ${convertedStr} ${sym})`
 	}
 
 	const isTransfer = tx.direction === 'transfer'
