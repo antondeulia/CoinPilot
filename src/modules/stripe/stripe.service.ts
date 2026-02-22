@@ -119,7 +119,7 @@ export class StripeService {
 			this.logger.error('Stripe webhook signature verification failed', err as any)
 			return
 		}
-console.log(event)
+
 		switch (event.type) {
 			case 'checkout.session.completed':
 				await this.handleCheckoutCompleted(
@@ -169,7 +169,7 @@ console.log(event)
 			this.logger.error('Не удалось получить Stripe subscription', e as any)
 			return
 		}
-console.log(stripeSub, "stripeSub here")
+
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
 
@@ -224,7 +224,7 @@ if (stripeSub.status === 'trialing') {
 		const meta = stripeSub.metadata ?? {}
 		const userId = meta.user_id
 		if (!userId) return
-console.log(stripeSub, "stripeSub here 2")
+
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
 
@@ -250,7 +250,7 @@ if (stripeSub.current_period_end) {
 		const meta = stripeSub.metadata ?? {}
 		const userId = meta.user_id
 		if (!userId) return
-console.log(stripeSub, "stripeSub here 3")
+
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
 
