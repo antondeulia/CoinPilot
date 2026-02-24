@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ExchangeService } from '../exchange/exchange.service'
 
+type NumericLike = number | { toNumber(): number }
+const toNum = (value: NumericLike | null | undefined): number =>
+	value == null ? 0 : typeof value === 'number' ? value : value.toNumber()
+
 export type AnalyticsPeriod = '7d' | '30d' | '90d' | 'week' | 'month' | '3month'
 
 export interface AnalyticsFilters {
@@ -120,7 +124,22 @@ export class AnalyticsService {
 			where.accountId = filters.accountId
 		}
 		if (filters.categoryIds?.length) {
-			where.category = { in: filters.categoryIds }
+			const uuidLike = filters.categoryIds.filter(v =>
+				/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+					v
+				)
+			)
+			const byName = filters.categoryIds.filter(v => !uuidLike.includes(v))
+			if (uuidLike.length && byName.length) {
+				where.OR = [
+					{ categoryId: { in: uuidLike } },
+					{ category: { in: byName } }
+				]
+			} else if (uuidLike.length) {
+				where.categoryId = { in: uuidLike }
+			} else {
+				where.category = { in: byName }
+			}
 		}
 		if (filters.tagIds?.length) {
 			where.tagId = { in: filters.tagIds }
@@ -386,16 +405,14 @@ export class AnalyticsService {
 					(r as any).amountUsd
 				)
 				sum += inMain
-				const tagName = r.tagId ? tagIdToName.get(r.tagId) ?? '' : ''
-				const hasUsableTag = !!tagName && tagName !== 'Не выбрано' && tagName !== '-'
-				const label = hasUsableTag ? tagName : (r.description?.trim() || '—')
-				descriptions.push(label)
-				detailItems.push({
-					label,
-					amount: Math.abs(r.amount),
-					currency: r.currency,
-					inMain
-				})
+					const label = r.description?.trim() || '—'
+					descriptions.push(label)
+					detailItems.push({
+						label,
+						amount: Math.abs(toNum(r.amount)),
+						currency: r.currency,
+						inMain
+					})
 			}
 			sums.push({
 				key: rows[0] ? `${rows[0].fromAccountId}\t${rows[0].toAccountId}` : '',
@@ -449,17 +466,18 @@ export class AnalyticsService {
 			? { accountId }
 			: { account: { userId, isHidden: false } }
 		const rows = await this.prisma.transaction.groupBy({
-			by: ['category'],
+			by: ['categoryId', 'category'],
 			where: {
 				userId,
 				direction: 'income',
 				transactionDate: { gte: from, lte: to },
-				category: { not: null },
+				OR: [{ categoryId: { not: null } }, { category: { not: null } }],
 				...accountFilter
 			},
 			_sum: { amount: true }
 		})
 		const withConverted: {
+			categoryId: string | null
 			name: string
 			sum: number
 			tagSums: Map<string, number>
@@ -471,7 +489,9 @@ export class AnalyticsService {
 					userId,
 					direction: 'income',
 					transactionDate: { gte: from, lte: to },
-					category: r.category,
+					...(r.categoryId
+						? { categoryId: r.categoryId }
+						: { category: r.category }),
 					...accountFilter
 				},
 				select: {
@@ -516,12 +536,10 @@ export class AnalyticsService {
 					(t as any).amountUsd
 				)
 				sum += inMain
-				const tagName = t.tagId ? tagIdToName.get(t.tagId) ?? '' : ''
-				const hasUsableTag = !!tagName && tagName !== 'Не выбрано' && tagName !== '-'
-				const label = hasUsableTag ? tagName : (t.description?.trim() || '—')
-				detailItems.push({
-					label,
-					amount: Math.abs(t.amount),
+					const label = t.description?.trim() || '—'
+					detailItems.push({
+						label,
+					amount: Math.abs(toNum(t.amount)),
 					currency: t.currency,
 					inMain
 				})
@@ -530,19 +548,30 @@ export class AnalyticsService {
 					tagSums.set(tagName, (tagSums.get(tagName) ?? 0) + inMain)
 				}
 			}
-			withConverted.push({ name: r.category!, sum, tagSums, detailItems })
+			withConverted.push({
+				categoryId: r.categoryId ?? null,
+				name: r.category ?? '📦Другое',
+				sum,
+				tagSums,
+				detailItems
+			})
 		}
 		withConverted.sort((a, b) => b.sum - a.sum)
-		const topNames = withConverted.slice(0, limit).map(c => c.name)
-		const categories = await this.prisma.category.findMany({
-			where: { userId, name: { in: topNames } },
-			select: { id: true, name: true }
-		})
-		const nameToId = new Map(categories.map(c => [c.name, c.id]))
+		const topCategoryIds = withConverted
+			.slice(0, limit)
+			.map(c => c.categoryId)
+			.filter((v): v is string => !!v)
+		const categories = topCategoryIds.length
+			? await this.prisma.category.findMany({
+					where: { userId, id: { in: topCategoryIds } },
+					select: { id: true, name: true }
+				})
+			: []
+		const idToName = new Map(categories.map(c => [c.id, c.name]))
 		const denom = beginningBalance > 0 ? beginningBalance : 1
 		return withConverted.slice(0, limit).map(c => ({
-			categoryId: nameToId.get(c.name) ?? null,
-			categoryName: c.name,
+			categoryId: c.categoryId,
+			categoryName: c.categoryId ? idToName.get(c.categoryId) ?? c.name : c.name,
 			sum: c.sum,
 			pct: (c.sum / denom) * 100,
 			tagDetails: Array.from(c.tagSums.entries()).map(([tagName, s]) => ({ tagName, sum: s })),
@@ -554,11 +583,11 @@ export class AnalyticsService {
 	}
 
 	private async toMainCurrency(
-		amount: number,
+		amount: NumericLike,
 		currency: string,
 		mainCurrency: string,
 		transactionDate?: Date,
-		amountUsd?: number | null
+		amountUsd?: NumericLike | null
 	): Promise<number> {
 		if (transactionDate) {
 			const rate = await this.exchange.getHistoricalRate(
@@ -566,15 +595,19 @@ export class AnalyticsService {
 				currency,
 				mainCurrency
 			)
-			if (rate != null) return amount * rate
+			if (rate != null) return toNum(amount) * rate
 		}
 		if (amountUsd != null) {
-			const fromUsd = await this.exchange.convert(amountUsd, 'USD', mainCurrency)
+			const fromUsd = await this.exchange.convert(
+				toNum(amountUsd),
+				'USD',
+				mainCurrency
+			)
 			if (fromUsd != null) return fromUsd
 		}
-		const v = await this.exchange.convert(amount, currency, mainCurrency)
+		const v = await this.exchange.convert(toNum(amount), currency, mainCurrency)
 		if (v != null) return v
-		return amount
+		return toNum(amount)
 	}
 
 	async getSummary(
@@ -660,14 +693,14 @@ export class AnalyticsService {
 						})
 			])
 
-		const sumInMain = async (
-			rows: {
-				amount: number
-				currency: string
-				convertedAmount: number | null
-				convertToCurrency: string | null
-			}[]
-		) => {
+			const sumInMain = async (
+				rows: {
+					amount: NumericLike
+					currency: string
+					convertedAmount: NumericLike | null
+					convertToCurrency: string | null
+				}[]
+			) => {
 			let total = 0
 			for (const r of rows) {
 				const amt =
@@ -735,12 +768,12 @@ export class AnalyticsService {
 			: { account: { userId, isHidden: false } }
 
 		const rows = await this.prisma.transaction.groupBy({
-			by: ['category'],
+			by: ['categoryId', 'category'],
 			where: {
 				userId,
 				direction: 'expense',
 				transactionDate: { gte: from, lte: to },
-				category: { not: null },
+				OR: [{ categoryId: { not: null } }, { category: { not: null } }],
 				...accountFilter
 			},
 			_sum: { amount: true },
@@ -748,6 +781,7 @@ export class AnalyticsService {
 		})
 
 		const withConverted: {
+			categoryId: string | null
 			name: string
 			sum: number
 			tagSums: Map<string, number>
@@ -759,7 +793,9 @@ export class AnalyticsService {
 					userId,
 					direction: 'expense',
 					transactionDate: { gte: from, lte: to },
-					category: r.category,
+					...(r.categoryId
+						? { categoryId: r.categoryId }
+						: { category: r.category }),
 					...accountFilter
 				},
 				select: {
@@ -804,12 +840,10 @@ export class AnalyticsService {
 					(t as any).amountUsd
 				)
 				sum += inMain
-				const tagName = t.tagId ? tagIdToName.get(t.tagId) ?? '' : ''
-				const hasUsableTag = !!tagName && tagName !== 'Не выбрано' && tagName !== '-'
-				const label = hasUsableTag ? tagName : (t.description?.trim() || '—')
-				detailItems.push({
-					label,
-					amount: Math.abs(t.amount),
+					const label = t.description?.trim() || '—'
+					detailItems.push({
+						label,
+					amount: Math.abs(toNum(t.amount)),
 					currency: t.currency,
 					inMain
 				})
@@ -818,19 +852,30 @@ export class AnalyticsService {
 					tagSums.set(tagName, (tagSums.get(tagName) ?? 0) + inMain)
 				}
 			}
-			withConverted.push({ name: r.category!, sum, tagSums, detailItems })
+			withConverted.push({
+				categoryId: r.categoryId ?? null,
+				name: r.category ?? '📦Другое',
+				sum,
+				tagSums,
+				detailItems
+			})
 		}
 		withConverted.sort((a, b) => b.sum - a.sum)
-		const topNames = withConverted.slice(0, limit).map(c => c.name)
-		const categories = await this.prisma.category.findMany({
-			where: { userId, name: { in: topNames } },
-			select: { id: true, name: true }
-		})
-		const nameToId = new Map(categories.map(c => [c.name, c.id]))
+		const topCategoryIds = withConverted
+			.slice(0, limit)
+			.map(c => c.categoryId)
+			.filter((v): v is string => !!v)
+		const categories = topCategoryIds.length
+			? await this.prisma.category.findMany({
+					where: { userId, id: { in: topCategoryIds } },
+					select: { id: true, name: true }
+				})
+			: []
+		const idToName = new Map(categories.map(c => [c.id, c.name]))
 		const denom = (beginningBalance != null && beginningBalance > 0) ? beginningBalance : 1
 		return withConverted.slice(0, limit).map(c => ({
-			categoryId: nameToId.get(c.name) ?? null,
-			categoryName: c.name,
+			categoryId: c.categoryId,
+			categoryName: c.categoryId ? idToName.get(c.categoryId) ?? c.name : c.name,
 			sum: c.sum,
 			pct: (c.sum / denom) * 100,
 			tagDetails: Array.from(c.tagSums.entries()).map(([tagName, s]) => ({ tagName, sum: s })),
@@ -977,14 +1022,14 @@ export class AnalyticsService {
 			})
 		])
 
-		const sum = async (
-			rows: {
-				amount: number
-				currency: string
-				convertedAmount: number | null
-				convertToCurrency: string | null
-			}[]
-		) => {
+			const sum = async (
+				rows: {
+					amount: NumericLike
+					currency: string
+					convertedAmount: NumericLike | null
+					convertToCurrency: string | null
+				}[]
+			) => {
 			let total = 0
 			for (const r of rows) {
 				const amt =
@@ -1006,6 +1051,47 @@ export class AnalyticsService {
 			sum(transferRows)
 		])
 		return { expense, income, transfer }
+	}
+
+	async getTradeFeesTotal(
+		userId: string,
+		period: AnalyticsPeriod,
+		mainCurrency: string,
+		accountId?: string
+	): Promise<number> {
+		const { from, to } = dateRange(period)
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
+		const rows = await this.prisma.transaction.findMany({
+			where: {
+				userId,
+				tradeType: { in: ['buy', 'sell'] },
+				tradeFeeAmount: { not: null },
+				transactionDate: { gte: from, lte: to },
+				...accountFilter
+			},
+			select: {
+				tradeFeeAmount: true,
+				tradeFeeCurrency: true,
+				transactionDate: true,
+				amountUsd: true
+			}
+		})
+		let total = 0
+		for (const row of rows) {
+			const feeAmount = row.tradeFeeAmount
+			const feeCurrency = row.tradeFeeCurrency
+			if (feeAmount == null || !feeCurrency) continue
+			total += await this.toMainCurrency(
+				feeAmount,
+				feeCurrency,
+				mainCurrency,
+				row.transactionDate,
+				row.amountUsd
+			)
+		}
+		return total
 	}
 
 	async getAnomalies(

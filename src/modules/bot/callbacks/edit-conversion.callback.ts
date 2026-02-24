@@ -1,4 +1,4 @@
-import { Bot } from 'grammy'
+import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { ExchangeService } from '../../../modules/exchange/exchange.service'
@@ -48,6 +48,51 @@ export const editConversionCallback = (
 	exchangeService: ExchangeService,
 	transactionsService: TransactionsService
 ) => {
+	bot.callbackQuery('edit:pair', async ctx => {
+		const drafts = ctx.session.draftTransactions
+		const index = ctx.session.currentTransactionIndex ?? 0
+		const current = drafts?.[index] as any
+		if (!drafts || !current || !current.tradeType) return
+		const hint = await ctx.reply(
+			'Введите пару (например TON/USDT, TONUSDT или TON).',
+			{
+				reply_markup: new InlineKeyboard().text('Закрыть', 'close_edit')
+			}
+		)
+		ctx.session.editingField = 'pair'
+		ctx.session.editMessageId = hint.message_id
+	})
+
+	bot.callbackQuery('edit:execution_price', async ctx => {
+		const drafts = ctx.session.draftTransactions
+		const index = ctx.session.currentTransactionIndex ?? 0
+		const current = drafts?.[index] as any
+		if (!drafts || !current || !current.tradeType) return
+		const hint = await ctx.reply(
+			'Введите новую среднюю цену выполнения (число, например 1.348).',
+			{
+				reply_markup: new InlineKeyboard().text('Закрыть', 'close_edit')
+			}
+		)
+		ctx.session.editingField = 'executionPrice'
+		ctx.session.editMessageId = hint.message_id
+	})
+
+	bot.callbackQuery('edit:fee', async ctx => {
+		const drafts = ctx.session.draftTransactions
+		const index = ctx.session.currentTransactionIndex ?? 0
+		const current = drafts?.[index] as any
+		if (!drafts || !current || !current.tradeType) return
+		const hint = await ctx.reply(
+			'Введите размер торговой комиссии (число).',
+			{
+				reply_markup: new InlineKeyboard().text('Закрыть', 'close_edit')
+			}
+		)
+		ctx.session.editingField = 'tradeFeeAmount'
+		ctx.session.editMessageId = hint.message_id
+	})
+
 	bot.callbackQuery('edit:conversion', async ctx => {
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0
@@ -85,11 +130,18 @@ export const editConversionCallback = (
 		ctx.session.accountsPage = 0
 		if (!current.convertToCurrency) {
 			current.convertToCurrency = codes[0]
-			current.convertedAmount = await exchangeService.convert(
+			const converted = await exchangeService.convert(
 				current.amount,
 				current.currency,
 				current.convertToCurrency
 			)
+			current.convertedAmount =
+				converted == null
+					? null
+					: await exchangeService.roundByCurrency(
+							converted,
+							current.convertToCurrency
+						)
 		}
 
 		const kb = buildConversionKeyboard(codes, 0, current.convertToCurrency ?? null)
@@ -155,11 +207,18 @@ export const editConversionCallback = (
 
 		const code = ctx.callbackQuery.data.split(':')[1]
 		current.convertToCurrency = code
-		current.convertedAmount = await exchangeService.convert(
+		const converted = await exchangeService.convert(
 			current.amount,
 			current.currency,
 			current.convertToCurrency
 		)
+		current.convertedAmount =
+			converted == null
+				? null
+				: await exchangeService.roundByCurrency(
+						converted,
+						current.convertToCurrency
+					)
 
 		const user = ctx.state.user as any
 		const accountId =
@@ -188,8 +247,9 @@ export const editConversionCallback = (
 						drafts.length,
 						index,
 						showConversion,
-						current?.direction === 'transfer',
-						!!ctx.session.editingTransactionId
+						current?.direction === 'transfer' && !current?.tradeType,
+						!!ctx.session.editingTransactionId,
+						current?.tradeType
 					)
 				}
 			)

@@ -92,3 +92,8 @@ export type PremiumEvent = Prisma.PremiumEventModel
  * 
  */
 export type LlmUserMemory = Prisma.LlmUserMemoryModel
+/**
+ * Model TrialLedger
+ * 
+ */
+export type TrialLedger = Prisma.TrialLedgerModel

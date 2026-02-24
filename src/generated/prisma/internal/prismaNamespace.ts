@@ -398,7 +398,8 @@ export const ModelName = {
   AlertConfig: 'AlertConfig',
   Subscription: 'Subscription',
   PremiumEvent: 'PremiumEvent',
-  LlmUserMemory: 'LlmUserMemory'
+  LlmUserMemory: 'LlmUserMemory',
+  TrialLedger: 'TrialLedger'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "exchangeRateSnapshot" | "category" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent" | "llmUserMemory"
+    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "exchangeRateSnapshot" | "category" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent" | "llmUserMemory" | "trialLedger"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1528,6 +1529,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    TrialLedger: {
+      payload: Prisma.$TrialLedgerPayload<ExtArgs>
+      fields: Prisma.TrialLedgerFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TrialLedgerFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TrialLedgerFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        findFirst: {
+          args: Prisma.TrialLedgerFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TrialLedgerFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        findMany: {
+          args: Prisma.TrialLedgerFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>[]
+        }
+        create: {
+          args: Prisma.TrialLedgerCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        createMany: {
+          args: Prisma.TrialLedgerCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TrialLedgerCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>[]
+        }
+        delete: {
+          args: Prisma.TrialLedgerDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        update: {
+          args: Prisma.TrialLedgerUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        deleteMany: {
+          args: Prisma.TrialLedgerDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TrialLedgerUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TrialLedgerUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>[]
+        }
+        upsert: {
+          args: Prisma.TrialLedgerUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        aggregate: {
+          args: Prisma.TrialLedgerAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTrialLedger>
+        }
+        groupBy: {
+          args: Prisma.TrialLedgerGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrialLedgerGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TrialLedgerCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrialLedgerCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1626,6 +1701,15 @@ export const TransactionScalarFieldEnum = {
   amount: 'amount',
   currency: 'currency',
   direction: 'direction',
+  tradeType: 'tradeType',
+  tradeBaseCurrency: 'tradeBaseCurrency',
+  tradeBaseAmount: 'tradeBaseAmount',
+  tradeQuoteCurrency: 'tradeQuoteCurrency',
+  tradeQuoteAmount: 'tradeQuoteAmount',
+  executionPrice: 'executionPrice',
+  tradeFeeCurrency: 'tradeFeeCurrency',
+  tradeFeeAmount: 'tradeFeeAmount',
+  categoryId: 'categoryId',
   category: 'category',
   description: 'description',
   rawText: 'rawText',
@@ -1767,6 +1851,19 @@ export const LlmUserMemoryScalarFieldEnum = {
 export type LlmUserMemoryScalarFieldEnum = (typeof LlmUserMemoryScalarFieldEnum)[keyof typeof LlmUserMemoryScalarFieldEnum]
 
 
+export const TrialLedgerScalarFieldEnum = {
+  id: 'id',
+  telegramId: 'telegramId',
+  firstUserId: 'firstUserId',
+  stripeCustomerId: 'stripeCustomerId',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrialLedgerScalarFieldEnum = (typeof TrialLedgerScalarFieldEnum)[keyof typeof TrialLedgerScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1877,16 +1974,16 @@ export type ListEnumAccountTypeEnumFieldRefInput<$PrismaModel> = FieldRefInputTy
 
 
 /**
- * Reference to a field of type 'Float'
+ * Reference to a field of type 'Decimal'
  */
-export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
+export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
     
 
 
 /**
- * Reference to a field of type 'Float[]'
+ * Reference to a field of type 'Decimal[]'
  */
-export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
+export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
     
 
 
@@ -1901,6 +1998,20 @@ export type EnumTransactionDirectionsEnumFieldRefInput<$PrismaModel> = FieldRefI
  * Reference to a field of type 'TransactionDirectionsEnum[]'
  */
 export type ListEnumTransactionDirectionsEnumFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TransactionDirectionsEnum[]'>
+    
+
+
+/**
+ * Reference to a field of type 'TradeTypeEnum'
+ */
+export type EnumTradeTypeEnumFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TradeTypeEnum'>
+    
+
+
+/**
+ * Reference to a field of type 'TradeTypeEnum[]'
+ */
+export type ListEnumTradeTypeEnumFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TradeTypeEnum[]'>
     
 
 
@@ -1971,6 +2082,20 @@ export type EnumPremiumEventTypeFieldRefInput<$PrismaModel> = FieldRefInputType<
  * Reference to a field of type 'PremiumEventType[]'
  */
 export type ListEnumPremiumEventTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PremiumEventType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Float'
+ */
+export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
+    
+
+
+/**
+ * Reference to a field of type 'Float[]'
+ */
+export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
     
 
 /**
@@ -2083,6 +2208,7 @@ export type GlobalOmitConfig = {
   subscription?: Prisma.SubscriptionOmit
   premiumEvent?: Prisma.PremiumEventOmit
   llmUserMemory?: Prisma.LlmUserMemoryOmit
+  trialLedger?: Prisma.TrialLedgerOmit
 }
 
 /* Types for Logging */

@@ -1,7 +1,7 @@
 export function formatCryptoAmount(amount: number): string {
 	const s = amount.toLocaleString('en-US', {
 		minimumFractionDigits: 0,
-		maximumFractionDigits: 8
+		maximumFractionDigits: 18
 	})
 	const trimmed = s.replace(/\.?0+$/, '')
 	if (trimmed.includes('.')) return trimmed

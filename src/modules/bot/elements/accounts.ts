@@ -9,12 +9,19 @@ import { ExchangeService } from '../../../modules/exchange/exchange.service'
 import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { Account } from '../../../generated/prisma/client'
 
+type NumericLike = number | { toNumber(): number }
+const toNum = (value: NumericLike): number =>
+	typeof value === 'number' ? value : value.toNumber()
+
 type AccountWithAssets = Account & {
-	assets: { currency: string; amount: number }[]
+	assets: { currency: string; amount: NumericLike }[]
 }
 
 export interface AccountLastTxRow {
 	direction: string
+	tradeType?: 'buy' | 'sell' | null
+	tradeBaseAmount?: number | null
+	tradeBaseCurrency?: string | null
 	amount: number
 	currency: string
 	amountMain: number
@@ -67,12 +74,16 @@ export async function viewAccountsListText(
 	let totalCrypto = 0
 
 	for (const acc of accounts) {
-		let accountTotalMain = 0
-		let accountFiat = 0
-		let accountCrypto = 0
-		for (const a of acc.assets) {
-			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
-			if (converted == null) continue
+			let accountTotalMain = 0
+			let accountFiat = 0
+			let accountCrypto = 0
+			for (const a of acc.assets) {
+				const converted = await exchange.convert(
+					toNum(a.amount),
+					a.currency,
+					mainCurrency
+				)
+				if (converted == null) continue
 			accountTotalMain += converted
 			const isCrypto = await exchange.isCryptoByCode(a.currency)
 			if (isCrypto) accountCrypto += converted
@@ -132,7 +143,7 @@ export async function viewAccountsListText(
 }
 
 async function assetsBlock(
-	assets: { currency: string; amount: number }[],
+	assets: { currency: string; amount: NumericLike }[],
 	mainCurrency: string,
 	mainSym: string,
 	exchange: ExchangeService
@@ -141,11 +152,12 @@ async function assetsBlock(
 	const lines: string[] = ['Активы:']
 	for (let i = 0; i < assets.length; i++) {
 		const a = assets[i]
-		const amountStr = formatAmount(a.amount, a.currency)
-		if (a.currency === mainCurrency || a.amount === 0) {
+		const amountNum = toNum(a.amount)
+		const amountStr = formatAmount(amountNum, a.currency)
+		if (a.currency === mainCurrency || amountNum === 0) {
 			lines.push(`${i + 1}. ${a.currency} — ${amountStr}`)
 		} else {
-			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
+			const converted = await exchange.convert(amountNum, a.currency, mainCurrency)
 			lines.push(
 				converted != null
 					? `${i + 1}. ${a.currency} — ${amountStr} (~ ${fmt(converted)} ${mainSym})`
@@ -168,7 +180,7 @@ export async function accountDetailsText(
 	const mainSym = getCurrencySymbol(mainCurrency)
 	let balanceMain = 0
 	for (const a of account.assets) {
-		const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
+		const converted = await exchange.convert(toNum(a.amount), a.currency, mainCurrency)
 		if (converted != null) balanceMain += converted
 	}
 	const balanceStr = fmt(balanceMain)
@@ -196,7 +208,8 @@ export async function accountDetailsText(
 
 — — —
 
-${assetsSection}Последние операции:
+${assetsSection}
+Последние операции:
 `
 		if (lastTransactions.length === 0) body += 'Нет операций\n'
 		else {
@@ -223,7 +236,8 @@ ${assetsSection}Последние операции:
 
 — — —
 
-${assetsSection}Последние операции:
+${assetsSection}
+Последние операции:
 `
 	if (lastTransactions.length === 0) body += 'Нет операций\n'
 	else {
@@ -252,8 +266,19 @@ function formatDetailTxLine(
 ): string {
 	const label = capitalize(tx.description ?? tx.tagName ?? tx.category ?? '—')
 	const dateStr = formatTransactionDate(tx.transactionDate)
+	if (tx.tradeType === 'buy' || tx.tradeType === 'sell') {
+		const sign = tx.tradeType === 'buy' ? '+' : '−'
+		const baseAmount = Math.abs(tx.tradeBaseAmount ?? tx.amount)
+		const baseCurrency = String(tx.tradeBaseCurrency ?? tx.currency).toUpperCase()
+		const isMain = baseCurrency === mainCurrency
+		const amountStr = isMain
+			? `${sign}${fmt(baseAmount)} ${mainSym}`
+			: `${sign}${formatAmount(baseAmount, baseCurrency)} (${fmt(tx.amountMain)} ${mainSym})`
+		const icon = tx.tradeType === 'buy' ? '📥' : '📤'
+		return `${icon} ${amountStr}  | ${escapeHtml(label)} | ${dateStr}`
+	}
 	if (tx.direction === 'transfer') {
-		const amountStr = `${fmt(tx.amountMain)} ${mainSym}`
+		const amountStr = `−${formatAmount(Math.abs(tx.amount), tx.currency)} (${fmt(tx.amountMain)} ${mainSym})`
 		return `⚪️ ${amountStr}  | ${escapeHtml(label)} | ${dateStr}`
 	}
 	const sign = tx.direction === 'expense' ? '−' : '+'
@@ -277,10 +302,11 @@ export async function viewAccountsText(
 
 	for (const acc of accounts) {
 		let accountTotalMain = 0
-		const lines: string[] = []
-		for (const a of acc.assets) {
-			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
-			const amountStr = formatAmount(a.amount, a.currency)
+			const lines: string[] = []
+			for (const a of acc.assets) {
+				const amountNum = toNum(a.amount)
+				const converted = await exchange.convert(amountNum, a.currency, mainCurrency)
+				const amountStr = formatAmount(amountNum, a.currency)
 			if (converted != null) {
 				accountTotalMain += converted
 				if (a.currency === mainCurrency) {

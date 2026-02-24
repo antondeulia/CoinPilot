@@ -45,8 +45,9 @@ async function refreshPreview(ctx: BotContext, accountsService: AccountsService)
 					drafts.length,
 					index,
 					showConversion,
-					current?.direction === 'transfer',
-					!!ctx.session.editingTransactionId
+					current?.direction === 'transfer' && !current?.tradeType,
+					!!ctx.session.editingTransactionId,
+					current?.tradeType
 				)
 			}
 		)
@@ -114,9 +115,8 @@ export const saveDeleteCallback = (
 	bot.callbackQuery('confirm_1_transactions', async ctx => {
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0
-		const account = ctx.state.activeAccount
 
-		if (!drafts || !drafts.length || !account) return
+		if (!drafts || !drafts.length) return
 
 		const draft = drafts[index] as any
 		if (draft?.id) {
@@ -196,17 +196,52 @@ export const saveDeleteCallback = (
 		)
 		const outsideWalletId =
 			allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
+		const visibleAccounts = allAccounts.filter(
+			a => !a.isHidden && a.name !== 'Вне Wallet'
+		)
+		const fallbackVisibleAccountId =
+			visibleAccounts.find(a => a.id === (ctx.state.user as any).defaultAccountId)?.id ??
+			visibleAccounts[0]?.id ??
+			null
+		const sourceAccountId = draft.accountId || fallbackVisibleAccountId
+		if (!sourceAccountId) {
+			await ctx.reply('Сначала добавьте счёт во вкладке «Счета», затем создайте транзакцию.', {
+				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+			})
+			return
+		}
+		if (!isTransfer && sourceAccountId === outsideWalletId) {
+			await ctx.reply('Счёт «Вне Wallet» нельзя использовать для доходов и расходов.', {
+				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+			})
+			return
+		}
 		await transactionsService.create({
-			accountId: draft.accountId || account.id,
+			accountId: sourceAccountId,
 			amount: draft.amount!,
 			currency: draft.currency!,
 			direction: draft.direction,
+			tradeType: draft.tradeType ?? undefined,
+			tradeBaseCurrency: draft.tradeBaseCurrency ?? undefined,
+			tradeBaseAmount: draft.tradeBaseAmount ?? undefined,
+			tradeQuoteCurrency: draft.tradeQuoteCurrency ?? undefined,
+			tradeQuoteAmount: draft.tradeQuoteAmount ?? undefined,
+			executionPrice: draft.executionPrice ?? undefined,
+			tradeFeeCurrency: draft.tradeFeeCurrency ?? undefined,
+			tradeFeeAmount: draft.tradeFeeAmount ?? undefined,
 			...(isTransfer
 				? {
-						fromAccountId: draft.accountId || account.id,
-						toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
+						fromAccountId: sourceAccountId,
+						toAccountId:
+							draft.toAccountId ??
+							(draft.tradeType
+								? sourceAccountId
+								: outsideWalletId ?? undefined)
 					}
-				: { category: draft.category ?? '📦Другое' }),
+				: {
+						categoryId: draft.categoryId ?? undefined,
+						category: draft.category ?? '📦Другое'
+					}),
 			description: draft.description,
 			rawText: draft.rawText || '',
 			userId: ctx.state.user.id,
@@ -214,10 +249,13 @@ export const saveDeleteCallback = (
 				? (normalizeTxDate(draft.transactionDate) ?? undefined)
 				: undefined,
 			fromAccountId: isTransfer
-				? draft.accountId || account.id
+				? sourceAccountId
 				: draft.fromAccountId,
 			toAccountId: isTransfer
-				? draft.toAccountId ?? outsideWalletId ?? undefined
+				? draft.toAccountId ??
+					(draft.tradeType
+						? sourceAccountId
+						: outsideWalletId ?? undefined)
 				: draft.toAccountId,
 			tagId: tagId ?? undefined,
 			convertedAmount: draft.convertedAmount,

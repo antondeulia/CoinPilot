@@ -34,8 +34,9 @@ async function updatePreview(ctx: BotContext, accountsService: AccountsService) 
 					drafts.length,
 					index,
 					showConversion,
-					current?.direction === 'transfer',
-					!!ctx.session.editingTransactionId
+					current?.direction === 'transfer' && !current?.tradeType,
+					!!ctx.session.editingTransactionId,
+					current?.tradeType
 				)
 			}
 		)

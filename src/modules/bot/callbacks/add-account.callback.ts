@@ -52,6 +52,16 @@ export const addAccountCallback = (
 		ctx.session.confirmingAccounts = false
 		ctx.session.draftAccounts = undefined
 		ctx.session.currentAccountIndex = undefined
+		ctx.session.awaitingTransaction = false
+		ctx.session.confirmingTransaction = false
+		ctx.session.editingField = undefined
+		ctx.session.editingTimezone = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingCategoryName = false
+		ctx.session.awaitingTagInput = false
+		ctx.session.editingAccountField = undefined
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
 
 		const prompt = await buildAddAccountPrompt(ctx, subscriptionService)
 		const msg = await ctx.reply(prompt, {

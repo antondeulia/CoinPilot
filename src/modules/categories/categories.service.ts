@@ -7,7 +7,7 @@ export class CategoriesService {
 
 	async createDefaults(userId: string) {
 		const names = [
-			'🍔Еда и напитки',
+			'🥪Еда и напитки',
 			'🚇Транспорт',
 			'🏠Жильё',
 			'🛒Покупки',

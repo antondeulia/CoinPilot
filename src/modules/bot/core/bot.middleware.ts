@@ -30,6 +30,9 @@ export type BotContext = Context & {
 			| 'date'
 			| 'category'
 			| 'tag'
+			| 'executionPrice'
+			| 'pair'
+			| 'tradeFeeAmount'
 		editMessageId?: number
 		accountsPage?: number
 		categoriesPage?: number
@@ -46,7 +49,7 @@ export type BotContext = Context & {
 		currentAccountIndex?: number
 		accountsViewPage?: number
 		accountsViewSelectedId?: string | null
-		editingAccountField?: 'jarvis'
+		editingAccountField?: 'jarvis' | 'name'
 		editingAccountDetailsId?: string
 		transactionsViewPage?: number
 		categoriesSelectedId?: string | null

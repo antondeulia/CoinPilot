@@ -9,8 +9,42 @@ import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 import { getCurrencySymbol } from '../../../utils/format'
 import { normalizeTxDate } from '../../../utils/date'
+import { extractTradeMeta } from '../utils/trade-meta'
 
 const PAGE_SIZE = 9
+
+type NumericLike =
+	| number
+	| string
+	| { toNumber?: () => number; valueOf?: () => unknown }
+	| null
+	| undefined
+
+function toFiniteNumber(value: NumericLike): number | undefined {
+	if (typeof value === 'number') {
+		return Number.isFinite(value) ? value : undefined
+	}
+	if (typeof value === 'string') {
+		const parsed = Number(value.replace(',', '.'))
+		return Number.isFinite(parsed) ? parsed : undefined
+	}
+	if (value && typeof value === 'object') {
+		const withToNumber = value as { toNumber?: () => number; valueOf?: () => unknown }
+		if (typeof withToNumber.toNumber === 'function') {
+			const parsed = withToNumber.toNumber()
+			return Number.isFinite(parsed) ? parsed : undefined
+		}
+		const primitive = withToNumber.valueOf?.()
+		if (typeof primitive === 'number' && Number.isFinite(primitive)) {
+			return primitive
+		}
+		if (typeof primitive === 'string') {
+			const parsed = Number(primitive.replace(',', '.'))
+			return Number.isFinite(parsed) ? parsed : undefined
+		}
+	}
+	return undefined
+}
 
 async function renderTransactionsList(
 	ctx: BotContext,
@@ -87,6 +121,7 @@ async function renderTransactionsList(
 }
 
 function txToDraft(tx: any) {
+	const tradeMeta = extractTradeMeta(tx.rawText)
 	const accountCurrencies = new Set(
 		(tx.account?.assets ?? []).map((a: any) => (a.currency || '').toUpperCase())
 	)
@@ -97,9 +132,10 @@ function txToDraft(tx: any) {
 		action: 'create_transaction' as const,
 		accountId: tx.accountId,
 		account: tx.account?.name ?? null,
-		amount: tx.amount,
+		amount: toFiniteNumber(tx.amount as NumericLike),
 		currency: tx.currency,
 		direction: tx.direction,
+		categoryId: tx.categoryId ?? undefined,
 		category: tx.category ?? '📦Другое',
 		description: tx.description ?? null,
 		transactionDate: tx.transactionDate
@@ -109,9 +145,21 @@ function txToDraft(tx: any) {
 		tagName: tx.tag?.name ?? undefined,
 		tagIsNew: false,
 		convertToCurrency: tx.convertToCurrency ?? undefined,
-		convertedAmount: tx.convertedAmount ?? undefined,
+		convertedAmount: toFiniteNumber(tx.convertedAmount as NumericLike),
 		toAccountId: tx.toAccountId ?? undefined,
 		toAccount: tx.toAccount?.name ?? undefined,
+		tradeType: tx.tradeType ?? tradeMeta?.type,
+		tradeBaseCurrency: tx.tradeBaseCurrency ?? tradeMeta?.baseCurrency,
+		tradeBaseAmount:
+			toFiniteNumber(tx.tradeBaseAmount as NumericLike) ?? tradeMeta?.baseAmount,
+		tradeQuoteCurrency: tx.tradeQuoteCurrency ?? tradeMeta?.quoteCurrency,
+		tradeQuoteAmount:
+			toFiniteNumber(tx.tradeQuoteAmount as NumericLike) ?? tradeMeta?.quoteAmount,
+		executionPrice:
+			toFiniteNumber(tx.executionPrice as NumericLike) ?? tradeMeta?.executionPrice,
+		tradeFeeCurrency: tx.tradeFeeCurrency ?? tradeMeta?.feeCurrency,
+		tradeFeeAmount:
+			toFiniteNumber(tx.tradeFeeAmount as NumericLike) ?? tradeMeta?.feeAmount,
 		currencyDeleted
 	}
 }
@@ -124,12 +172,6 @@ export const viewTransactionsCallback = (
 	analyticsService: AnalyticsService
 ) => {
 	bot.callbackQuery('view_transactions', async ctx => {
-		if (ctx.session.tempMessageId) {
-			try {
-				await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
-			} catch {}
-			ctx.session.tempMessageId = undefined
-		}
 		if (!ctx.state.user?.id) return
 		ctx.session.navigationStack = [...(ctx.session.navigationStack ?? []), 'home']
 		ctx.session.transactionsViewPage = 0
@@ -185,8 +227,9 @@ export const viewTransactionsCallback = (
 			1,
 			0,
 			showConversion,
-			draft.direction === 'transfer',
-			true
+			draft.direction === 'transfer' && !draft.tradeType,
+			true,
+			draft.tradeType
 		)
 		await ctx.api.editMessageText(ctx.chat!.id, msgId, text, {
 			parse_mode: 'HTML',
@@ -204,6 +247,15 @@ export const viewTransactionsCallback = (
 			amount: draft.amount,
 			currency: draft.currency,
 			direction: draft.direction,
+			tradeType: draft.tradeType ?? null,
+			tradeBaseCurrency: draft.tradeBaseCurrency ?? null,
+			tradeBaseAmount: draft.tradeBaseAmount ?? null,
+			tradeQuoteCurrency: draft.tradeQuoteCurrency ?? null,
+			tradeQuoteAmount: draft.tradeQuoteAmount ?? null,
+			executionPrice: draft.executionPrice ?? null,
+			tradeFeeCurrency: draft.tradeFeeCurrency ?? null,
+			tradeFeeAmount: draft.tradeFeeAmount ?? null,
+			categoryId: draft.categoryId ?? null,
 			category: draft.category,
 			description: draft.description,
 			transactionDate: draft.transactionDate
@@ -214,7 +266,11 @@ export const viewTransactionsCallback = (
 			convertToCurrency: draft.convertToCurrency ?? null,
 			fromAccountId:
 				draft.direction === 'transfer' ? (draft.accountId ?? null) : null,
-			toAccountId: draft.toAccountId ?? null
+			toAccountId:
+				draft.toAccountId ??
+				(draft.tradeType && draft.direction === 'transfer'
+					? (draft.accountId ?? null)
+					: null)
 		})
 		ctx.session.editingTransactionId = undefined
 		ctx.session.draftTransactions = undefined
@@ -273,8 +329,9 @@ export const viewTransactionsCallback = (
 			1,
 			0,
 			showConversion,
-			draft.direction === 'transfer',
-			true
+			draft.direction === 'transfer' && !draft.tradeType,
+			true,
+			draft.tradeType
 		)
 		await ctx.api.editMessageText(ctx.chat!.id, ctx.session.tempMessageId, text, {
 			parse_mode: 'HTML',

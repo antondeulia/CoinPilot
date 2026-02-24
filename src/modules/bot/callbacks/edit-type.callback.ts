@@ -5,13 +5,18 @@ import { TransactionsService } from '../../../modules/transactions/transactions.
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
+import { attachTradeMeta, stripTradeMeta } from '../utils/trade-meta'
 
 function typeLabel(
-	current: string | undefined,
-	value: 'expense' | 'income' | 'transfer',
+	currentDirection: string | undefined,
+	currentTradeType: 'buy' | 'sell' | undefined,
+	value: 'expense' | 'income' | 'transfer' | 'buy' | 'sell',
 	text: string
 ) {
-	const isCurrent = current === value
+	const isCurrent =
+		value === 'buy' || value === 'sell'
+			? currentTradeType === value
+			: currentDirection === value && !currentTradeType
 	return `${isCurrent ? '✅ ' : ''}${text}`
 }
 
@@ -30,11 +35,26 @@ export const editTypeCallback = (
 		}
 
 		const kb = new InlineKeyboard()
-			.text(typeLabel(current.direction, 'expense', 'Расход'), 'set_type:expense')
-			.text(typeLabel(current.direction, 'income', 'Доход'), 'set_type:income')
 			.text(
-				typeLabel(current.direction, 'transfer', 'Перевод'),
+				typeLabel(current.direction, current.tradeType, 'expense', 'Расход'),
+				'set_type:expense'
+			)
+			.text(
+				typeLabel(current.direction, current.tradeType, 'income', 'Доход'),
+				'set_type:income'
+			)
+			.text(
+				typeLabel(current.direction, current.tradeType, 'transfer', 'Перевод'),
 				'set_type:transfer'
+			)
+			.row()
+			.text(
+				typeLabel(current.direction, current.tradeType, 'buy', '📥 Покупка'),
+				'set_type:buy'
+			)
+			.text(
+				typeLabel(current.direction, current.tradeType, 'sell', '📤 Продажа'),
+				'set_type:sell'
 			)
 			.row()
 			.text('← Назад', 'back_to_preview')
@@ -64,13 +84,96 @@ export const editTypeCallback = (
 			| 'expense'
 			| 'income'
 			| 'transfer'
+			| 'buy'
+			| 'sell'
 
-		current.direction = type
+		const previousTradeType = current.tradeType as 'buy' | 'sell' | undefined
+		const backups = ((current as any).__tradeBackups ?? {}) as Record<
+			string,
+			{
+				tradeBaseCurrency?: string
+				tradeBaseAmount?: number
+				tradeQuoteCurrency?: string
+				tradeQuoteAmount?: number
+				executionPrice?: number
+				tradeFeeCurrency?: string
+				tradeFeeAmount?: number
+				rawText?: string
+			}
+		>
+		if (previousTradeType && previousTradeType !== type) {
+			backups[previousTradeType] = {
+				tradeBaseCurrency: current.tradeBaseCurrency,
+				tradeBaseAmount: current.tradeBaseAmount,
+				tradeQuoteCurrency: current.tradeQuoteCurrency,
+				tradeQuoteAmount: current.tradeQuoteAmount,
+				executionPrice: current.executionPrice,
+				tradeFeeCurrency: current.tradeFeeCurrency,
+				tradeFeeAmount: current.tradeFeeAmount,
+				rawText: current.rawText
+			}
+			;(current as any).__tradeBackups = backups
+		}
+
+		const isTrade = type === 'buy' || type === 'sell'
+		current.direction = isTrade ? 'transfer' : type
+		if (!isTrade) {
+			current.tradeType = undefined
+			current.tradeBaseCurrency = undefined
+			current.tradeBaseAmount = undefined
+			current.tradeQuoteCurrency = undefined
+			current.tradeQuoteAmount = undefined
+			current.executionPrice = undefined
+			current.tradeFeeCurrency = undefined
+			current.tradeFeeAmount = undefined
+			if (typeof current.rawText === 'string') {
+				current.rawText = stripTradeMeta(current.rawText)
+			}
+		} else {
+			current.tradeType = type
+			const backup = backups[type]
+			if (backup) {
+				current.tradeBaseCurrency = backup.tradeBaseCurrency
+				current.tradeBaseAmount = backup.tradeBaseAmount
+				current.tradeQuoteCurrency = backup.tradeQuoteCurrency
+				current.tradeQuoteAmount = backup.tradeQuoteAmount
+				current.executionPrice = backup.executionPrice
+				current.tradeFeeCurrency = backup.tradeFeeCurrency
+				current.tradeFeeAmount = backup.tradeFeeAmount
+				if (backup.rawText) current.rawText = backup.rawText
+			}
+			if (
+				current.tradeBaseCurrency &&
+				typeof current.tradeBaseAmount === 'number' &&
+				current.tradeQuoteCurrency &&
+				typeof current.tradeQuoteAmount === 'number' &&
+				typeof current.executionPrice === 'number'
+			) {
+				current.rawText = attachTradeMeta(stripTradeMeta(String(current.rawText ?? '')), {
+					type,
+					baseCurrency: current.tradeBaseCurrency,
+					baseAmount: current.tradeBaseAmount,
+					quoteCurrency: current.tradeQuoteCurrency,
+					quoteAmount: current.tradeQuoteAmount,
+					executionPrice: current.executionPrice,
+					feeCurrency: current.tradeFeeCurrency,
+					feeAmount: current.tradeFeeAmount
+				})
+			}
+		}
 
 		const user = ctx.state.user as any
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(
+			ctx.state.user.id
+		)
+		const outside = allAccounts.find(a => a.name === 'Вне Wallet')
+		const defaultVisible =
+			allAccounts.find(a => a.id === user.defaultAccountId && !a.isHidden) ??
+			allAccounts.find(a => !a.isHidden && a.name !== 'Вне Wallet') ??
+			null
 		const accountId =
-			current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
-		if (type === 'transfer') {
+			current.accountId || defaultVisible?.id || ctx.state.activeAccount?.id
+		if (type === 'transfer' || isTrade) {
 			if (accountId && !current.accountId) {
 				current.accountId = accountId
 			}
@@ -81,16 +184,31 @@ export const editTypeCallback = (
 				)
 				if (fromAccount) current.account = fromAccount.name
 			}
-			if (!current.toAccountId) {
-				const allAccounts = await accountsService.getAllByUserIdIncludingHidden(
-					ctx.state.user.id
-				)
-				const outside = allAccounts.find(a => a.name === 'Вне Wallet')
-				if (outside) {
-					current.toAccountId = outside.id
-					current.toAccount = outside.name
+			if (isTrade) {
+				current.toAccountId = current.accountId
+				current.toAccount = current.account
+			} else if (!current.toAccountId && outside) {
+				current.toAccountId = outside.id
+				current.toAccount = outside.name
+			}
+			if (
+				!isTrade &&
+				outside &&
+				current.accountId === outside.id &&
+				current.toAccountId === outside.id
+			) {
+				if (defaultVisible) {
+					current.accountId = defaultVisible.id
+					current.account = defaultVisible.name
 				}
 			}
+		} else {
+			if (outside && current.accountId === outside.id && defaultVisible) {
+				current.accountId = defaultVisible.id
+				current.account = defaultVisible.name
+			}
+			current.toAccountId = undefined
+			current.toAccount = undefined
 		}
 		const showConversion = await getShowConversion(
 			current,
@@ -116,8 +234,9 @@ export const editTypeCallback = (
 						drafts.length,
 						index,
 						showConversion,
-						current?.direction === 'transfer',
-						!!ctx.session.editingTransactionId
+						current?.direction === 'transfer' && !current?.tradeType,
+						!!ctx.session.editingTransactionId,
+						current?.tradeType
 					)
 				}
 			)

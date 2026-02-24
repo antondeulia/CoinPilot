@@ -20,11 +20,9 @@ export async function renderHome(
 	;(ctx.session as any).editingMainCurrency = false
 	ctx.session.editingField = undefined
 	const user: any = ctx.state.user
-	const mainCurrency = user?.mainCurrency ?? 'USD'
-	const accounts = (user?.accounts ?? []).filter(
-		(a: { isHidden?: boolean }) => !a.isHidden
-	)
-	const accountsCount = accounts.length
+	const snapshot = await accountsService.getHomeSnapshot(user.id)
+	const mainCurrency = snapshot.mainCurrency
+	const accountsCount = snapshot.accountsCount
 	let totalBalance = 0
 	let monthlyChangePct = 0
 	try {

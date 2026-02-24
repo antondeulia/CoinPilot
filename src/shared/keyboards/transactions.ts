@@ -25,10 +25,17 @@ const DIR_EMOJI: Record<string, string> = {
 	transfer: '⚪️'
 }
 
+type NumericLike = number | { toNumber(): number }
+const toNum = (value: NumericLike): number =>
+	typeof value === 'number' ? value : value.toNumber()
+
 function txLabel(tx: {
 	direction: string
-	amount: number
+	tradeType?: 'buy' | 'sell' | null
+	amount: NumericLike
 	currency: string
+	tradeBaseAmount?: NumericLike | null
+	tradeBaseCurrency?: string | null
 	transactionDate: Date
 	description?: string | null
 	category?: string | null
@@ -36,12 +43,33 @@ function txLabel(tx: {
 	toAccount?: { name?: string; isHidden?: boolean } | null
 	tag?: { name: string } | null
 }) {
-	const emoji = DIR_EMOJI[tx.direction] ?? '⚪️'
-	const sym = getCurrencySymbol(tx.currency)
-	const amountStr = Math.abs(tx.amount).toLocaleString('ru-RU', {
+	const emoji =
+		tx.tradeType === 'buy'
+			? '📥'
+			: tx.tradeType === 'sell'
+				? '📤'
+				: DIR_EMOJI[tx.direction] ?? '⚪️'
+	const isTrade = tx.tradeType === 'buy' || tx.tradeType === 'sell'
+	const tradeBaseAmount =
+		tx.tradeBaseAmount != null ? Math.abs(toNum(tx.tradeBaseAmount)) : null
+	const tradeBaseCurrency = String(tx.tradeBaseCurrency ?? '').toUpperCase()
+	const fallbackAmount = Math.abs(toNum(tx.amount))
+	const fallbackCurrency = tx.currency
+	const amountValue =
+		isTrade && tradeBaseAmount != null && tradeBaseAmount > 0
+			? tradeBaseAmount
+			: fallbackAmount
+	const currencyValue =
+		isTrade && tradeBaseCurrency ? tradeBaseCurrency : fallbackCurrency
+	const sym = getCurrencySymbol(currencyValue)
+	const amountStr = amountValue.toLocaleString('ru-RU', {
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2
 	})
+	const amountWithSign =
+		isTrade && tx.tradeType
+			? `${tx.tradeType === 'buy' ? '+' : '-'}${amountStr}`
+			: amountStr
 	const d = new Date(tx.transactionDate)
 	const dateStr = `${String(d.getDate()).padStart(2, '0')}.${String(
 		d.getMonth() + 1
@@ -56,15 +84,18 @@ function txLabel(tx: {
 				'—'
 		)
 	)
-	const label = `${emoji} ${amountStr} ${sym} · ${accountName} · ${dateStr}`
+	const label = `${emoji} ${amountWithSign} ${sym} · ${accountName} · ${dateStr}`
 	return label.slice(0, 64)
 }
 
 export function transactionsListKeyboard(
 	txs: Array<{
-		id: string
-		direction: string
-		amount: number
+			id: string
+			direction: string
+			tradeType?: 'buy' | 'sell' | null
+			amount: NumericLike
+			tradeBaseAmount?: NumericLike | null
+			tradeBaseCurrency?: string | null
 		currency: string
 		transactionDate: Date
 		description?: string | null

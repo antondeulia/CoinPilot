@@ -27,6 +27,14 @@ export const TransactionDirectionsEnum = {
 export type TransactionDirectionsEnum = (typeof TransactionDirectionsEnum)[keyof typeof TransactionDirectionsEnum]
 
 
+export const TradeTypeEnum = {
+  buy: 'buy',
+  sell: 'sell'
+} as const
+
+export type TradeTypeEnum = (typeof TradeTypeEnum)[keyof typeof TradeTypeEnum]
+
+
 export const AlertTypeEnum = {
   large_expense: 'large_expense',
   category_threshold: 'category_threshold'

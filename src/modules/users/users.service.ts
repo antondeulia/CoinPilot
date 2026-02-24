@@ -12,17 +12,62 @@ export class UsersService {
 	) {}
 
 	async getOrCreateByTelegramId(telegramId: string) {
+		const trialLedger = await this.prisma.trialLedger.findUnique({
+			where: { telegramId },
+			select: {
+				telegramId: true,
+				stripeCustomerId: true
+			}
+		})
 		const existing = await this.prisma.user.findUnique({
 			where: { telegramId },
 			include: { accounts: true }
 		})
 
-		if (existing) return existing
+		if (existing) {
+			const shouldSyncTrialFlag = !!trialLedger && !existing.trialUsed
+			const shouldSyncStripeCustomer =
+				!existing.stripeCustomerId && !!trialLedger?.stripeCustomerId
+			const visibleAccounts = existing.accounts.filter(
+				a => !a.isHidden && a.name !== 'Вне Wallet'
+			)
+			const desiredDefaultId =
+				visibleAccounts.find(a => a.id === existing.defaultAccountId)?.id ??
+				visibleAccounts[0]?.id ??
+				null
+			const desiredActiveId =
+				visibleAccounts.find(a => a.id === existing.activeAccountId)?.id ??
+				desiredDefaultId
+			if (
+				existing.defaultAccountId !== desiredDefaultId ||
+				existing.activeAccountId !== desiredActiveId ||
+				shouldSyncTrialFlag ||
+				shouldSyncStripeCustomer
+			) {
+				const repaired = await this.prisma.user.update({
+					where: { id: existing.id },
+					data: {
+						defaultAccountId: desiredDefaultId,
+						activeAccountId: desiredActiveId,
+						...(shouldSyncTrialFlag && { trialUsed: true }),
+						...(shouldSyncStripeCustomer && {
+							stripeCustomerId: trialLedger?.stripeCustomerId
+						})
+					},
+					include: { accounts: true }
+				})
+				return repaired
+			}
+			return existing
+		}
 
 		const user = await this.prisma.user.create({
 			data: {
 				telegramId,
-				mainCurrency: 'USD'
+				mainCurrency: 'USD',
+				timezone: '+02:00',
+				trialUsed: !!trialLedger,
+				stripeCustomerId: trialLedger?.stripeCustomerId ?? null
 			}
 		})
 
@@ -54,6 +99,12 @@ export class UsersService {
 	}
 
 	async setDefaultAccount(userId: string, accountId: string) {
+		const account = await this.prisma.account.findFirst({
+			where: { id: accountId, userId }
+		})
+		if (!account || account.isHidden || account.name === 'Вне Wallet') {
+			throw new Error('Нельзя выбрать системный или скрытый счёт как основной.')
+		}
 		await this.prisma.user.update({
 			where: { id: userId },
 			data: { defaultAccountId: accountId }
@@ -78,6 +129,7 @@ export class UsersService {
 				where: { id: userId },
 				data: {
 					mainCurrency: 'USD',
+					timezone: '+02:00',
 					defaultAccountId: null,
 					activeAccountId: null
 				}

@@ -148,11 +148,6 @@ export const saveDeleteAccountsCallback = (
 				} catch {}
 				;(ctx.session as any).accountInputHintMessageId = undefined
 			}
-			for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
-				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, msgId)
-				} catch {}
-			}
 			;(ctx.session as any).accountInputMessageIds = []
 
 			await ctx.reply(`✅ Счёт сохранён: ${draft.name}`, {
@@ -193,11 +188,6 @@ export const saveDeleteAccountsCallback = (
 					await ctx.api.deleteMessage(ctx.chat!.id, hintId)
 				} catch {}
 				;(ctx.session as any).accountInputHintMessageId = undefined
-			}
-			for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
-				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, msgId)
-				} catch {}
 			}
 			;(ctx.session as any).accountInputMessageIds = []
 
@@ -301,11 +291,6 @@ export const saveDeleteAccountsCallback = (
 			} catch {}
 			;(ctx.session as any).accountInputHintMessageId = undefined
 		}
-		for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
-			try {
-				await ctx.api.deleteMessage(ctx.chat!.id, msgId)
-			} catch {}
-		}
 		;(ctx.session as any).accountInputMessageIds = []
 
 		await ctx.reply(
@@ -337,11 +322,6 @@ export const saveDeleteAccountsCallback = (
 				await ctx.api.deleteMessage(ctx.chat!.id, hintId)
 			} catch {}
 			;(ctx.session as any).accountInputHintMessageId = undefined
-		}
-		for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
-			try {
-				await ctx.api.deleteMessage(ctx.chat!.id, msgId)
-			} catch {}
 		}
 		;(ctx.session as any).accountInputMessageIds = []
 	})

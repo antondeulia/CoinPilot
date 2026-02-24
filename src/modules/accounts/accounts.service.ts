@@ -10,6 +10,54 @@ export class AccountsService {
 		private readonly exchangeService: ExchangeService
 	) {}
 
+	private static readonly LEADING_EMOJI_RE =
+		/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+)/u
+
+	private static readonly STRIP_LEADING_EMOJI_RE =
+		/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+\s*)+/u
+
+	private extractLeadingEmoji(value?: string | null): string | null {
+		const raw = String(value ?? '').trim()
+		if (!raw) return null
+		const m = raw.match(AccountsService.LEADING_EMOJI_RE)
+		return m?.[1] ?? null
+	}
+
+	private normalizeAccountText(value?: string | null): string {
+		const raw = String(value ?? '')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.replace(/[.,;:!?]+$/g, '')
+		const noLeadingEmoji = raw
+			.replace(AccountsService.STRIP_LEADING_EMOJI_RE, '')
+			.trim()
+		const safe = noLeadingEmoji || 'Счёт'
+		return safe.charAt(0).toUpperCase() + safe.slice(1)
+	}
+
+	private fallbackEmojiByType(type?: string | null): string {
+		const normalized = String(type ?? '').toLowerCase()
+		if (normalized === 'cash') return '💵'
+		if (normalized === 'crypto') return '🪙'
+		if (normalized === 'bank') return '🏦'
+		return '💼'
+	}
+
+	private normalizeAccountDisplayName(params: {
+		nextName?: string | null
+		existingName?: string | null
+		accountType?: string | null
+	}): string {
+		const explicitEmoji = this.extractLeadingEmoji(params.nextName)
+		const existingEmoji = this.extractLeadingEmoji(params.existingName)
+		const emoji =
+			explicitEmoji ??
+			existingEmoji ??
+			this.fallbackEmojiByType(params.accountType)
+		const text = this.normalizeAccountText(params.nextName)
+		return `${emoji} ${text}`.trim()
+	}
+
 	private async ensureCurrenciesSupported(currencies: string[]) {
 		const normalized = Array.from(
 			new Set(currencies.map(c => (c || '').toUpperCase().trim()).filter(Boolean))
@@ -29,13 +77,25 @@ export class AccountsService {
 	}
 
 	async createAccount(userId: string, name: string, currency: string) {
-		return this.prisma.account.create({
-			data: {
-				userId,
-				name,
-				currency,
-				type: 'cash'
+		return this.prisma.$transaction(async tx => {
+			const existingVisible = await tx.account.count({
+				where: { userId, isHidden: false, name: { not: 'Вне Wallet' } }
+			})
+			const account = await tx.account.create({
+				data: {
+					userId,
+					name,
+					currency,
+					type: 'cash'
+				}
+			})
+			if (existingVisible === 0) {
+				await tx.user.update({
+					where: { id: userId },
+					data: { defaultAccountId: account.id, activeAccountId: account.id }
+				})
 			}
+			return account
 		})
 	}
 
@@ -68,6 +128,22 @@ export class AccountsService {
 		})
 	}
 
+	async getHomeSnapshot(userId: string) {
+		const [user, visibleAccounts] = await Promise.all([
+			this.prisma.user.findUnique({
+				where: { id: userId },
+				select: { id: true, mainCurrency: true }
+			}),
+			this.prisma.account.count({
+				where: { userId, isHidden: false }
+			})
+		])
+		return {
+			mainCurrency: user?.mainCurrency ?? 'USD',
+			accountsCount: visibleAccounts
+		}
+	}
+
 	async getOneWithAssets(accountId: string, userId: string) {
 		return this.prisma.account.findFirst({
 			where: { id: accountId, userId },
@@ -87,9 +163,21 @@ export class AccountsService {
 	) {
 		await this.ensureCurrenciesSupported(draft.assets.map(a => a.currency))
 		await this.prisma.$transaction(async tx => {
+			const existing = await tx.account.findFirst({
+				where: { id: accountId, userId },
+				select: { name: true, type: true }
+			})
+			if (!existing) {
+				throw new Error('Счёт не найден')
+			}
+			const normalizedName = this.normalizeAccountDisplayName({
+				nextName: draft.name,
+				existingName: existing.name,
+				accountType: existing.type
+			})
 			await tx.account.update({
 				where: { id: accountId, userId },
-				data: { name: draft.name.trim() }
+				data: { name: normalizedName }
 			})
 			await tx.accountAsset.deleteMany({ where: { accountId } })
 			for (const a of draft.assets) {
@@ -131,7 +219,8 @@ export class AccountsService {
 			})
 			if (user && (user.activeAccountId === accountId || user.defaultAccountId === accountId)) {
 				const other = await tx.account.findFirst({
-					where: { userId }
+					where: { userId, isHidden: false, name: { not: 'Вне Wallet' } },
+					orderBy: { createdAt: 'asc' }
 				})
 				await tx.user.update({
 					where: { id: userId },
@@ -227,26 +316,26 @@ export class AccountsService {
 
 		let inflowsMain = 0
 		let outflowsMain = 0
-		for (const tx of txs) {
+			for (const tx of txs) {
 			const useConverted =
 				tx.convertedAmount != null &&
 				tx.convertToCurrency != null &&
 				tx.convertToCurrency === main
-			const converted = useConverted
-				? tx.convertedAmount!
-				: await this.exchangeService.convert(tx.amount, tx.currency, main)
+				const converted = useConverted
+					? Number(tx.convertedAmount!)
+					: await this.exchangeService.convert(Number(tx.amount), tx.currency, main)
 			const amountMain = converted ?? 0
 			if (tx.direction === 'income') inflowsMain += amountMain
 			else outflowsMain += amountMain
 		}
-		for (const tx of transferTxs) {
+			for (const tx of transferTxs) {
 			const useConverted =
 				tx.convertedAmount != null &&
 				tx.convertToCurrency != null &&
 				tx.convertToCurrency === main
-			const converted = useConverted
-				? tx.convertedAmount!
-				: await this.exchangeService.convert(tx.amount, tx.currency, main)
+				const converted = useConverted
+					? Number(tx.convertedAmount!)
+					: await this.exchangeService.convert(Number(tx.amount), tx.currency, main)
 			const amountMain = converted ?? 0
 			const toExternal = tx.toAccount?.isHidden === true
 			if (toExternal) outflowsMain += amountMain
@@ -269,11 +358,10 @@ export class AccountsService {
 			)
 			.trim()
 		const safeName = nameWithoutLeadingEmoji || 'Счёт'
-		const [firstWord, ...rest] = safeName.split(/\s+/)
-		const formattedName =
-			firstWord.charAt(0).toUpperCase() +
-			firstWord.slice(1).toLowerCase() +
-			(rest.length ? ' ' + rest.join(' ') : '')
+		const cleanedName = safeName.replace(/\s+/g, ' ').replace(/[.,;:!?]+$/g, '').trim()
+		const formattedName = cleanedName
+			? cleanedName.charAt(0).toUpperCase() + cleanedName.slice(1)
+			: 'Счёт'
 		const accountTypeMap: Record<string, 'bank' | 'cash' | 'crypto'> = {
 			bank: 'bank',
 			exchange: 'bank',

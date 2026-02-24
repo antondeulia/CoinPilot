@@ -46,7 +46,11 @@ export class StripeService {
 
 		const user = await this.prisma.user.findUnique({
 			where: { id: params.userId },
-			select: { trialUsed: true }
+			select: { trialUsed: true, stripeCustomerId: true, telegramId: true }
+		})
+		const ledger = await this.prisma.trialLedger.findUnique({
+			where: { telegramId: params.telegramId },
+			select: { id: true }
 		})
 		const subscriptionData: { metadata: { user_id: string; plan: string }; trial_period_days?: number } = {
 			metadata: {
@@ -54,7 +58,8 @@ export class StripeService {
 				plan: params.plan
 			}
 		}
-		if (user && !user.trialUsed) {
+		const canUseTrial = !!user && !user.trialUsed && !ledger
+		if (canUseTrial) {
 			subscriptionData.trial_period_days = 7
 		}
 		const session = await this.stripe.checkout.sessions.create({
@@ -70,9 +75,11 @@ export class StripeService {
 			client_reference_id: params.telegramId,
 			metadata: {
 				user_id: params.userId,
-				plan: params.plan
+				plan: params.plan,
+				telegram_id: params.telegramId
 			},
-			subscription_data: subscriptionData
+			subscription_data: subscriptionData,
+			...(user?.stripeCustomerId ? { customer: user.stripeCustomerId } : {})
 		})
 
 		if (!session.url) {
@@ -170,14 +177,13 @@ export class StripeService {
 			return
 		}
 
-let end: Date | null = null;
-if (stripeSub.current_period_end) {
-
-	 end = new Date(stripeSub.current_period_end * 1000)
-}
-if (stripeSub.status === 'trialing') {
-	end = addDays(new Date(), 7)
-}
+		let end: Date | null = null
+		if (stripeSub.current_period_end) {
+			end = new Date(stripeSub.current_period_end * 1000)
+		}
+		if (stripeSub.status === 'trialing') {
+			end = addDays(new Date(), 7)
+		}
 		const plan =
 			planMeta === 'monthly'
 				? SubscriptionPlan.monthly
@@ -207,8 +213,30 @@ if (stripeSub.status === 'trialing') {
 				}
 			})
 		])
-	}
 
+		if (stripeSub.status === 'trialing') {
+			const user = await this.prisma.user.findUnique({
+				where: { id: userId },
+				select: { telegramId: true }
+			})
+			const telegramId = String(metadata.telegram_id ?? user?.telegramId ?? '').trim()
+			if (telegramId) {
+				await this.prisma.trialLedger.upsert({
+					where: { telegramId },
+					update: {
+						firstUserId: userId,
+						...(stripeCustomerId ? { stripeCustomerId } : {}),
+						usedAt: new Date()
+					},
+					create: {
+						telegramId,
+						firstUserId: userId,
+						stripeCustomerId: stripeCustomerId ?? null
+					}
+				})
+			}
+		}
+	}
 	private async handleInvoicePaid(invoice: any) {
 		const subId = invoice.subscription as string | null
 		if (!subId) return

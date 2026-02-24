@@ -151,6 +151,17 @@ export const viewCategoriesCallback = (
 	})
 
 	bot.callbackQuery('create_category', async ctx => {
+		ctx.session.awaitingTransaction = false
+		ctx.session.confirmingTransaction = false
+		ctx.session.draftTransactions = undefined
+		ctx.session.currentTransactionIndex = undefined
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingTagInput = false
+		ctx.session.editingTimezone = false
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
+		ctx.session.editingField = undefined
 		ctx.session.awaitingCategoryName = true
 		ctx.session.editingCategory = 'create'
 		ctx.session.categoriesMessageId = ctx.callbackQuery?.message?.message_id
@@ -173,6 +184,7 @@ export const viewCategoriesCallback = (
 		}
 		ctx.session.awaitingCategoryName = false
 		ctx.session.editingCategory = undefined
+		;(ctx.session as any).categoryCreateFromPreview = false
 	})
 
 	bot.callbackQuery('delete_category', async ctx => {
@@ -256,6 +268,17 @@ export const viewCategoriesCallback = (
 	bot.callbackQuery('rename_category', async ctx => {
 		const selectedId = ctx.session.categoriesSelectedId
 		if (!selectedId) return
+		ctx.session.awaitingTransaction = false
+		ctx.session.confirmingTransaction = false
+		ctx.session.draftTransactions = undefined
+		ctx.session.currentTransactionIndex = undefined
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingTagInput = false
+		ctx.session.editingTimezone = false
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
+		ctx.session.editingField = undefined
 		ctx.session.awaitingCategoryName = true
 		ctx.session.editingCategory = 'rename'
 		ctx.session.categoriesMessageId = ctx.callbackQuery?.message?.message_id

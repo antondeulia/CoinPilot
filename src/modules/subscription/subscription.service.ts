@@ -174,7 +174,11 @@ export class SubscriptionService {
 			include: { transactions: { take: 1 } }
 		})
 		if (!user) return { allowed: false, reason: 'user_not_found' }
-		if (user.trialUsed) return { allowed: false, reason: 'trial_used' }
+		const ledger = await this.prisma.trialLedger.findUnique({
+			where: { telegramId: user.telegramId },
+			select: { id: true }
+		})
+		if (user.trialUsed || ledger) return { allowed: false, reason: 'trial_used' }
 		if (user.transactions.length === 0)
 			return { allowed: false, reason: 'add_transaction_first' }
 		return { allowed: true }
@@ -184,6 +188,11 @@ export class SubscriptionService {
 		const check = await this.canStartTrial(userId)
 		if (!check.allowed) throw new Error(check.reason ?? 'Trial not allowed')
 		const endDate = addDays(new Date(), TRIAL_DAYS)
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: { telegramId: true, stripeCustomerId: true }
+		})
+		if (!user) throw new Error('user_not_found')
 		await this.prisma.$transaction([
 			this.prisma.user.update({
 				where: { id: userId },
@@ -201,6 +210,19 @@ export class SubscriptionService {
 					endDate,
 					amount: 0,
 					currency: 'EUR'
+				}
+			}),
+			this.prisma.trialLedger.upsert({
+				where: { telegramId: user.telegramId },
+				update: {
+					firstUserId: userId,
+					...(user.stripeCustomerId ? { stripeCustomerId: user.stripeCustomerId } : {}),
+					usedAt: new Date()
+				},
+				create: {
+					telegramId: user.telegramId,
+					firstUserId: userId,
+					stripeCustomerId: user.stripeCustomerId ?? null
 				}
 			})
 		])
@@ -401,7 +423,7 @@ export class SubscriptionService {
 			planName: planNames[plan] ?? plan,
 			endDate,
 			daysLeft,
-			amount: sub?.amount ?? 0,
+			amount: sub?.amount != null ? Number(sub.amount) : 0,
 			currency: sub?.currency ?? mainCurrency,
 			periodLabel: periodLabels[plan] ?? 'месяц',
 			isTrial,

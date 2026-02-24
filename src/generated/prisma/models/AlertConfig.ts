@@ -27,18 +27,18 @@ export type AggregateAlertConfig = {
 }
 
 export type AlertConfigAvgAggregateOutputType = {
-  threshold: number | null
+  threshold: runtime.Decimal | null
 }
 
 export type AlertConfigSumAggregateOutputType = {
-  threshold: number | null
+  threshold: runtime.Decimal | null
 }
 
 export type AlertConfigMinAggregateOutputType = {
   id: string | null
   userId: string | null
   type: $Enums.AlertTypeEnum | null
-  threshold: number | null
+  threshold: runtime.Decimal | null
   categoryId: string | null
   enabled: boolean | null
   createdAt: Date | null
@@ -48,7 +48,7 @@ export type AlertConfigMaxAggregateOutputType = {
   id: string | null
   userId: string | null
   type: $Enums.AlertTypeEnum | null
-  threshold: number | null
+  threshold: runtime.Decimal | null
   categoryId: string | null
   enabled: boolean | null
   createdAt: Date | null
@@ -195,7 +195,7 @@ export type AlertConfigGroupByOutputType = {
   id: string
   userId: string
   type: $Enums.AlertTypeEnum
-  threshold: number
+  threshold: runtime.Decimal
   categoryId: string | null
   enabled: boolean
   createdAt: Date
@@ -228,7 +228,7 @@ export type AlertConfigWhereInput = {
   id?: Prisma.StringFilter<"AlertConfig"> | string
   userId?: Prisma.StringFilter<"AlertConfig"> | string
   type?: Prisma.EnumAlertTypeEnumFilter<"AlertConfig"> | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFilter<"AlertConfig"> | number
+  threshold?: Prisma.DecimalFilter<"AlertConfig"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.StringNullableFilter<"AlertConfig"> | string | null
   enabled?: Prisma.BoolFilter<"AlertConfig"> | boolean
   createdAt?: Prisma.DateTimeFilter<"AlertConfig"> | Date | string
@@ -253,7 +253,7 @@ export type AlertConfigWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.AlertConfigWhereInput | Prisma.AlertConfigWhereInput[]
   userId?: Prisma.StringFilter<"AlertConfig"> | string
   type?: Prisma.EnumAlertTypeEnumFilter<"AlertConfig"> | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFilter<"AlertConfig"> | number
+  threshold?: Prisma.DecimalFilter<"AlertConfig"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.StringNullableFilter<"AlertConfig"> | string | null
   enabled?: Prisma.BoolFilter<"AlertConfig"> | boolean
   createdAt?: Prisma.DateTimeFilter<"AlertConfig"> | Date | string
@@ -282,7 +282,7 @@ export type AlertConfigScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"AlertConfig"> | string
   userId?: Prisma.StringWithAggregatesFilter<"AlertConfig"> | string
   type?: Prisma.EnumAlertTypeEnumWithAggregatesFilter<"AlertConfig"> | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatWithAggregatesFilter<"AlertConfig"> | number
+  threshold?: Prisma.DecimalWithAggregatesFilter<"AlertConfig"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.StringNullableWithAggregatesFilter<"AlertConfig"> | string | null
   enabled?: Prisma.BoolWithAggregatesFilter<"AlertConfig"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"AlertConfig"> | Date | string
@@ -291,7 +291,7 @@ export type AlertConfigScalarWhereWithAggregatesInput = {
 export type AlertConfigCreateInput = {
   id?: string
   type: $Enums.AlertTypeEnum
-  threshold: number
+  threshold: runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: string | null
   enabled?: boolean
   createdAt?: Date | string
@@ -302,7 +302,7 @@ export type AlertConfigUncheckedCreateInput = {
   id?: string
   userId: string
   type: $Enums.AlertTypeEnum
-  threshold: number
+  threshold: runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: string | null
   enabled?: boolean
   createdAt?: Date | string
@@ -311,7 +311,7 @@ export type AlertConfigUncheckedCreateInput = {
 export type AlertConfigUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumAlertTypeEnumFieldUpdateOperationsInput | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  threshold?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -322,7 +322,7 @@ export type AlertConfigUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumAlertTypeEnumFieldUpdateOperationsInput | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  threshold?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -332,7 +332,7 @@ export type AlertConfigCreateManyInput = {
   id?: string
   userId: string
   type: $Enums.AlertTypeEnum
-  threshold: number
+  threshold: runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: string | null
   enabled?: boolean
   createdAt?: Date | string
@@ -341,7 +341,7 @@ export type AlertConfigCreateManyInput = {
 export type AlertConfigUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumAlertTypeEnumFieldUpdateOperationsInput | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  threshold?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -351,7 +351,7 @@ export type AlertConfigUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumAlertTypeEnumFieldUpdateOperationsInput | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  threshold?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -454,7 +454,7 @@ export type EnumAlertTypeEnumFieldUpdateOperationsInput = {
 export type AlertConfigCreateWithoutUserInput = {
   id?: string
   type: $Enums.AlertTypeEnum
-  threshold: number
+  threshold: runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: string | null
   enabled?: boolean
   createdAt?: Date | string
@@ -463,7 +463,7 @@ export type AlertConfigCreateWithoutUserInput = {
 export type AlertConfigUncheckedCreateWithoutUserInput = {
   id?: string
   type: $Enums.AlertTypeEnum
-  threshold: number
+  threshold: runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: string | null
   enabled?: boolean
   createdAt?: Date | string
@@ -502,7 +502,7 @@ export type AlertConfigScalarWhereInput = {
   id?: Prisma.StringFilter<"AlertConfig"> | string
   userId?: Prisma.StringFilter<"AlertConfig"> | string
   type?: Prisma.EnumAlertTypeEnumFilter<"AlertConfig"> | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFilter<"AlertConfig"> | number
+  threshold?: Prisma.DecimalFilter<"AlertConfig"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.StringNullableFilter<"AlertConfig"> | string | null
   enabled?: Prisma.BoolFilter<"AlertConfig"> | boolean
   createdAt?: Prisma.DateTimeFilter<"AlertConfig"> | Date | string
@@ -511,7 +511,7 @@ export type AlertConfigScalarWhereInput = {
 export type AlertConfigCreateManyUserInput = {
   id?: string
   type: $Enums.AlertTypeEnum
-  threshold: number
+  threshold: runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: string | null
   enabled?: boolean
   createdAt?: Date | string
@@ -520,7 +520,7 @@ export type AlertConfigCreateManyUserInput = {
 export type AlertConfigUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumAlertTypeEnumFieldUpdateOperationsInput | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  threshold?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -529,7 +529,7 @@ export type AlertConfigUpdateWithoutUserInput = {
 export type AlertConfigUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumAlertTypeEnumFieldUpdateOperationsInput | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  threshold?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -538,7 +538,7 @@ export type AlertConfigUncheckedUpdateWithoutUserInput = {
 export type AlertConfigUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumAlertTypeEnumFieldUpdateOperationsInput | $Enums.AlertTypeEnum
-  threshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  threshold?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -609,7 +609,7 @@ export type $AlertConfigPayload<ExtArgs extends runtime.Types.Extensions.Interna
     id: string
     userId: string
     type: $Enums.AlertTypeEnum
-    threshold: number
+    threshold: runtime.Decimal
     categoryId: string | null
     enabled: boolean
     createdAt: Date
@@ -1040,7 +1040,7 @@ export interface AlertConfigFieldRefs {
   readonly id: Prisma.FieldRef<"AlertConfig", 'String'>
   readonly userId: Prisma.FieldRef<"AlertConfig", 'String'>
   readonly type: Prisma.FieldRef<"AlertConfig", 'AlertTypeEnum'>
-  readonly threshold: Prisma.FieldRef<"AlertConfig", 'Float'>
+  readonly threshold: Prisma.FieldRef<"AlertConfig", 'Decimal'>
   readonly categoryId: Prisma.FieldRef<"AlertConfig", 'String'>
   readonly enabled: Prisma.FieldRef<"AlertConfig", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"AlertConfig", 'DateTime'>

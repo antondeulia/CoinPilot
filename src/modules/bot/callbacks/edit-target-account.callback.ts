@@ -126,6 +126,24 @@ export const editTargetAccountCallback = (
 
 		current.toAccountId = accountId
 		current.toAccount = account.name
+		if (current.direction === 'transfer' && account.name === 'Вне Wallet') {
+			const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+			const fallback = allAccounts.find(
+				a => !a.isHidden && a.name !== 'Вне Wallet'
+			)
+			if (current.accountId === account.id && fallback) {
+				current.accountId = fallback.id
+				current.account = fallback.name
+			}
+		}
+		if (current.direction === 'transfer' && current.accountId === current.toAccountId) {
+			const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+			const outside = allAccounts.find(a => a.name === 'Вне Wallet')
+			if (outside && current.accountId !== outside.id) {
+				current.toAccountId = outside.id
+				current.toAccount = outside.name
+			}
+		}
 
 		const accountCurrencies = Array.from(
 			new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
@@ -150,7 +168,8 @@ export const editTargetAccountCallback = (
 						index,
 						showConversion,
 						true,
-						!!ctx.session.editingTransactionId
+						!!ctx.session.editingTransactionId,
+						current?.tradeType
 					)
 				}
 			)

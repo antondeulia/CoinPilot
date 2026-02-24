@@ -76,10 +76,21 @@ import { categoriesListKb } from './callbacks/view-categories.callback'
 import { tagsListText } from './callbacks/view-tags.callback'
 import { buildSettingsView } from '../../shared/keyboards/settings'
 import { levenshtein } from '../../utils/normalize'
-import { normalizeTxDate, pickTransactionDate } from '../../utils/date'
+import {
+	extractExplicitDateFromText,
+	normalizeTxDate,
+	pickTransactionDate
+} from '../../utils/date'
 import { LlmMemoryService } from '../llm-memory/llm-memory.service'
 import { buildAddTransactionPrompt } from './callbacks/add-transaction.command'
 import { isCryptoCurrency } from '../../utils/format'
+import {
+	attachTradeMeta,
+	extractTradeMeta,
+	stripTradeMeta,
+	type TradeMeta,
+	type TradeType
+} from './utils/trade-meta'
 
 @Injectable()
 export class BotService implements OnModuleInit {
@@ -166,7 +177,7 @@ export class BotService implements OnModuleInit {
 			})
 
 		// Callbacks
-		addTxCallback(this.bot, this.subscriptionService)
+		addTxCallback(this.bot, this.subscriptionService, this.accountsService)
 		confirmTxCallback(
 			this.bot,
 			this.transactionsService,
@@ -550,19 +561,34 @@ export class BotService implements OnModuleInit {
 				include: { tag: true, toAccount: true }
 			})
 			const lastTransactions: AccountLastTxRow[] = []
-			for (const tx of lastTxs) {
-				const amt =
-					tx.convertedAmount != null && tx.convertToCurrency
-						? tx.convertedAmount
-						: tx.amount
-				const cur =
-					tx.convertedAmount != null && tx.convertToCurrency
-						? tx.convertToCurrency
-						: tx.currency
-				const amountMain = (await this.exchangeService.convert(amt, cur, mainCurrency)) ?? 0
-				const signed = tx.direction === 'expense' ? -Math.abs(tx.amount) : Math.abs(tx.amount)
+				for (const tx of lastTxs) {
+					const isTransfer = tx.direction === 'transfer'
+					const amt =
+						!isTransfer && tx.convertedAmount != null && tx.convertToCurrency
+							? Number(tx.convertedAmount)
+							: Number(tx.amount)
+					const cur =
+						!isTransfer && tx.convertedAmount != null && tx.convertToCurrency
+							? tx.convertToCurrency
+							: tx.currency
+					const amountMain = (await this.exchangeService.convert(amt, cur, mainCurrency)) ?? 0
+					const tradeType = (tx.tradeType as 'buy' | 'sell' | null) ?? null
+					const signed =
+						tradeType === 'buy'
+							? Math.abs(Number(tx.tradeBaseAmount ?? tx.amount))
+							: tradeType === 'sell'
+								? -Math.abs(Number(tx.tradeBaseAmount ?? tx.amount))
+								: isTransfer
+									? -Math.abs(Number(tx.amount))
+								: tx.direction === 'expense'
+									? -Math.abs(Number(tx.amount))
+									: Math.abs(Number(tx.amount))
 				lastTransactions.push({
 					direction: tx.direction,
+					tradeType,
+					tradeBaseAmount:
+						tx.tradeBaseAmount != null ? Number(tx.tradeBaseAmount) : null,
+					tradeBaseCurrency: tx.tradeBaseCurrency ?? null,
 					amount: signed,
 					currency: tx.currency,
 					amountMain: Math.abs(amountMain),
@@ -725,8 +751,36 @@ export class BotService implements OnModuleInit {
 				return
 			}
 			ctx.session.editingAccountDetailsId = selectedId
+			ctx.session.editingAccountField = 'jarvis'
 			const msg = await ctx.reply(
-				'Режим Jarvis-редактирования счёта.\n\nОпишите, что изменить: название, добавить/удалить валюты, изменить суммы.',
+				'Режим Jarvis-редактирования счёта.\n\nОпишите, что изменить в валютах и суммах: добавить/удалить валюты, изменить суммы.',
+				{
+					parse_mode: 'HTML',
+					reply_markup: new InlineKeyboard().text(
+						'Закрыть',
+						'close_jarvis_details_edit'
+					)
+				}
+			)
+			ctx.session.editMessageId = msg.message_id
+		})
+
+		this.bot.callbackQuery('accounts_name_edit_details', async ctx => {
+			const selectedId = ctx.session.accountsViewSelectedId
+			if (!selectedId) return
+			const user: any = ctx.state.user
+			const frozen = await this.subscriptionService.getFrozenItems(user.id)
+			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+			if (frozenAccountIds.has(selectedId)) {
+				await ctx.answerCallbackQuery({
+					text: 'Редактирование замороженного счёта доступно в Premium.'
+				})
+				return
+			}
+			ctx.session.editingAccountDetailsId = selectedId
+			ctx.session.editingAccountField = 'name'
+			const msg = await ctx.reply(
+				'Режим изменения названия счёта.\n\nОтправьте новое название. ИИ распознает и применит его.',
 				{
 					parse_mode: 'HTML',
 					reply_markup: new InlineKeyboard().text(
@@ -923,21 +977,23 @@ export class BotService implements OnModuleInit {
 					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
 				} catch {}
 			}
-			const msg = await ctx.reply(
-				renderConfirmMessage(first, 0, createdDrafts.length, user.defaultAccountId),
-				{
+				const msg = await ctx.reply(
+					renderConfirmMessage(first, 0, createdDrafts.length, user.defaultAccountId),
+					{
 					parse_mode: 'HTML',
 					reply_markup: confirmKeyboard(
 						createdDrafts.length,
 						0,
 						showConversion,
 						true,
-						false
+						false,
+						(first as any)?.tradeType
 					)
 				}
-			)
-			ctx.session.tempMessageId = msg.message_id
-		})
+				)
+				ctx.session.tempMessageId = msg.message_id
+				await renderHome(ctx, this.accountsService, this.analyticsService)
+			})
 
 		this.bot.callbackQuery('view_settings', async ctx => {
 			if (!ctx.session.awaitingTransaction && !ctx.session.confirmingTransaction) {
@@ -963,6 +1019,17 @@ export class BotService implements OnModuleInit {
 		})
 
 		this.bot.callbackQuery('main_currency_open', async ctx => {
+			ctx.session.awaitingTransaction = false
+			ctx.session.confirmingTransaction = false
+			ctx.session.draftTransactions = undefined
+			ctx.session.currentTransactionIndex = undefined
+			ctx.session.awaitingAccountInput = false
+			ctx.session.awaitingTagsJarvisEdit = false
+			ctx.session.awaitingCategoryName = false
+			ctx.session.awaitingTagInput = false
+			ctx.session.editingAccountField = undefined
+			ctx.session.editingField = undefined
+			;(ctx.session as any).editingCurrency = false
 			const hint = await ctx.reply(
 				'Введите одну валюту, например: USD, доллар, $, евро, UAH.',
 				{
@@ -974,6 +1041,18 @@ export class BotService implements OnModuleInit {
 			;(ctx.session as any).mainCurrencyErrorMessageIds = []
 		})
 		this.bot.callbackQuery('timezone_open', async ctx => {
+			ctx.session.awaitingTransaction = false
+			ctx.session.confirmingTransaction = false
+			ctx.session.draftTransactions = undefined
+			ctx.session.currentTransactionIndex = undefined
+			ctx.session.awaitingAccountInput = false
+			ctx.session.awaitingTagsJarvisEdit = false
+			ctx.session.awaitingCategoryName = false
+			ctx.session.awaitingTagInput = false
+			ctx.session.editingAccountField = undefined
+			ctx.session.editingField = undefined
+			;(ctx.session as any).editingMainCurrency = false
+			;(ctx.session as any).editingCurrency = false
 			const hint = await ctx.reply(
 				'Введите часовой пояс в формате IANA (например Europe/Berlin) или UTC-смещение (+03:00).',
 				{
@@ -1160,7 +1239,14 @@ export class BotService implements OnModuleInit {
 			const user: any = ctx.state.user
 			if (!user) return
 			const accountId = ctx.callbackQuery.data.split(':')[1]
-			await this.usersService.setDefaultAccount(user.id, accountId)
+			try {
+				await this.usersService.setDefaultAccount(user.id, accountId)
+			} catch (e: any) {
+				await ctx.reply(e?.message ?? 'Не удалось обновить основной счёт.', {
+					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+				})
+				return
+			}
 			user.defaultAccountId = accountId
 			const alertsEnabledCount = await this.prisma.alertConfig.count({
 				where: { userId: user.id, enabled: true }
@@ -1226,6 +1312,33 @@ export class BotService implements OnModuleInit {
 					)
 					return
 				}
+				const allAccounts =
+					await this.accountsService.getAllByUserIdIncludingHidden(
+						ctx.state.user.id
+					)
+				const realAccounts = allAccounts.filter(
+					a => !a.isHidden && a.name !== 'Вне Wallet'
+				)
+				if (!realAccounts.length) {
+					await ctx.reply(
+						'Сначала добавьте счёт во вкладке «Счета», затем создайте транзакцию.',
+						{
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						}
+					)
+					return
+				}
+				ctx.session.editingTimezone = false
+				ctx.session.awaitingTagsJarvisEdit = false
+				ctx.session.awaitingCategoryName = false
+				ctx.session.awaitingAccountInput = false
+				ctx.session.awaitingTagInput = false
+				ctx.session.editingAccountField = undefined
+				;(ctx.session as any).editingMainCurrency = false
+				;(ctx.session as any).editingCurrency = false
+				ctx.session.confirmingTransaction = false
+				ctx.session.draftTransactions = undefined
+				ctx.session.currentTransactionIndex = undefined
 				ctx.session.awaitingTransaction = true
 				const promptText = await buildAddTransactionPrompt(
 					ctx as any,
@@ -1342,11 +1455,20 @@ export class BotService implements OnModuleInit {
 					await this.transactionsService.update(txId, ctx.state.user.id, {
 						tagId: current.tagId ?? null
 					})
-				}
-				ctx.session.awaitingTagInput = false
-				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
-				} catch {}
+					}
+					ctx.session.awaitingTagInput = false
+					const tagHintId = (ctx.session as any).tagInputHintMessageId as
+						| number
+						| undefined
+					if (tagHintId != null) {
+						try {
+							await ctx.api.deleteMessage(ctx.chat!.id, tagHintId)
+						} catch {}
+						;(ctx.session as any).tagInputHintMessageId = undefined
+					}
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+					} catch {}
 				const user = ctx.state.user as any
 				const accountId =
 					current.accountId ||
@@ -1375,8 +1497,10 @@ export class BotService implements OnModuleInit {
 									drafts.length,
 									index,
 									showConversion,
-									current?.direction === 'transfer',
-									!!(ctx.session as any).editingTransactionId
+									current?.direction === 'transfer' &&
+										!(current as any)?.tradeType,
+									!!(ctx.session as any).editingTransactionId,
+									(current as any)?.tradeType
 								)
 							}
 						)
@@ -1458,11 +1582,18 @@ export class BotService implements OnModuleInit {
 						)
 						if (codes.length) {
 							current.convertToCurrency = codes[0]
-							current.convertedAmount = await this.exchangeService.convert(
+							const converted = await this.exchangeService.convert(
 								current.amount,
 								current.currency,
 								codes[0]
 							)
+							current.convertedAmount =
+								converted == null
+									? null
+									: await this.exchangeService.roundByCurrency(
+											converted,
+											codes[0]
+										)
 						}
 					}
 				}
@@ -1488,8 +1619,10 @@ export class BotService implements OnModuleInit {
 									drafts.length,
 									index,
 									showConversion,
-									(current as any)?.direction === 'transfer',
-									!!(ctx.session as any).editingTransactionId
+									(current as any)?.direction === 'transfer' &&
+										!(current as any)?.tradeType,
+									!!(ctx.session as any).editingTransactionId,
+									(current as any)?.tradeType
 								)
 							}
 						)
@@ -1505,12 +1638,191 @@ export class BotService implements OnModuleInit {
 				if (!drafts.length) return
 
 				const index = ctx.session.currentTransactionIndex ?? 0
-				const current = drafts[index]
-				const field = ctx.session.editingField
-				const value = text
-				const beforeFieldValue = String((current as any)?.[field] ?? '')
+					const current = drafts[index]
+					const field = ctx.session.editingField
+					const value = text
+					const beforeFieldValue = String((current as any)?.[field] ?? '')
+					const normalizePairCurrency = (token: string): string =>
+						({
+							ЮСДТ: 'USDT',
+							ЮСДЦ: 'USDC',
+							ДОЛЛАР: 'USD',
+							ЕВРО: 'EUR'
+						}[token] ?? token)
+					const normalizeCode = (code?: string | null): string =>
+						normalizePairCurrency(String(code ?? '').trim().toUpperCase())
+					const parsePairInput = (
+						input: string,
+						supportedCodes: Set<string>
+					): { baseCurrency: string; quoteCurrency?: string } | null => {
+						const raw = String(input ?? '').trim().toUpperCase()
+						if (!raw) return null
+						const cleaned = raw.replace(/\s+/g, '')
+						if (cleaned.includes('/')) {
+							const parts = cleaned.split('/')
+							if (parts.length !== 2) return null
+							const baseCurrency = normalizePairCurrency(parts[0])
+							const quoteCurrency = normalizePairCurrency(parts[1])
+							if (
+								supportedCodes.has(baseCurrency) &&
+								supportedCodes.has(quoteCurrency)
+							) {
+								return { baseCurrency, quoteCurrency }
+							}
+							return null
+						}
+						const direct = normalizePairCurrency(cleaned)
+						if (supportedCodes.has(direct)) return { baseCurrency: direct }
+						const sorted = Array.from(supportedCodes).sort((a, b) => b.length - a.length)
+						for (const quoteCurrency of sorted) {
+							if (!cleaned.endsWith(quoteCurrency)) continue
+							const baseCurrency = normalizePairCurrency(
+								cleaned.slice(0, cleaned.length - quoteCurrency.length)
+							)
+							if (supportedCodes.has(baseCurrency)) {
+								return { baseCurrency, quoteCurrency }
+							}
+						}
+						return null
+					}
+					const normalizeTradeDescriptionKey = (raw?: string | null): string =>
+						String(raw ?? '')
+							.toLowerCase()
+							.replace(/[^\p{L}\p{N}]+/gu, '')
+							.trim()
+					const isGenericTradeDescription = (
+						raw?: string | null,
+						baseCurrency?: string | null,
+						quoteCurrency?: string | null
+					): boolean => {
+						const key = normalizeTradeDescriptionKey(raw)
+						if (!key) return true
+						const baseKey = normalizeTradeDescriptionKey(baseCurrency)
+						const quoteKey = normalizeTradeDescriptionKey(quoteCurrency)
+						if (baseKey && key === baseKey) return true
+						if (quoteKey && key === quoteKey) return true
+						return (
+							key === 'ордер' ||
+							key === 'order' ||
+							key === 'трейд' ||
+							key === 'trade' ||
+							key === 'покупка' ||
+							key === 'продажа' ||
+							key === 'transaction' ||
+							key === 'транзакция' ||
+							key === 'операция'
+						)
+					}
+					const applyTradeCanonicalFromBase = async (params: {
+						baseCurrency: string
+						quoteCurrency: string
+						baseAmount: number
+					}): Promise<boolean> => {
+						if (!(current as any).tradeType) {
+							await ctx.reply('Сделка не определена как покупка/продажа.')
+							return false
+						}
+						const tradeType = (current as any).tradeType as TradeType
+						const baseCurrency = normalizeCode(params.baseCurrency)
+						const quoteCurrency = normalizeCode(params.quoteCurrency)
+						if (!baseCurrency || !quoteCurrency || baseCurrency === quoteCurrency) {
+							await ctx.reply('Некорректная пара для пересчёта сделки.')
+							return false
+						}
+						const roundedBaseAmount = await this.exchangeService.roundByCurrency(
+							Math.abs(params.baseAmount),
+							baseCurrency
+						)
+						const txDate = normalizeTxDate((current as any).transactionDate)
+						let quoteAmount: number | null = null
+						if (txDate) {
+							const historicalRate = await this.exchangeService.getHistoricalRate(
+								txDate,
+								baseCurrency,
+								quoteCurrency
+							)
+							if (
+								historicalRate != null &&
+								Number.isFinite(historicalRate) &&
+								historicalRate > 0
+							) {
+								quoteAmount = roundedBaseAmount * historicalRate
+							}
+						}
+						if (!(quoteAmount != null && quoteAmount > 0)) {
+							const converted = await this.exchangeService.convert(
+								roundedBaseAmount,
+								baseCurrency,
+								quoteCurrency
+							)
+							if (converted != null && Number.isFinite(converted) && converted > 0) {
+								quoteAmount = converted
+							}
+						}
+						if (!(quoteAmount != null && quoteAmount > 0)) {
+							await ctx.reply(
+								'Не удалось пересчитать вторую валюту пары по доступным курсам. Укажите вторую сторону сделки или попробуйте позже.'
+							)
+							return false
+						}
+						const roundedQuoteAmount = await this.exchangeService.roundByCurrency(
+							quoteAmount,
+							quoteCurrency
+						)
+						if (!(roundedQuoteAmount > 0)) {
+							await ctx.reply('Не удалось рассчитать вторую сторону сделки.')
+							return false
+						}
+						const executionPrice = Number(
+							(roundedQuoteAmount / roundedBaseAmount).toFixed(12)
+						)
+						if (!(executionPrice > 0)) {
+							await ctx.reply('Не удалось вычислить среднюю цену выполнения.')
+							return false
+						}
+						if (tradeType === 'buy') {
+							;(current as any).amount = roundedQuoteAmount
+							;(current as any).currency = quoteCurrency
+							;(current as any).convertedAmount = roundedBaseAmount
+							;(current as any).convertToCurrency = baseCurrency
+						} else {
+							;(current as any).amount = roundedBaseAmount
+							;(current as any).currency = baseCurrency
+							;(current as any).convertedAmount = roundedQuoteAmount
+							;(current as any).convertToCurrency = quoteCurrency
+						}
+						;(current as any).tradeBaseCurrency = baseCurrency
+						;(current as any).tradeBaseAmount = roundedBaseAmount
+						;(current as any).tradeQuoteCurrency = quoteCurrency
+						;(current as any).tradeQuoteAmount = roundedQuoteAmount
+						;(current as any).executionPrice = executionPrice
+						if (
+							isGenericTradeDescription(
+								(current as any).description,
+								baseCurrency,
+								quoteCurrency
+							)
+						) {
+							;(current as any).description = 'Ордер'
+						}
+						const meta: TradeMeta = {
+							type: tradeType,
+							baseCurrency,
+							baseAmount: roundedBaseAmount,
+							quoteCurrency,
+							quoteAmount: roundedQuoteAmount,
+							executionPrice,
+							feeCurrency: (current as any).tradeFeeCurrency,
+							feeAmount: Number((current as any).tradeFeeAmount ?? 0) || undefined
+						}
+						;(current as any).rawText = attachTradeMeta(
+							stripTradeMeta(String((current as any).rawText ?? '')),
+							meta
+						)
+						return true
+					}
 
-				switch (field) {
+					switch (field) {
 					case 'description': {
 						const trimmed = value.trim()
 						if (!trimmed) {
@@ -1522,16 +1834,38 @@ export class BotService implements OnModuleInit {
 						break
 					}
 
-					case 'amount': {
-						const normalized = value.replace(/\s/g, '').replace(',', '.')
-						const amount = Number(normalized)
-						if (isNaN(amount)) {
-							await ctx.reply('Некорректная сумма, попробуйте снова')
-							return
+						case 'amount': {
+							const normalized = value.replace(/\s/g, '').replace(',', '.')
+							const amount = Number(normalized)
+							if (isNaN(amount) || amount <= 0) {
+								await ctx.reply('Некорректная сумма, попробуйте снова')
+								return
+							}
+							if ((current as any).tradeType === 'buy' || (current as any).tradeType === 'sell') {
+								const tradeType = (current as any).tradeType as TradeType
+								const baseCurrency = normalizeCode(
+									(current as any).tradeBaseCurrency ||
+										(tradeType === 'buy'
+											? (current as any).convertToCurrency
+											: (current as any).currency)
+								)
+								const quoteCurrency = normalizeCode(
+									(current as any).tradeQuoteCurrency ||
+										(tradeType === 'buy'
+											? (current as any).currency
+											: (current as any).convertToCurrency)
+								)
+								const applied = await applyTradeCanonicalFromBase({
+									baseCurrency,
+									quoteCurrency,
+									baseAmount: amount
+								})
+								if (!applied) return
+							} else {
+								current.amount = amount
+							}
+							break
 						}
-						current.amount = amount
-						break
-					}
 
 					case 'date': {
 						const parsedDate = await this.llmService.parseDate(value)
@@ -1544,6 +1878,200 @@ export class BotService implements OnModuleInit {
 						current.transactionDate = parsedDate.toISOString()
 						break
 					}
+
+						case 'pair': {
+							if (!(current as any).tradeType) {
+								await ctx.reply('Пара доступна только для покупки/продажи')
+								return
+							}
+							const known = await this.exchangeService.getKnownCurrencies()
+							const supportedCodes = new Set<string>([
+								...Array.from(known.fiat),
+								...Array.from(known.crypto)
+							])
+							const parsedPair = parsePairInput(value, supportedCodes)
+							if (!parsedPair?.baseCurrency) {
+								await ctx.reply(
+									'Не удалось распознать пару. Пример: TON/USDT, TONUSDT или TON.'
+								)
+								return
+							}
+							let quoteCurrency = normalizeCode(
+								parsedPair.quoteCurrency ??
+									(current as any).tradeQuoteCurrency ??
+									''
+							)
+							if (
+								!quoteCurrency ||
+								!supportedCodes.has(quoteCurrency) ||
+							quoteCurrency === parsedPair.baseCurrency
+						) {
+							const userAny = ctx.state.user as any
+							const accountId =
+								(current as any).accountId ||
+								userAny.defaultAccountId ||
+								ctx.state.activeAccount?.id
+							const account = accountId
+								? await this.accountsService.getOneWithAssets(accountId, userAny.id)
+								: null
+							const hasUsdc =
+								(account?.assets ?? []).some(
+									a => String(a.currency ?? '').toUpperCase() === 'USDC'
+								) ||
+								(
+									await this.prisma.transaction.count({
+										where: {
+											userId: userAny.id,
+											OR: [
+												{ currency: 'USDC' },
+												{ convertToCurrency: 'USDC' },
+												{ tradeBaseCurrency: 'USDC' },
+												{ tradeQuoteCurrency: 'USDC' }
+											]
+										}
+									})
+								) > 0
+							quoteCurrency = hasUsdc ? 'USDC' : 'USDT'
+						}
+						if (
+							!quoteCurrency ||
+							!supportedCodes.has(quoteCurrency) ||
+							quoteCurrency === parsedPair.baseCurrency
+						) {
+							await ctx.reply(
+								'Не удалось определить вторую валюту пары. Укажите формат BASE/QUOTE.'
+							)
+								return
+							}
+							let baseAmount = Math.abs(
+								Number(
+									(current as any).tradeBaseAmount ??
+										((current as any).tradeType === 'buy'
+											? (current as any).convertedAmount
+											: (current as any).amount)
+								)
+							)
+							if (!(baseAmount > 0)) {
+								await ctx.reply('Не удалось определить количество базового актива.')
+								return
+							}
+							const applied = await applyTradeCanonicalFromBase({
+								baseCurrency: parsedPair.baseCurrency,
+								quoteCurrency,
+								baseAmount
+							})
+							if (!applied) return
+							break
+						}
+
+					case 'executionPrice': {
+						const normalized = value.replace(/\s/g, '').replace(',', '.')
+						const executionPrice = Number(normalized)
+						if (!Number.isFinite(executionPrice) || executionPrice <= 0) {
+							await ctx.reply('Некорректная цена, попробуйте снова')
+							return
+						}
+						if (!(current as any).tradeType) {
+							await ctx.reply('Ср. цена доступна только для покупки/продажи')
+							return
+						}
+						const tradeType = (current as any).tradeType as TradeType
+						const baseCurrency = String(
+							(current as any).tradeBaseCurrency ||
+								(tradeType === 'buy'
+									? (current as any).convertToCurrency
+									: (current as any).currency) ||
+								''
+						).toUpperCase()
+						const quoteCurrency = String(
+							(current as any).tradeQuoteCurrency ||
+								(tradeType === 'buy'
+									? (current as any).currency
+									: (current as any).convertToCurrency) ||
+								''
+						).toUpperCase()
+						const baseAmountRaw =
+							tradeType === 'buy'
+								? Number((current as any).convertedAmount)
+								: Number((current as any).amount)
+						if (!Number.isFinite(baseAmountRaw) || baseAmountRaw <= 0) {
+							await ctx.reply('Не удалось определить количество базового актива.')
+							return
+						}
+						const baseAmount = Math.abs(baseAmountRaw)
+						const quoteAmountRaw = baseAmount * executionPrice
+						const quoteAmount = await this.exchangeService.roundByCurrency(
+							quoteAmountRaw,
+							quoteCurrency
+						)
+						if (tradeType === 'buy') {
+							;(current as any).amount = quoteAmount
+							;(current as any).currency = quoteCurrency
+							;(current as any).convertedAmount = baseAmount
+							;(current as any).convertToCurrency = baseCurrency
+						} else {
+							;(current as any).amount = baseAmount
+							;(current as any).currency = baseCurrency
+							;(current as any).convertedAmount = quoteAmount
+							;(current as any).convertToCurrency = quoteCurrency
+						}
+						;(current as any).tradeBaseCurrency = baseCurrency
+						;(current as any).tradeBaseAmount = baseAmount
+						;(current as any).tradeQuoteCurrency = quoteCurrency
+						;(current as any).tradeQuoteAmount = quoteAmount
+						;(current as any).executionPrice = executionPrice
+						const meta: TradeMeta = {
+							type: tradeType,
+							baseCurrency,
+							baseAmount,
+							quoteCurrency,
+							quoteAmount,
+							executionPrice,
+							feeCurrency: (current as any).tradeFeeCurrency,
+							feeAmount: Number((current as any).tradeFeeAmount ?? 0) || undefined
+						}
+							;(current as any).rawText = attachTradeMeta(
+								stripTradeMeta(String((current as any).rawText ?? '')),
+								meta
+							)
+							if (
+								isGenericTradeDescription(
+									(current as any).description,
+									baseCurrency,
+									quoteCurrency
+								)
+							) {
+								;(current as any).description = 'Ордер'
+							}
+							break
+						}
+
+						case 'tradeFeeAmount': {
+							if (!(current as any).tradeType) {
+								await ctx.reply('Комиссия доступна только для покупки/продажи')
+								return
+							}
+							const normalized = value.replace(/\s/g, '').replace(',', '.')
+							const feeAmount = Number(normalized)
+							if (!Number.isFinite(feeAmount) || feeAmount <= 0) {
+								await ctx.reply('Некорректная комиссия, попробуйте снова')
+								return
+							}
+							const quoteCurrency = normalizeCode(
+								(current as any).tradeQuoteCurrency ||
+									((current as any).tradeType === 'buy'
+										? (current as any).currency
+										: (current as any).convertToCurrency)
+							)
+							;(current as any).tradeFeeAmount = await this.exchangeService.roundByCurrency(
+								Math.abs(feeAmount),
+								quoteCurrency || 'USDT'
+							)
+							if (!(current as any).tradeFeeCurrency) {
+								;(current as any).tradeFeeCurrency = quoteCurrency || 'USDT'
+							}
+							break
+						}
 
 					default:
 						break
@@ -1563,20 +2091,35 @@ export class BotService implements OnModuleInit {
 						amount: (current as any).amount,
 						currency: (current as any).currency,
 						direction: (current as any).direction,
+						tradeType: (current as any).tradeType ?? null,
+						tradeBaseCurrency: (current as any).tradeBaseCurrency ?? null,
+						tradeBaseAmount: (current as any).tradeBaseAmount ?? null,
+							tradeQuoteCurrency: (current as any).tradeQuoteCurrency ?? null,
+							tradeQuoteAmount: (current as any).tradeQuoteAmount ?? null,
+							executionPrice: (current as any).executionPrice ?? null,
+							tradeFeeCurrency: (current as any).tradeFeeCurrency ?? null,
+							tradeFeeAmount: (current as any).tradeFeeAmount ?? null,
+							categoryId: (current as any).categoryId ?? null,
 						category: (current as any).category,
 						description: (current as any).description,
+						rawText: (current as any).rawText,
 						transactionDate:
 							normalizeTxDate((current as any).transactionDate) ?? undefined,
 						tagId: (current as any).tagId ?? null,
 						convertedAmount: (current as any).convertedAmount ?? null,
 						convertToCurrency: (current as any).convertToCurrency ?? null,
-						fromAccountId:
-							(current as any).direction === 'transfer'
-								? ((current as any).accountId ?? null)
-								: null,
-						toAccountId: (current as any).toAccountId ?? null
-					})
-				}
+							fromAccountId:
+								(current as any).direction === 'transfer'
+									? ((current as any).accountId ?? null)
+									: null,
+							toAccountId:
+								(current as any).toAccountId ??
+								((current as any).tradeType &&
+								(current as any).direction === 'transfer'
+									? ((current as any).accountId ?? null)
+									: null)
+						})
+					}
 
 				// успешное редактирование
 				ctx.session.editingField = undefined
@@ -1624,8 +2167,10 @@ export class BotService implements OnModuleInit {
 									drafts.length,
 									index,
 									showConversion,
-									(current as any)?.direction === 'transfer',
-									!!(ctx.session as any).editingTransactionId
+									(current as any)?.direction === 'transfer' &&
+										!(current as any)?.tradeType,
+									!!(ctx.session as any).editingTransactionId,
+									(current as any)?.tradeType
 								)
 							}
 						)
@@ -1794,6 +2339,8 @@ export class BotService implements OnModuleInit {
 
 			if (ctx.session.editingAccountDetailsId) {
 				const accountId = ctx.session.editingAccountDetailsId
+				const editMode = ctx.session.editingAccountField ?? 'jarvis'
+				const isNameEdit = editMode === 'name'
 				const user: any = ctx.state.user
 				if (!user) return
 				const account = await this.accountsService.getOneWithAssets(
@@ -1804,50 +2351,67 @@ export class BotService implements OnModuleInit {
 					ctx.session.editingAccountDetailsId = undefined
 					return
 				}
-				const current = {
-					name: account.name,
-					assets: account.assets.map(a => ({
-						currency: a.currency,
-						amount: a.amount
-					}))
-				}
+					const current = {
+						name: account.name,
+						assets: account.assets.map(a => ({
+							currency: a.currency,
+							amount: Number(a.amount)
+						}))
+					}
 				let updatedDraft:
 					| { name: string; assets: { currency: string; amount: number }[] }
 					| undefined
 				try {
-					const updated = await this.llmService.parseAccountEdit(current, text)
-					if (
-						!ctx.state.isPremium &&
-						updated.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT
-					) {
-						await this.subscriptionService.trackEvent(
-							user.id,
-							PremiumEventType.limit_hit,
-							'assets'
-						)
-						await ctx.reply(
-							`💠 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`,
-							{
-								reply_markup: new InlineKeyboard()
-									.text('💠 Pro-тариф', 'view_premium')
-									.row()
-									.text('Закрыть', 'hide_message')
+					if (isNameEdit) {
+						let candidateName = text
+						try {
+							const parsed = await this.llmService.parseAccount(text)
+							if (parsed?.[0]?.name) {
+								candidateName = parsed[0].name
 							}
-						)
+						} catch {}
+						updatedDraft = {
+							name: this.normalizeAccountName(candidateName),
+							assets: current.assets.map(a => ({
+								currency: a.currency,
+								amount: a.amount
+							}))
+						}
+					} else {
+						const updated = await this.llmService.parseAccountEdit(current, text)
+						if (
+							!ctx.state.isPremium &&
+							updated.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT
+						) {
+							await this.subscriptionService.trackEvent(
+								user.id,
+								PremiumEventType.limit_hit,
+								'assets'
+							)
+							await ctx.reply(
+								`💠 На одном счёте можно до ${FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT} валют в Free. Разблокируйте безлимит с Premium!`,
+								{
+									reply_markup: new InlineKeyboard()
+										.text('💠 Pro-тариф', 'view_premium')
+										.row()
+										.text('Закрыть', 'hide_message')
+								}
+							)
 							return
 						}
-					updatedDraft = {
-						name: updated.name,
-						assets: updated.assets.map(a => ({
-							currency: a.currency,
-							amount: a.amount
-						}))
+						updatedDraft = {
+							name: current.name,
+							assets: updated.assets.map(a => ({
+								currency: a.currency,
+								amount: a.amount
+							}))
+						}
 					}
-					await this.accountsService.updateAccountWithAssets(
-						accountId,
-						user.id,
-						updated
-					)
+						await this.accountsService.updateAccountWithAssets(
+							accountId,
+							user.id,
+							updatedDraft ?? current
+						)
 				} catch {
 					await ctx.reply(
 						'Не удалось применить изменения, попробуйте сформулировать иначе.'
@@ -1880,21 +2444,32 @@ export class BotService implements OnModuleInit {
 						include: { tag: true, toAccount: true }
 					})
 					const lastTransactions: AccountLastTxRow[] = []
-					for (const tx of lastTxs) {
-						const amt =
-							tx.convertedAmount != null && tx.convertToCurrency
-								? tx.convertedAmount
-								: tx.amount
+						for (const tx of lastTxs) {
+							const amt =
+								tx.convertedAmount != null && tx.convertToCurrency
+									? Number(tx.convertedAmount)
+									: Number(tx.amount)
 						const cur =
 							tx.convertedAmount != null && tx.convertToCurrency
 								? tx.convertToCurrency
 								: tx.currency
-						const amountMain =
-							(await this.exchangeService.convert(amt, cur, mainCurrency)) ?? 0
-						const signed =
-							tx.direction === 'expense' ? -Math.abs(tx.amount) : Math.abs(tx.amount)
+							const amountMain =
+								(await this.exchangeService.convert(amt, cur, mainCurrency)) ?? 0
+							const tradeType = (tx.tradeType as 'buy' | 'sell' | null) ?? null
+							const signed =
+								tradeType === 'buy'
+									? Math.abs(Number(tx.tradeBaseAmount ?? tx.amount))
+									: tradeType === 'sell'
+										? -Math.abs(Number(tx.tradeBaseAmount ?? tx.amount))
+										: tx.direction === 'expense'
+											? -Math.abs(Number(tx.amount))
+											: Math.abs(Number(tx.amount))
 						lastTransactions.push({
 							direction: tx.direction,
+							tradeType,
+							tradeBaseAmount:
+								tx.tradeBaseAmount != null ? Number(tx.tradeBaseAmount) : null,
+							tradeBaseCurrency: tx.tradeBaseCurrency ?? null,
 							amount: signed,
 							currency: tx.currency,
 							amountMain: Math.abs(amountMain),
@@ -2059,7 +2634,7 @@ export class BotService implements OnModuleInit {
 						}
 					)
 				}
-				if (updatedDraft) {
+				if (updatedDraft && !isNameEdit) {
 					const beforeMap = new Map<string, number>()
 					for (const a of current.assets) {
 						beforeMap.set(String(a.currency).toUpperCase(), Number(a.amount))
@@ -2093,7 +2668,7 @@ export class BotService implements OnModuleInit {
 					ctx.session.pendingAccountDeltaOps = ops
 					if (ops.length > 0) {
 						const prompt = await ctx.reply(
-							'Создать операцию для этого действия?',
+							'Создать транзакцию для этого действия?',
 							{
 								reply_markup: new InlineKeyboard()
 									.text('Да', 'account_delta_create_tx_yes')
@@ -2104,6 +2679,7 @@ export class BotService implements OnModuleInit {
 					}
 				}
 				ctx.session.editingAccountDetailsId = undefined
+				ctx.session.editingAccountField = undefined
 				return
 			}
 
@@ -2121,7 +2697,10 @@ export class BotService implements OnModuleInit {
 				try {
 					const parsed = await this.llmService.parseAccount(text)
 					if (parsed && parsed.length) {
-						drafts[index] = parsed[0]
+						drafts[index] = {
+							...parsed[0],
+							name: current.name
+						}
 					}
 				} catch {}
 
@@ -2268,9 +2847,12 @@ export class BotService implements OnModuleInit {
 				return
 			}
 
-			if (ctx.session.awaitingCategoryName && ctx.session.editingCategory) {
-				const userId = ctx.state.user.id
-				const nameInput = (text || '').trim()
+				if (ctx.session.awaitingCategoryName && ctx.session.editingCategory) {
+					const userId = ctx.state.user.id
+					const fromPreviewCategoryCreate = Boolean(
+						(ctx.session as any).categoryCreateFromPreview
+					)
+					const nameInput = (text || '').trim()
 				if (!nameInput) {
 					await ctx.reply('Название не может быть пустым')
 					return
@@ -2329,13 +2911,81 @@ export class BotService implements OnModuleInit {
 					} catch {}
 					ctx.session.categoriesHintMessageId = undefined
 				}
-				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
-				} catch {}
-				ctx.session.awaitingCategoryName = false
-				ctx.session.editingCategory = undefined
-				if (createdName != null) {
-					const successKb = {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+					} catch {}
+					ctx.session.awaitingCategoryName = false
+					ctx.session.editingCategory = undefined
+					;(ctx.session as any).categoryCreateFromPreview = false
+					if (fromPreviewCategoryCreate && createdName != null) {
+						const drafts = ctx.session.draftTransactions
+						const index = ctx.session.currentTransactionIndex ?? 0
+						const current = drafts?.[index] as any
+						if (drafts && current && ctx.session.tempMessageId != null) {
+							const selectedCategory = createdName.split(',')[0].trim()
+							current.category = selectedCategory || current.category
+							if (selectedCategory) {
+								const selectedCategoryRow =
+									await this.prisma.category.findFirst({
+										where: {
+											userId: ctx.state.user.id,
+											name: selectedCategory
+										},
+										select: { id: true }
+									})
+								current.categoryId = selectedCategoryRow?.id
+							}
+							const txId = current.id ?? ctx.session.editingTransactionId
+							if (txId) {
+								await this.transactionsService.update(
+									txId,
+									ctx.state.user.id,
+									{
+										categoryId: current.categoryId ?? null,
+										category: current.category
+									}
+								)
+							}
+							const user = ctx.state.user as any
+							const accountId =
+								current.accountId ||
+								user.defaultAccountId ||
+								ctx.state.activeAccount?.id
+							const showConversion = await getShowConversion(
+								current,
+								accountId ?? null,
+								ctx.state.user.id,
+								this.accountsService
+							)
+							try {
+								await ctx.api.editMessageText(
+									ctx.chat!.id,
+									ctx.session.tempMessageId,
+									renderConfirmMessage(
+										current,
+										index,
+										drafts.length,
+										user.defaultAccountId
+									),
+									{
+										parse_mode: 'HTML',
+										reply_markup: confirmKeyboard(
+											drafts.length,
+											index,
+											showConversion,
+											current?.direction === 'transfer' &&
+												!(current as any)?.tradeType,
+											!!ctx.session.editingTransactionId,
+											(current as any)?.tradeType
+										)
+									}
+								)
+							} catch {}
+						}
+						return
+					}
+					if (createdName != null) {
+						const successKb = {
 						inline_keyboard: [
 							[{ text: 'Закрыть', callback_data: 'close_category_success' }]
 						]
@@ -2375,28 +3025,8 @@ export class BotService implements OnModuleInit {
 			if (ctx.session.awaitingTransaction) {
 				let parsed: LlmTransaction[]
 				const user: any = ctx.state.user
-				const [userCategories, frozen, userAccounts] = await Promise.all([
-					this.categoriesService.getAllByUserId(user.id),
-					this.subscriptionService.getFrozenItems(user.id),
-					this.accountsService.getAllByUserIdIncludingHidden(user.id)
-				])
-				const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
-				const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
-				const frozenTagIds = frozen.customTagIdsOverLimit
-				const visibleCategories = userCategories.filter(
-					c => !frozenCategoryIds.has(c.id)
-				)
-				const categoryNames = visibleCategories.map(c => c.name)
-				const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
-					excludeIds: frozenTagIds
-				})
-				const visibleAccounts = userAccounts.filter(
-					(a: any) => !frozenAccountIds.has(a.id)
-				)
-				const accountNames = visibleAccounts
-					.map((a: any) => a.name)
-					.filter((n: string) => n !== 'Вне Wallet')
-				const memoryHints = await this.llmMemoryService.getHints(user.id)
+				const { categoryNames, existingTags, accountNames, memoryHints } =
+					await this.getTransactionParseContext(user.id)
 				await this.llmMemoryService.rememberRuleFromText(user.id, text)
 
 				try {
@@ -2426,7 +3056,7 @@ export class BotService implements OnModuleInit {
 				}
 			parsed = parsed.map(tx => ({
 				...tx,
-				rawText: tx.rawText && tx.rawText.trim().length > 0 ? tx.rawText : text
+				rawText: text
 			}))
 
 				await this.processParsedTransactions(ctx, parsed)
@@ -2459,7 +3089,15 @@ export class BotService implements OnModuleInit {
 			}
 		})
 
-		this.bot.on('message:photo', async ctx => {
+		const processImageMessage = async (
+			ctx: BotContext,
+			params: {
+				fileId: string
+				fileUniqueId: string
+				mimeType: string
+				caption?: string
+			}
+		) => {
 			if (!ctx.session.awaitingTransaction) return
 			const user: any = ctx.state.user
 			if (!user) return
@@ -2476,42 +3114,16 @@ export class BotService implements OnModuleInit {
 				)
 				return
 			}
-			const [userCategories, frozen, userAccounts] = await Promise.all([
-				this.categoriesService.getAllByUserId(user.id),
-				this.subscriptionService.getFrozenItems(user.id),
-				this.accountsService.getAllByUserIdIncludingHidden(user.id)
-			])
-			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
-			const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
-			const frozenTagIds = frozen.customTagIdsOverLimit
-			const visibleCategories = userCategories.filter(
-				c => !frozenCategoryIds.has(c.id)
-			)
-			const categoryNames = visibleCategories.map(c => c.name)
-			const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
-				excludeIds: frozenTagIds
-			})
-			const visibleAccounts = userAccounts.filter(
-				(a: any) => !frozenAccountIds.has(a.id)
-			)
-			const accountNames = visibleAccounts
-				.map((a: any) => a.name)
-				.filter((n: string) => n !== 'Вне Wallet')
-			const memoryHints = await this.llmMemoryService.getHints(user.id)
-
-			const photos = ctx.message.photo
-			if (!photos?.length) return
-			const largest = photos[photos.length - 1]
+			const { categoryNames, existingTags, accountNames, memoryHints } =
+				await this.getTransactionParseContext(user.id)
 			let imageDataUrl: string
 			try {
-				const file = await ctx.api.getFile(largest.file_id)
-				const token = this.config.getOrThrow<string>('BOT_TOKEN')
-				const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
-				const res = await fetch(url)
-				if (!res.ok) throw new Error('Failed to download photo')
-				const buf = Buffer.from(await res.arrayBuffer())
+				const buf = await this.downloadTelegramFile(ctx, params.fileId)
 				const base64 = buf.toString('base64')
-				imageDataUrl = `data:image/jpeg;base64,${base64}`
+				const safeMime = params.mimeType?.startsWith('image/')
+					? params.mimeType
+					: 'image/jpeg'
+				imageDataUrl = `data:${safeMime};base64,${base64}`
 			} catch {
 				await ctx.reply(
 					'Не удалось загрузить фото. Попробуйте ещё раз или отправьте текст.',
@@ -2524,8 +3136,7 @@ export class BotService implements OnModuleInit {
 				)
 				return
 			}
-
-			const userCaption = ctx.message.caption?.trim() || ''
+			const userCaption = params.caption?.trim() || ''
 			if (userCaption) {
 				await this.llmMemoryService.rememberRuleFromText(user.id, userCaption)
 			}
@@ -2556,17 +3167,269 @@ export class BotService implements OnModuleInit {
 				)
 				return
 			}
-
-			const parseToken = `PHOTO_PARSE:${new Date().toISOString().slice(0, 7)}:${largest.file_unique_id}`
+			const parseToken = `PHOTO_PARSE:${new Date().toISOString().slice(0, 7)}:${params.fileUniqueId}`
 			parsed = parsed.map(tx => ({
 				...tx,
 				rawText: userCaption ? `${parseToken} ${userCaption}` : parseToken
+			}))
+			await this.processParsedTransactions(ctx, parsed)
+		}
+
+		this.bot.on('message:photo', async ctx => {
+			const photos = ctx.message.photo
+			if (!photos?.length) return
+			const largest = photos[photos.length - 1]
+			await processImageMessage(ctx, {
+				fileId: largest.file_id,
+				fileUniqueId: largest.file_unique_id,
+				mimeType: 'image/jpeg',
+				caption: ctx.message.caption
+			})
+		})
+
+		this.bot.on('message:document', async ctx => {
+			const doc = ctx.message.document
+			if (!doc?.file_id) return
+			if (!String(doc.mime_type ?? '').startsWith('image/')) return
+			await processImageMessage(ctx, {
+				fileId: doc.file_id,
+				fileUniqueId: doc.file_unique_id,
+				mimeType: doc.mime_type ?? 'image/jpeg',
+				caption: ctx.message.caption
+			})
+		})
+
+		this.bot.on('message:voice', async ctx => {
+			const user: any = ctx.state.user
+			if (!user) return
+			const voice = ctx.message.voice
+			if (!voice?.file_id) return
+
+			// Голосом можно редактировать счёт в Jarvis-режиме.
+			if (
+				ctx.session.editingAccountField === 'jarvis' &&
+				ctx.session.draftAccounts
+			) {
+				let transcript = ''
+				try {
+					const audioBuffer = await this.downloadTelegramFile(ctx, voice.file_id)
+					transcript = await this.llmService.transcribeVoice(
+						audioBuffer,
+						voice.mime_type,
+						'Транскрибируй финансовые данные счёта максимально точно.'
+					)
+				} catch {
+					await ctx.reply('Не удалось распознать голосовое сообщение, попробуйте ещё раз.')
+					return
+				}
+				if (!transcript) {
+					await ctx.reply('Не удалось распознать голосовое сообщение, попробуйте ещё раз.')
+					return
+				}
+
+				const drafts = ctx.session.draftAccounts
+				if (!drafts.length) return
+				const index = ctx.session.currentAccountIndex ?? 0
+				const current = drafts[index]
+				try {
+					const parsed = await this.llmService.parseAccount(transcript)
+					if (parsed?.length) {
+						drafts[index] = {
+							...parsed[0],
+							name: current.name
+						}
+					}
+				} catch {}
+
+				ctx.session.editingAccountField = undefined
+				if (ctx.session.editMessageId) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+					} catch {}
+					ctx.session.editMessageId = undefined
+				}
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+				} catch {}
+				if (ctx.session.tempMessageId != null) {
+					await refreshAccountsPreview(ctx as any)
+				}
+				return
+			}
+
+			if (
+				ctx.session.editingAccountField === 'name' &&
+				ctx.session.draftAccounts
+			) {
+				let transcript = ''
+				try {
+					const audioBuffer = await this.downloadTelegramFile(ctx, voice.file_id)
+					transcript = await this.llmService.transcribeVoice(
+						audioBuffer,
+						voice.mime_type,
+						'Транскрибируй новое название финансового счёта пользователя точно.'
+					)
+				} catch {
+					await ctx.reply('Не удалось распознать голосовое сообщение, попробуйте ещё раз.')
+					return
+				}
+				if (!transcript) {
+					await ctx.reply('Не удалось распознать голосовое сообщение, попробуйте ещё раз.')
+					return
+				}
+				const drafts = ctx.session.draftAccounts
+				if (!drafts.length) return
+				const index = ctx.session.currentAccountIndex ?? 0
+				const current = drafts[index]
+				let nextName = transcript
+				try {
+					const parsed = await this.llmService.parseAccount(transcript)
+					if (parsed?.length && parsed[0]?.name) nextName = parsed[0].name
+				} catch {}
+				current.name = this.normalizeAccountName(nextName)
+				ctx.session.editingAccountField = undefined
+				if (ctx.session.editMessageId) {
+					try {
+						await ctx.api.deleteMessage(
+							ctx.chat!.id,
+							ctx.session.editMessageId
+						)
+					} catch {}
+					ctx.session.editMessageId = undefined
+				}
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+				} catch {}
+				if (ctx.session.tempMessageId != null) {
+					await refreshAccountsPreview(ctx as any)
+				}
+				return
+			}
+
+			if (!ctx.session.awaitingTransaction) return
+			const { categoryNames, existingTags, accountNames, memoryHints } =
+				await this.getTransactionParseContext(user.id)
+
+			let transcript = ''
+			try {
+				const audioBuffer = await this.downloadTelegramFile(ctx, voice.file_id)
+				transcript = await this.llmService.transcribeVoice(
+					audioBuffer,
+					voice.mime_type,
+					'Транскрибируй финансовую операцию пользователя точно и без сокращений.'
+				)
+			} catch (e: unknown) {
+				const err = e instanceof Error ? e : new Error(String(e))
+				this.logger.warn(`voice transcription failed: ${err.message}`, err.stack)
+				await ctx.reply(
+					'Не удалось распознать голосовое сообщение. Попробуйте ещё раз или отправьте текстом.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+			if (!transcript) {
+				await ctx.reply(
+					'Не удалось получить текст из голосового сообщения. Попробуйте отправить ещё раз.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+
+			await this.llmMemoryService.rememberRuleFromText(user.id, transcript)
+			let parsed: LlmTransaction[]
+			try {
+				parsed = await this.llmService.parseTransaction(
+					transcript,
+					categoryNames,
+					existingTags,
+					accountNames,
+					memoryHints
+				)
+			} catch (e: unknown) {
+				const err = e instanceof Error ? e : new Error(String(e))
+				this.logger.warn(`parseTransaction (voice) failed: ${err.message}`, err.stack)
+				await ctx.reply(
+					'Техническая ошибка парсинга (ИИ недоступен или превышен лимит). Обратитесь к разработчику: @sselnorr',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+			const parseToken = `VOICE_PARSE:${new Date().toISOString().slice(0, 7)}:${voice.file_unique_id}`
+			parsed = parsed.map(tx => ({
+				...tx,
+				rawText: `${parseToken} ${transcript}`
 			}))
 			await this.processParsedTransactions(ctx, parsed)
 		})
 
 			this.bot.start()
 		}
+
+	private async getTransactionParseContext(userId: string): Promise<{
+		categoryNames: string[]
+		existingTags: string[]
+		accountNames: string[]
+		memoryHints: string[]
+	}> {
+		const [userCategories, frozen, userAccounts, memoryHints] = await Promise.all([
+			this.categoriesService.getAllByUserId(userId),
+			this.subscriptionService.getFrozenItems(userId),
+			this.accountsService.getAllByUserIdIncludingHidden(userId),
+			this.llmMemoryService.getHints(userId)
+		])
+		const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+		const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
+		const frozenTagIds = frozen.customTagIdsOverLimit
+		const visibleCategories = userCategories.filter(
+			c => !frozenCategoryIds.has(c.id)
+		)
+		const categoryNames = visibleCategories.map(c => c.name)
+		const categoryIdByName = new Map(
+			visibleCategories.map(c => [c.name, c.id])
+		)
+		const existingTags = await this.tagsService.getNamesAndAliases(userId, {
+			excludeIds: frozenTagIds
+		})
+		const visibleAccounts = userAccounts.filter(
+			(a: any) => !frozenAccountIds.has(a.id)
+		)
+		const accountNames = visibleAccounts
+			.map((a: any) => a.name)
+			.filter((n: string) => n !== 'Вне Wallet')
+		return { categoryNames, existingTags, accountNames, memoryHints }
+	}
+
+	private normalizeAccountName(value: string): string {
+		const cleaned = String(value ?? '')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.replace(/[.,;:!?]+$/g, '')
+		if (!cleaned) return 'Счёт'
+		return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+	}
+
+	private async downloadTelegramFile(
+		ctx: BotContext,
+		fileId: string
+	): Promise<Buffer> {
+		const file = await ctx.api.getFile(fileId)
+		if (!file.file_path) {
+			throw new Error('Telegram did not return file_path')
+		}
+		const token = this.config.getOrThrow<string>('BOT_TOKEN')
+		const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
+		const res = await fetch(url)
+		if (!res.ok) {
+			throw new Error(`Failed to download Telegram file: ${res.status}`)
+		}
+		return Buffer.from(await res.arrayBuffer())
+	}
 
 	private async replyHelp(ctx: BotContext) {
 		const text = `📘 Помощь
@@ -2668,6 +3531,56 @@ Pro открывает:
 			)
 			return
 		}
+		const toPositive = (value: unknown): number | null => {
+			const num = Number(value)
+			if (!Number.isFinite(num)) return null
+			const abs = Math.abs(num)
+			return abs > 0 ? abs : null
+		}
+		const normalizedWithAmount = parsed
+			.map(tx => {
+				const amount = toPositive((tx as any).amount)
+				const tradeBaseAmount = toPositive((tx as any).tradeBaseAmount)
+				const tradeQuoteAmount = toPositive((tx as any).tradeQuoteAmount)
+				const convertedAmount = toPositive((tx as any).convertedAmount)
+				const executionPrice = toPositive((tx as any).executionPrice)
+				const tradeType = (tx as any).tradeType as 'buy' | 'sell' | undefined
+				const hasAnyAmount =
+					amount != null ||
+					tradeBaseAmount != null ||
+					tradeQuoteAmount != null ||
+					convertedAmount != null
+				if (!hasAnyAmount) return null
+				const normalized: any = { ...tx }
+				if (amount != null) {
+					normalized.amount = amount
+				} else if (tradeType === 'buy') {
+					normalized.amount =
+						tradeQuoteAmount ??
+						(tradeBaseAmount != null && executionPrice != null
+							? tradeBaseAmount * executionPrice
+							: undefined)
+				} else if (tradeType === 'sell') {
+					normalized.amount =
+						tradeBaseAmount ??
+						(convertedAmount != null && executionPrice != null && executionPrice > 0
+							? convertedAmount / executionPrice
+							: undefined)
+				}
+				return normalized
+			})
+			.filter(Boolean) as LlmTransaction[]
+		if (!normalizedWithAmount.length) {
+			await ctx.reply(
+				'Не удалось извлечь сумму операции ни из текста, ни со скриншота. Укажите сумму в сообщении и попробуйте снова.',
+				{
+					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+				}
+			)
+			return
+		}
+		parsed = normalizedWithAmount
+
 		const [userCategories, frozen, userAccounts] = await Promise.all([
 			this.categoriesService.getAllByUserId(user.id),
 			this.subscriptionService.getFrozenItems(user.id),
@@ -2676,24 +3589,44 @@ Pro открывает:
 		const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 		const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
 		const frozenTagIds = frozen.customTagIdsOverLimit
-		const visibleCategories = userCategories.filter(
-			c => !frozenCategoryIds.has(c.id)
-		)
-		const categoryNames = visibleCategories.map(c => c.name)
-		const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
-			excludeIds: frozenTagIds
-		})
-		const outsideWalletAccount = userAccounts.find(
-			(a: any) => a.name === 'Вне Wallet'
-		)
-		const outsideWalletId = outsideWalletAccount?.id ?? null
-		const defaultAccountId =
-			user.defaultAccountId || ctx.state.activeAccount?.id || null
-		const defaultAccount = defaultAccountId
-			? await this.accountsService.getOneWithAssets(
-					defaultAccountId,
-					user.id
+			const visibleCategories = userCategories.filter(
+				c => !frozenCategoryIds.has(c.id)
+			)
+			const categoryNames = visibleCategories.map(c => c.name)
+			const categoryIdByName = new Map(
+				visibleCategories.map(c => [c.name, c.id])
+			)
+				const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+					excludeIds: frozenTagIds
+				})
+			const outsideWalletAccount = userAccounts.find(
+				(a: any) => a.name === 'Вне Wallet'
+			)
+			const outsideWalletId = outsideWalletAccount?.id ?? null
+			const visibleUserAccounts = userAccounts.filter(
+				(a: any) => !a.isHidden && a.name !== 'Вне Wallet'
+			)
+			if (!visibleUserAccounts.length) {
+				await ctx.reply(
+					'Сначала добавьте счёт во вкладке «Счета», затем создайте транзакцию.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
 				)
+				return
+			}
+			const defaultAccountId =
+				visibleUserAccounts.find(
+					(a: any) => a.id === user.defaultAccountId
+				)?.id ??
+				visibleUserAccounts.find(
+					(a: any) => a.id === ctx.state.activeAccount?.id
+				)?.id ?? visibleUserAccounts[0]?.id ?? null
+			const defaultAccount = defaultAccountId
+				? await this.accountsService.getOneWithAssets(
+						defaultAccountId,
+						user.id
+					)
 			: null
 		const visibleAccountsWithAssets =
 			await this.accountsService.getAllWithAssets(user.id)
@@ -2710,9 +3643,17 @@ Pro открывает:
 			accountsWithEur.length === 1 ? accountsWithEur[0] : null
 		const accountAliasMap: Record<string, string> = {
 			нал: 'Наличные',
+			налик: 'Наличные',
 			наличные: 'Наличные',
+			cash: 'Наличные',
+			кэш: 'Наличные',
 			байбит: 'Bybit',
+			байбита: 'Bybit',
+			байбите: 'Bybit',
 			bybit: 'Bybit',
+			bybita: 'Bybit',
+			моно: 'Monobank',
+			monobank: 'Monobank',
 			мех: 'MEXC',
 			mexc: 'MEXC'
 		}
@@ -2722,6 +3663,54 @@ Pro открывает:
 			if (!raw) return ''
 			const lower = raw.toLowerCase()
 			return accountAliasMap[lower] ?? raw
+		}
+
+		const normalizeCurrencyAlias = (value?: string | null): string => {
+			const raw = String(value ?? '').trim().toUpperCase()
+			const map: Record<string, string> = {
+				USDT: 'USDT',
+				'ЮСДТ': 'USDT',
+				'USDT.T': 'USDT',
+				USDC: 'USDC',
+				'ЮСДЦ': 'USDC',
+				USD: 'USD',
+				'ДОЛЛАР': 'USD',
+				EUR: 'EUR',
+				'ЕВРО': 'EUR'
+			}
+			return map[raw] ?? raw
+		}
+
+		const parseQuoteCurrencyHint = (text: string): string | null => {
+			const lowered = String(text ?? '').toLowerCase()
+			const m = lowered.match(
+				/\b(?:с|за|в|to|for|from)\s+(usdt|юсдт|usdc|юсдц|usd|доллар|eur|евро)\b/iu
+			)
+			if (!m) return null
+			return normalizeCurrencyAlias(m[1])
+		}
+
+		const parseTradeFeeHint = (
+			text: string,
+			fallbackCurrency?: string | null
+		): { amount: number; currency: string } | null => {
+			const source = String(text ?? '')
+			const patterns = [
+				/(?:торговая\s+комиссия|комиссия|fee)\s*[:=]?\s*([0-9]+(?:[.,][0-9]+)?)\s*([a-zа-я]{2,10})?/iu,
+				/([0-9]+(?:[.,][0-9]+)?)\s*([a-zа-я]{2,10})\s*(?:торговая\s+комиссия|комиссия|fee)/iu
+			]
+			for (const pattern of patterns) {
+				const m = source.match(pattern)
+				if (!m) continue
+				const amount = Number(String(m[1]).replace(',', '.'))
+				if (!Number.isFinite(amount) || amount <= 0) continue
+				const normalizedCurrency = normalizeCurrencyAlias(
+					String(m[2] ?? fallbackCurrency ?? '')
+				).toUpperCase()
+				if (!normalizedCurrency) continue
+				return { amount, currency: normalizedCurrency }
+			}
+			return null
 		}
 
 		const matchAccountByName = (name: string): { id: string; name: string } | null => {
@@ -2753,11 +3742,97 @@ Pro открывает:
 			return null
 		}
 
+		const normalizeForSearch = (value?: string | null): string =>
+			String(value ?? '')
+				.toLowerCase()
+				.replace(/ё/g, 'е')
+				.replace(/\s+/g, ' ')
+				.trim()
+
+		const escapeRegex = (value: string): string =>
+			value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+		const isExplicitAccountMention = (
+			sourceText: string,
+			accountCandidate?: string | null
+		): boolean => {
+			const text = normalizeForSearch(sourceText)
+			const candidate = normalizeForSearch(accountCandidate)
+			if (!text || !candidate) return false
+			const normalizedCandidate = normalizeAccountAlias(candidate).toLowerCase()
+			const forms = new Set<string>([
+				candidate,
+				normalizedCandidate
+			])
+			for (const part of normalizedCandidate.split(/\s+/)) {
+				if (part.length >= 3) forms.add(part)
+			}
+			for (const form of forms) {
+				const term = normalizeForSearch(form)
+				if (!term || term.length < 3) continue
+				const safe = escapeRegex(term)
+				const withPrep = new RegExp(
+					`(?:^|[^\\p{L}\\p{N}])(?:с|со|из|на|в|для|from|to|into|onto)\\s+${safe}(?:[^\\p{L}\\p{N}]|$)`,
+					'iu'
+				)
+				const withAccountWord = new RegExp(
+					`(?:^|[^\\p{L}\\p{N}])(?:счет|счёт|аккаунт|кошелек|кошел[её]к|bank|wallet)\\s+${safe}(?:[^\\p{L}\\p{N}]|$)`,
+					'iu'
+				)
+				if (withPrep.test(text) || withAccountWord.test(text)) {
+					return true
+				}
+			}
+			return false
+		}
+
+		const findLooseMentionedAccount = (
+			sourceText: string
+		): { id: string; name: string } | null => {
+			const text = normalizeForSearch(sourceText)
+			if (!text) return null
+			const asWords = ` ${text} `
+			for (const acc of userAccounts as any[]) {
+				if (acc.name === 'Вне Wallet' || acc.isHidden) continue
+				const accountNorm = normalizeForSearch(acc.name)
+				if (!accountNorm || accountNorm.length < 3) continue
+				if (asWords.includes(` ${accountNorm} `)) {
+					return { id: acc.id, name: acc.name }
+				}
+			}
+			for (const [alias, canonical] of Object.entries(accountAliasMap)) {
+				const aliasNorm = normalizeForSearch(alias)
+				if (!aliasNorm || aliasNorm.length < 3) continue
+				if (!asWords.includes(` ${aliasNorm} `)) continue
+				const matched = matchAccountByName(canonical)
+				if (matched) return matched
+			}
+			return null
+		}
+
 		const normalizeDescriptionKey = (value?: string | null): string =>
 			String(value ?? '')
 				.toLowerCase()
 				.replace(/[^\p{L}\p{N}]+/gu, '')
 				.trim()
+
+		const isGenericDescription = (value?: string | null): boolean => {
+			const key = normalizeDescriptionKey(value)
+			return (
+				!key ||
+				key === 'перевод' ||
+				key === 'transfer' ||
+				key === 'транзакция' ||
+				key === 'transaction' ||
+				key === 'операция' ||
+				key === 'доход' ||
+				key === 'income' ||
+				key === 'расход' ||
+				key === 'expense' ||
+				key === 'платеж' ||
+				key === 'payment'
+			)
+		}
 
 		const isGenericTransferDescription = (value?: string | null): boolean => {
 			const key = normalizeDescriptionKey(value)
@@ -2771,11 +3846,171 @@ Pro открывает:
 			)
 		}
 
+		const deriveDescriptionFallback = (tx: any): string | null => {
+			const raw = String(tx.rawText ?? '')
+				.replace(/\b(?:PHOTO_PARSE|VOICE_PARSE):\S+/g, ' ')
+				.trim()
+			const source = `${raw} ${String(tx.description ?? '')}`
+			const cleaned = source
+				.replace(/[+-]?\d+(?:[.,]\d+)?/g, ' ')
+				.replace(
+					/\b(?:usd|eur|uah|rub|руб|грн|usdt|usdc|btc|eth|bnb|sol|xrp|ada|doge)\b/giu,
+					' '
+				)
+				.replace(
+					/\b(?:доход|расход|перевод|транзакция|операция|платеж|купил|купила|купили|оплата|списание|получил|получила|получено|send|sent|receive|received|income|expense|from|to|на|в|из|с|за|для)\b/giu,
+					' '
+				)
+				.replace(/[^\p{L}\p{N}\s]/gu, ' ')
+				.replace(/\s+/g, ' ')
+				.trim()
+			const stopwords = new Set([
+				'и',
+				'или',
+				'это',
+				'мой',
+				'моя',
+				'мою',
+				'мои',
+				'the',
+				'a',
+				'an',
+				'of',
+				'for'
+			])
+			const normalizedTokens = cleaned
+				.split(' ')
+				.map(t => t.trim())
+				.filter(t => t.length >= 2 && !stopwords.has(t.toLowerCase()))
+			let candidate =
+				normalizedTokens.length > 0
+					? normalizedTokens.slice(0, 2).join(' ')
+					: ''
+			if (!candidate && tx.category && tx.category !== '📦Другое') {
+				candidate = String(tx.category)
+					.replace(/[^\p{L}\p{N}\s]/gu, ' ')
+					.replace(/\s+/g, ' ')
+					.trim()
+					.split(' ')
+					.slice(0, 2)
+					.join(' ')
+			}
+			if (!candidate) return null
+			const normalizedCandidate =
+				candidate.charAt(0).toUpperCase() + candidate.slice(1)
+			if (isGenericDescription(normalizedCandidate)) return null
+			return normalizedCandidate
+		}
+
+		const normalizeForCategoryMatch = (value?: string | null): string =>
+			String(value ?? '')
+				.toLowerCase()
+				.replace(/ё/g, 'е')
+				.replace(/[^\p{L}\p{N}\s]/gu, ' ')
+				.replace(/\s+/g, ' ')
+				.trim()
+
+		const hasAnyToken = (source: string, tokens: string[]): boolean =>
+			tokens.some(token => source.includes(token))
+
+		const pickSpecializedFoodCategory = (
+			sourceText: string,
+			currentCategory?: string | null
+		): string | null => {
+			const normalizedSource = normalizeForCategoryMatch(sourceText)
+			if (!normalizedSource) return null
+			const coffeeAndCafeContextTokens = [
+				'кофе',
+				'капучино',
+				'латте',
+				'эспрессо',
+				'американо',
+				'coffee',
+				'cappuccino',
+				'latte',
+				'espresso'
+			]
+			if (!hasAnyToken(normalizedSource, coffeeAndCafeContextTokens)) {
+				return null
+			}
+			const specializedCategoryTokens = [
+				'каф',
+				'ресторан',
+				'coffee',
+				'cafe',
+				'bar',
+				'bistro'
+			]
+			const broadFoodTokens = ['еда', 'напит', 'продукт', 'food', 'grocery']
+			const candidates = categoryNames.filter(name => {
+				const norm = normalizeForCategoryMatch(name)
+				return hasAnyToken(norm, specializedCategoryTokens)
+			})
+			if (!candidates.length) return null
+			const normalizedCurrent = normalizeForCategoryMatch(currentCategory)
+			if (
+				normalizedCurrent &&
+				hasAnyToken(normalizedCurrent, specializedCategoryTokens)
+			) {
+				return null
+			}
+			const currentLooksBroad =
+				!normalizedCurrent || hasAnyToken(normalizedCurrent, broadFoodTokens)
+			if (!currentLooksBroad) return null
+			candidates.sort((a, b) => {
+				const al = normalizeForCategoryMatch(a).length
+				const bl = normalizeForCategoryMatch(b).length
+				return bl - al
+			})
+			return candidates[0] ?? null
+		}
+
+		const hasDigitalPaymentCue = (sourceText: string): boolean =>
+			/\b(telegram|tg|звезд|звёзд|stars|подписк|premium|донат|donat|donate|service|услуг|vpn|hosting|domain|icloud|youtube|spotify|netflix)\b/iu.test(
+				sourceText
+			)
+
+		const pickDigitalPaymentCategory = (
+			sourceText: string,
+			currentCategory?: string | null
+		): string | null => {
+			const normalizedSource = normalizeForCategoryMatch(sourceText)
+			if (!normalizedSource || !hasDigitalPaymentCue(normalizedSource)) return null
+			const current = normalizeForCategoryMatch(currentCategory)
+			if (current.includes('платеж') || current.includes('платёж')) {
+				return null
+			}
+			const paymentCandidates = categoryNames.filter(name => {
+				const norm = normalizeForCategoryMatch(name)
+				return norm.includes('платеж') || norm.includes('платёж')
+			})
+			if (!paymentCandidates.length) return '📦Другое'
+			paymentCandidates.sort((a, b) => {
+				const an = normalizeForCategoryMatch(a)
+				const bn = normalizeForCategoryMatch(b)
+				const aExact = an === 'платежи' || an === 'платеж'
+				const bExact = bn === 'платежи' || bn === 'платеж'
+				if (aExact && !bExact) return -1
+				if (bExact && !aExact) return 1
+				return an.length - bn.length
+			})
+			return paymentCandidates[0] ?? '📦Другое'
+		}
+
+		const hasTradeExecutionCue = (sourceText: string): boolean =>
+			/\b(order|ордер|исполн|pair|пара|тейкер|мейкер|спот|фьючерс|futures?)\b/iu.test(
+				sourceText
+			)
+
 		const extractTransferCounterparty = (value?: string | null): string | null => {
 			const text = String(value ?? '').replace(/\s+/g, ' ').trim()
 			if (!text) return null
 			const normalizeCandidate = (candidate: string): string | null => {
 				const cleaned = candidate
+					.replace(
+						/^(?:кому|для|на|в|к|to|for|на счет|на сч[её]т|счет|сч[её]т)\s+/iu,
+						''
+					)
 					.replace(/[.,;:!?]+$/g, '')
 					.replace(/\s+/g, ' ')
 					.trim()
@@ -2784,25 +4019,319 @@ Pro открывает:
 				return tokens.join(' ')
 			}
 			const verbMatch = text.match(
-				/(?:отправил|перев[её]л|перекинул|скинул)\s+([^\d,+\-()]{2,40}?)(?=\s+\d|$|\s+(?:евро|eur|usd|usdt|rub|руб|грн|uah|btc|eth)\b)/iu
+				/(?:перевод|отправил|перев[её]л|перекинул|скинул)\s+([^\d,+\-()]{2,40}?)(?=\s+\d|$|\s+(?:евро|eur|usd|usdt|rub|руб|грн|uah|btc|eth)\b)/iu
 			)
 			if (verbMatch) {
 				const candidate = normalizeCandidate(verbMatch[1])
+				if (candidate) return candidate.toLowerCase()
+			}
+			const toMatch = text.match(
+				/\b(?:кому|для|to)\s+([^\d,+\-()]{2,40}?)(?=\s+\d|$|\s+(?:евро|eur|usd|usdt|rub|руб|грн|uah|btc|eth)\b)/iu
+			)
+			if (toMatch) {
+				const candidate = normalizeCandidate(toMatch[1])
 				if (candidate) return candidate.toLowerCase()
 			}
 			const dativeMatch = text.match(
 				/\b(бате|папе|маме|брату|сестре|жене|мужу|сыну|дочери|дочке|другу|подруге)\b/iu
 			)
 			if (dativeMatch) return dativeMatch[1].toLowerCase()
+			const dativeNameMatch = text.match(
+				/\b(?:перевод|перев[её]л|отправил|перекинул|скинул)\s+([а-яёa-z][а-яёa-z'-]{2,})\b/iu
+			)
+			if (dativeNameMatch) {
+				const candidate = normalizeCandidate(dativeNameMatch[1])
+				if (candidate) return candidate.toLowerCase()
+			}
 			return null
+		}
+
+		const shouldIgnoreLlmDateFromAmount = (
+			rawText: string,
+			txLike: any,
+			llmDate?: string | null
+		): boolean => {
+			if (!llmDate) return false
+			const dt = normalizeTxDate(llmDate)
+			if (!dt) return false
+			const text = stripParseMarkers(String(rawText ?? ''))
+			if (!text.trim()) return false
+			if (extractExplicitDateFromText(text)) return false
+			const parseDayMonth = (
+				token: string
+			): { day: number; month: number } | null => {
+				const m = String(token ?? '').match(/^(\d{1,3})[.,](\d{1,8})$/)
+				if (!m) return null
+				const day = Number(m[1])
+				const month = Number(m[2])
+				if (!Number.isFinite(day) || !Number.isFinite(month)) return null
+				if (day < 1 || day > 31 || month < 1 || month > 12) return null
+				return { day, month }
+			}
+			const parsedTokens: Array<{ day: number; month: number }> = []
+			const amountWithCurrency = /(\d{1,3}[.,]\d{1,8})\s*(?:[a-zа-я]{2,12}|[$€₴₽])/giu
+			const currencyWithAmount = /(?:[a-zа-я]{2,12}|[$€₴₽])\s*(\d{1,3}[.,]\d{1,8})/giu
+			for (const m of text.matchAll(amountWithCurrency)) {
+				const parsed = parseDayMonth(m[1] ?? '')
+				if (parsed) parsedTokens.push(parsed)
+			}
+			for (const m of text.matchAll(currencyWithAmount)) {
+				const parsed = parseDayMonth(m[1] ?? '')
+				if (parsed) parsedTokens.push(parsed)
+			}
+			const numericCandidates = [
+				Number(txLike?.amount ?? NaN),
+				Number(txLike?.tradeBaseAmount ?? NaN),
+				Number(txLike?.tradeQuoteAmount ?? NaN),
+				Number(txLike?.convertedAmount ?? NaN)
+			]
+			for (const candidate of numericCandidates) {
+				if (!Number.isFinite(candidate) || candidate <= 0) continue
+				const raw = Math.abs(candidate).toString()
+				if (!raw.includes('.') || raw.includes('e')) continue
+				const parsed = parseDayMonth(raw)
+				if (parsed) parsedTokens.push(parsed)
+			}
+			if (!parsedTokens.length) return false
+			const llmDay = dt.getDate()
+			const llmMonth = dt.getMonth() + 1
+			return parsedTokens.some(p => p.day === llmDay && p.month === llmMonth)
+		}
+
+		const stripParseMarkers = (value?: string | null): string =>
+			String(value ?? '')
+				.replace(/\b(?:PHOTO_PARSE|VOICE_PARSE):\S+/g, ' ')
+				.replace(/\s+/g, ' ')
+				.trim()
+
+		const hasTradeBuyVerb = (text: string): boolean =>
+			/\b(купил|купила|купили|покупка|buy|bought|лонг|докупил|докупка)\b/iu.test(
+				text
+			)
+
+		const hasTradeSellVerb = (text: string): boolean =>
+			/\b(продал|продала|продали|продажа|sell|sold|шорт|закрыл)\b/iu.test(text)
+
+		const hasCryptoCue = (text: string): boolean =>
+			/\b(btc|eth|usdt|usdc|bnb|sol|xrp|ada|doge|ton|trx|ltc|xmr|dot|matic|avax|atom|link|uni|arb|op)\b/iu.test(
+				text
+			) || /\b(крипт|бирж|спот|фьючерс|фьюч|token|coin)\b/iu.test(text)
+
+		const getAccountAssetAmount = (account: any, currency: string): number => {
+			const target = String(currency ?? '').toUpperCase()
+			if (!target) return 0
+			const asset = (account?.assets ?? []).find(
+				(a: any) => String(a.currency ?? '').toUpperCase() === target
+			)
+			const amount = Number(asset?.amount ?? 0)
+			return Number.isFinite(amount) ? amount : 0
+		}
+
+		const accountHasAsset = (account: any, currency: string): boolean =>
+			getAccountAssetAmount(account, currency) !== 0 ||
+			(account?.assets ?? []).some(
+				(a: any) => String(a.currency ?? '').toUpperCase() === String(currency ?? '').toUpperCase()
+			)
+
+		const hasPairLikeCue = (sourceText: string, currencyHint?: string | null): boolean => {
+			const text = `${String(sourceText ?? '')} ${String(currencyHint ?? '')}`.toUpperCase()
+			return (
+				/\b[A-Z]{2,12}\s*\/\s*[A-Z]{2,12}\b/.test(text) ||
+				/\b[A-Z]{2,12}(USDT|USDC|USD|EUR|BTC|ETH|BNB|TON)\b/.test(text)
+			)
+		}
+
+		const parsePairToken = (
+			token: string,
+			knownCodes: Set<string>
+		): { baseCurrency: string; quoteCurrency: string } | null => {
+			const raw = String(token ?? '').trim().toUpperCase()
+			if (!raw) return null
+			if (raw.includes('/')) {
+				const parts = raw.split('/')
+				if (parts.length !== 2) return null
+				const baseCurrency = normalizeCurrencyAlias(parts[0]).toUpperCase()
+				const quoteCurrency = normalizeCurrencyAlias(parts[1]).toUpperCase()
+				if (
+					baseCurrency &&
+					quoteCurrency &&
+					knownCodes.has(baseCurrency) &&
+					knownCodes.has(quoteCurrency)
+				) {
+					return { baseCurrency, quoteCurrency }
+				}
+				return null
+			}
+			const compact = raw.replace(/[^A-ZА-ЯЁ0-9]/g, '')
+			if (!compact) return null
+			const sortedCodes = Array.from(knownCodes).sort((a, b) => b.length - a.length)
+			for (const quoteCurrency of sortedCodes) {
+				if (!compact.endsWith(quoteCurrency)) continue
+				const baseCurrency = compact.slice(0, compact.length - quoteCurrency.length)
+				if (!baseCurrency) continue
+				if (knownCodes.has(baseCurrency)) {
+					return { baseCurrency, quoteCurrency }
+				}
+			}
+			return null
+		}
+
+		const parsePairFromText = (
+			text: string,
+			knownCodes: Set<string>
+		): { baseCurrency: string; quoteCurrency: string } | null => {
+			const source = String(text ?? '').toUpperCase()
+			const slashMatch = source.match(/\b([A-ZА-ЯЁ]{2,12})\s*\/\s*([A-ZА-ЯЁ]{2,12})\b/u)
+			if (slashMatch) {
+				const parsed = parsePairToken(`${slashMatch[1]}/${slashMatch[2]}`, knownCodes)
+				if (parsed) return parsed
+			}
+			const compactTokens = source.match(/\b[A-Z]{5,20}\b/g) ?? []
+			for (const token of compactTokens) {
+				const parsed = parsePairToken(token, knownCodes)
+				if (parsed) return parsed
+			}
+			return null
+		}
+
+		const extractAmountByCurrency = (
+			text: string,
+			currency: string
+		): number | null => {
+			const cur = String(currency ?? '').toUpperCase()
+			if (!cur) return null
+			const source = String(text ?? '')
+			const escaped = escapeRegex(cur)
+			const pattern = new RegExp(
+				`([0-9]+(?:[.,][0-9]+)?)\\s*${escaped}\\b|\\b${escaped}\\s*([0-9]+(?:[.,][0-9]+)?)`,
+				'iu'
+			)
+			const m = source.match(pattern)
+			if (!m) return null
+			const raw = m[1] ?? m[2]
+			const num = Number(String(raw).replace(',', '.'))
+			if (!Number.isFinite(num) || num <= 0) return null
+			return Math.abs(num)
+		}
+
+		const pickPreferredQuoteCurrency = (
+			accountLike?: { assets?: Array<{ currency?: string }> } | null,
+			hadUsdcHistory: boolean = false
+		): string | null => {
+			const accountCodes = new Set(
+				(accountLike?.assets ?? [])
+					.map(a => String(a.currency ?? '').toUpperCase())
+					.filter(Boolean)
+			)
+			if (accountCodes.has('USDC')) return 'USDC'
+			if (hadUsdcHistory) return 'USDC'
+			if (accountCodes.has('USDT')) return 'USDT'
+			if (accountCodes.has('USD')) return 'USD'
+			if (accountCodes.has('EUR')) return 'EUR'
+			return null
+		}
+
+		const deriveTradeIntent = (
+			tx: any
+		): { type: TradeType; sourceText: string } | null => {
+			const sourceText = stripParseMarkers(`${tx.rawText ?? ''} ${tx.description ?? ''}`).toLowerCase()
+			if (!sourceText) return null
+			const pairCue = hasPairLikeCue(sourceText, String(tx.currency ?? ''))
+			const explicitTradeFields =
+				!!tx.tradeBaseCurrency ||
+				!!tx.tradeQuoteCurrency ||
+				Number(tx.tradeBaseAmount ?? 0) > 0 ||
+				Number(tx.tradeQuoteAmount ?? 0) > 0 ||
+				Number(tx.executionPrice ?? 0) > 0
+			const tradeExecutionCue = hasTradeExecutionCue(sourceText)
+			const digitalPaymentCue = hasDigitalPaymentCue(sourceText)
+			if (
+				digitalPaymentCue &&
+				!pairCue &&
+				!explicitTradeFields &&
+				!tradeExecutionCue
+			) {
+				return null
+			}
+			const explicit = (tx.tradeType as TradeType | undefined) ?? undefined
+			if (explicit === 'buy' || explicit === 'sell') {
+				return { type: explicit, sourceText }
+			}
+			const buy = hasTradeBuyVerb(sourceText)
+			const sell = hasTradeSellVerb(sourceText)
+			if (!buy && !sell) {
+				return null
+			}
+			const cryptoCue =
+				hasCryptoCue(sourceText) ||
+				isCryptoCurrency(
+					normalizeCurrencyAlias(String(tx.currency ?? '')).toUpperCase()
+				)
+			if (!pairCue && !explicitTradeFields && !tradeExecutionCue && !cryptoCue) {
+				return null
+			}
+			if (buy && !sell) return { type: 'buy', sourceText }
+			if (sell && !buy) return { type: 'sell', sourceText }
+			return null
+		}
+
+		const resolveTradeQuoteAmount = async (
+			baseAmount: number,
+			baseCurrency: string,
+			quoteCurrency: string,
+			txDate?: string | null
+		): Promise<number | null> => {
+			const absBase = Math.abs(baseAmount)
+			if (!(absBase > 0)) return null
+			const from = String(baseCurrency ?? '').toUpperCase()
+			const to = String(quoteCurrency ?? '').toUpperCase()
+			if (!from || !to) return null
+			if (from === to) return absBase
+			let converted: number | null = null
+			const date = normalizeTxDate(txDate)
+			if (date) {
+				const historicalRate = await this.exchangeService.getHistoricalRate(
+					date,
+					from,
+					to
+				)
+				if (historicalRate != null && Number.isFinite(historicalRate) && historicalRate > 0) {
+					converted = absBase * historicalRate
+				}
+			}
+			if (converted == null) {
+				converted = await this.exchangeService.convert(absBase, from, to)
+			}
+			if (converted == null) return null
+			return this.exchangeService.roundByCurrency(converted, to)
+		}
+
+		const toExecutionPrice = async (
+			quoteAmount: number,
+			baseAmount: number,
+			_quoteCurrency: string
+		): Promise<number> => {
+			const base = Math.abs(baseAmount)
+			if (!(base > 0)) return 0
+			const raw = Math.abs(quoteAmount) / base
+			return Number(raw.toFixed(8))
 		}
 
 		const merged = new Map<string, any>()
 		for (const tx of parsed as any[]) {
 			const direction = tx.direction
+			const llmDateCandidate = shouldIgnoreLlmDateFromAmount(
+				String(tx.rawText ?? ''),
+				tx,
+				tx.transactionDate
+			)
+				? null
+				: tx.transactionDate
+			const preferLlmDate = /\bPHOTO_PARSE:\S+/u.test(String(tx.rawText ?? ''))
 			const chosenDate = pickTransactionDate({
 				userText: tx.rawText ?? '',
-				llmDate: tx.transactionDate
+				llmDate: llmDateCandidate,
+				preferLlmDate
 			})
 			tx.transactionDate = chosenDate.toISOString()
 			const txDate = chosenDate.toISOString().slice(0, 10)
@@ -2843,7 +4372,9 @@ Pro открывает:
 		for (const tx of parsedNormalized) {
 			withFeeTransactions.push(tx)
 			const raw = String(tx.rawText ?? '').toLowerCase()
+			const tradeLike = deriveTradeIntent(tx)
 			if (
+				tradeLike ||
 				tx.direction !== 'transfer' ||
 				!isCryptoCurrency(String(tx.currency ?? '')) ||
 				!/комисси|fee/u.test(raw)
@@ -2890,6 +4421,15 @@ Pro открывает:
 			take: 200,
 			include: { tag: true, account: true }
 		})
+		const hadUsdcHistory = recentTx.some(t => {
+			const candidates = [
+				String((t as any).currency ?? '').toUpperCase(),
+				String((t as any).convertToCurrency ?? '').toUpperCase(),
+				String((t as any).tradeQuoteCurrency ?? '').toUpperCase(),
+				String((t as any).tradeBaseCurrency ?? '').toUpperCase()
+			]
+			return candidates.includes('USDC')
+		})
 		const findSimilar = (description?: string | null) => {
 			const target = String(description ?? '').trim().toLowerCase()
 			if (!target) return null
@@ -2902,11 +4442,280 @@ Pro открывает:
 			)
 		}
 
+		const normalizeTradeFields = async (
+			tx: any,
+			tradeIntent: { type: TradeType; sourceText: string }
+		): Promise<boolean> => {
+			const sourceText = stripParseMarkers(
+				`${tx.rawText ?? ''} ${tx.description ?? ''}`
+			)
+			const explicitBaseCurrency = normalizeCurrencyAlias(
+				String(tx.tradeBaseCurrency ?? '')
+			).toUpperCase()
+			const explicitQuoteCurrency = normalizeCurrencyAlias(
+				String(tx.tradeQuoteCurrency ?? '')
+			).toUpperCase()
+			const pairFromCurrency = parsePairToken(String(tx.currency ?? ''), supportedCurrencies)
+			const pairFromText = parsePairFromText(sourceText, supportedCurrencies)
+			const baseCurrency =
+				explicitBaseCurrency ||
+				pairFromCurrency?.baseCurrency ||
+				pairFromText?.baseCurrency ||
+				normalizeCurrencyAlias(String(tx.currency ?? '')).toUpperCase()
+			if (!baseCurrency || !supportedCurrencies.has(baseCurrency)) {
+				tx.__tradeError =
+					'Не удалось определить базовый актив и его количество для покупки/продажи. Укажите, что и в каком количестве купили/продали.'
+				return false
+			}
+			const accountHintId =
+				matchAccountByName(tx.account || tx.fromAccount || '')?.id ??
+				findLooseMentionedAccount(sourceText)?.id ??
+				null
+			const accountForQuote =
+				(accountHintId &&
+					visibleAccountsWithAssets.find((a: any) => a.id === accountHintId)) ||
+				defaultAccount
+			let quoteCurrency =
+				explicitQuoteCurrency ||
+				pairFromCurrency?.quoteCurrency ||
+				pairFromText?.quoteCurrency ||
+				normalizeCurrencyAlias(
+					tx.convertToCurrency ?? parseQuoteCurrencyHint(tradeIntent.sourceText) ?? ''
+				).toUpperCase()
+			if (
+				!quoteCurrency ||
+				!supportedCurrencies.has(quoteCurrency) ||
+				quoteCurrency === baseCurrency
+			) {
+				quoteCurrency = (
+					pickPreferredQuoteCurrency(accountForQuote as any, hadUsdcHistory) ||
+					'USDT'
+				).toUpperCase()
+			}
+			if (
+				!quoteCurrency ||
+				!supportedCurrencies.has(quoteCurrency) ||
+				quoteCurrency === baseCurrency
+			) {
+				const fallbackQuote = ['USDT', 'USDC', 'USD', 'EUR'].find(
+					code => supportedCurrencies.has(code) && code !== baseCurrency
+				)
+				quoteCurrency = fallbackQuote ?? ''
+			}
+			if (tradeIntent.type === 'buy' && quoteCurrency) {
+				const hasQuoteAsset = (visibleAccountsWithAssets as any[]).some(
+					acc => acc.name !== 'Вне Wallet' && accountHasAsset(acc, quoteCurrency)
+				)
+				if (!hasQuoteAsset) {
+					const alternativeQuote = ['USDC', 'USDT', 'USD', 'EUR'].find(
+						code =>
+							code !== baseCurrency &&
+							supportedCurrencies.has(code) &&
+							(visibleAccountsWithAssets as any[]).some(
+								acc => acc.name !== 'Вне Wallet' && accountHasAsset(acc, code)
+							)
+					)
+					if (alternativeQuote) {
+						quoteCurrency = alternativeQuote
+					}
+				}
+			}
+			if (
+				!quoteCurrency ||
+				!supportedCurrencies.has(quoteCurrency) ||
+				quoteCurrency === baseCurrency
+			) {
+				tx.__tradeError =
+					'Не удалось определить вторую валюту пары. Укажите пару в формате BASE/QUOTE (например TON/USDT).'
+				return false
+			}
+
+			let baseAmount = Math.abs(Number(tx.tradeBaseAmount ?? 0))
+			if (!(baseAmount > 0)) {
+				const amount = Math.abs(Number(tx.amount ?? 0))
+				const convertedAmount = Math.abs(Number(tx.convertedAmount ?? 0))
+				const amountCurrency = normalizeCurrencyAlias(String(tx.currency ?? '')).toUpperCase()
+				const convertedCurrency = normalizeCurrencyAlias(
+					String(tx.convertToCurrency ?? '')
+				).toUpperCase()
+				if (amount > 0 && amountCurrency === baseCurrency) baseAmount = amount
+				else if (convertedAmount > 0 && convertedCurrency === baseCurrency) {
+					baseAmount = convertedAmount
+				} else if (tradeIntent.type === 'sell' && amount > 0 && !amountCurrency) {
+					baseAmount = amount
+				}
+			}
+			if (!(baseAmount > 0)) {
+				baseAmount = extractAmountByCurrency(sourceText, baseCurrency) ?? 0
+			}
+			if (!(baseAmount > 0)) {
+				tx.__tradeError =
+					'Не удалось определить базовый актив и его количество для покупки/продажи. Укажите, что и в каком количестве купили/продали.'
+				return false
+			}
+			baseAmount = await this.exchangeService.roundByCurrency(baseAmount, baseCurrency)
+
+			let quoteAmount = Math.abs(Number(tx.tradeQuoteAmount ?? 0))
+			if (!(quoteAmount > 0)) {
+				const amount = Math.abs(Number(tx.amount ?? 0))
+				const convertedAmount = Math.abs(Number(tx.convertedAmount ?? 0))
+				const amountCurrency = normalizeCurrencyAlias(String(tx.currency ?? '')).toUpperCase()
+				const convertedCurrency = normalizeCurrencyAlias(
+					String(tx.convertToCurrency ?? '')
+				).toUpperCase()
+				if (amount > 0 && amountCurrency === quoteCurrency) quoteAmount = amount
+				else if (convertedAmount > 0 && convertedCurrency === quoteCurrency) {
+					quoteAmount = convertedAmount
+				}
+			}
+			if (!(quoteAmount > 0)) {
+				quoteAmount = extractAmountByCurrency(sourceText, quoteCurrency) ?? 0
+			}
+			const explicitExecutionPrice = Number(tx.executionPrice ?? 0)
+			if (!(quoteAmount > 0) && explicitExecutionPrice > 0) {
+				quoteAmount = await this.exchangeService.roundByCurrency(
+					baseAmount * explicitExecutionPrice,
+					quoteCurrency
+				)
+			}
+			if (!(quoteAmount > 0)) {
+				quoteAmount =
+					(await resolveTradeQuoteAmount(
+						baseAmount,
+						baseCurrency,
+						quoteCurrency,
+						tx.transactionDate
+					)) ?? 0
+			}
+			const executionPrice =
+				explicitExecutionPrice > 0
+					? explicitExecutionPrice
+					: await toExecutionPrice(quoteAmount, baseAmount, quoteCurrency)
+			if (!(quoteAmount > 0) || !(executionPrice > 0)) {
+				tx.__tradeError =
+					`Не удалось рассчитать ${tradeIntent.type === 'buy' ? 'покупку' : 'продажу'} ${baseCurrency}. ` +
+					'Укажите сумму во второй валюте (например, USDT/USDC) или среднюю цену выполнения.'
+				return false
+			}
+			quoteAmount = await this.exchangeService.roundByCurrency(quoteAmount, quoteCurrency)
+
+			const explicitFeeAmount = Math.abs(Number(tx.tradeFeeAmount ?? 0))
+			const explicitFeeCurrency = normalizeCurrencyAlias(
+				String(tx.tradeFeeCurrency ?? '')
+			).toUpperCase()
+			const feeFromText = parseTradeFeeHint(
+				`${tx.rawText ?? ''} ${tx.description ?? ''}`,
+				quoteCurrency
+			)
+			const resolvedFeeAmount =
+				explicitFeeAmount > 0 ? explicitFeeAmount : feeFromText?.amount ?? 0
+			let resolvedFeeCurrency =
+				explicitFeeCurrency ||
+				feeFromText?.currency ||
+				quoteCurrency
+			if (!supportedCurrencies.has(resolvedFeeCurrency)) {
+				resolvedFeeCurrency = quoteCurrency
+			}
+			const feeAmountRounded =
+				resolvedFeeAmount > 0
+					? await this.exchangeService.roundByCurrency(
+							resolvedFeeAmount,
+							resolvedFeeCurrency
+						)
+					: 0
+
+			tx.direction = 'transfer'
+			tx.tradeType = tradeIntent.type
+			tx.tradeBaseCurrency = baseCurrency
+			tx.tradeBaseAmount = baseAmount
+			tx.tradeQuoteCurrency = quoteCurrency
+			tx.tradeQuoteAmount = quoteAmount
+			tx.executionPrice = executionPrice
+			tx.tradeFeeCurrency = feeAmountRounded > 0 ? resolvedFeeCurrency : undefined
+			tx.tradeFeeAmount = feeAmountRounded > 0 ? feeAmountRounded : undefined
+			if (tradeIntent.type === 'buy') {
+				tx.amount = quoteAmount
+				tx.currency = quoteCurrency
+				tx.convertToCurrency = baseCurrency
+				tx.convertedAmount = baseAmount
+			} else {
+				tx.amount = baseAmount
+				tx.currency = baseCurrency
+				tx.convertToCurrency = quoteCurrency
+				tx.convertedAmount = quoteAmount
+			}
+				if (
+					!tx.description ||
+					isGenericDescription(tx.description) ||
+					normalizeDescriptionKey(tx.description) === normalizeDescriptionKey(baseCurrency) ||
+					normalizeDescriptionKey(tx.description) === normalizeDescriptionKey(quoteCurrency) ||
+					normalizeDescriptionKey(tx.description) === 'наличные'
+				) {
+					tx.description = 'Ордер'
+				}
+			tx.rawText = attachTradeMeta(stripTradeMeta(String(tx.rawText ?? '')), {
+				type: tx.tradeType,
+				baseCurrency,
+				baseAmount,
+				quoteCurrency,
+				quoteAmount,
+				executionPrice,
+				feeCurrency: tx.tradeFeeCurrency,
+				feeAmount: tx.tradeFeeAmount
+			})
+			return true
+		}
+
 		for (const tx of withFeeTransactions) {
 			if (tx.currency) {
 				tx.currency = String(tx.currency).toUpperCase().trim()
 			}
-			if (tx.currency && !supportedCurrencies.has(tx.currency)) {
+			tx.account = normalizeAccountAlias(tx.account)
+			tx.fromAccount = normalizeAccountAlias(tx.fromAccount)
+			tx.toAccount = normalizeAccountAlias(tx.toAccount)
+			const sourceText = stripParseMarkers(
+				`${tx.rawText ?? ''} ${tx.description ?? ''}`
+			).toLowerCase()
+			const hasMinusSign = /(^|[\s(])-\s*\d/.test(sourceText)
+			const hasPlusSign = /(^|[\s(])\+\s*\d/.test(sourceText)
+			const incomeHintByText =
+				/\b(доход|прибыль|получение|получил|получено|income|receive|received)\b/.test(
+					sourceText
+				)
+			const expenseHintByText =
+				/\b(расход|списани|оплат|покупк|debit|purchase)\b/.test(sourceText)
+			const transferKeywordHint =
+				/\b(перев[её]л|перевод|перекинул|скинул|отправил|send|sent|вывел|снял)\b/.test(
+					sourceText
+				)
+			const transferRouteHint =
+				/(?:^|[\s,])(с|из|from)\s+.+(?:\s|,)(в|на|to|into)\s+/.test(sourceText)
+			const transferCounterpartyHint = !!extractTransferCounterparty(
+				tx.rawText ?? tx.description
+			)
+			const explicitTransferType =
+				/тип\s*[:\-]?\s*перевод|это\s+перевод|\(тип\s*перевод\)/.test(sourceText)
+			const withdrawHint = /\b(вывел|вывод|снял)\b/.test(sourceText)
+			if (
+				transferKeywordHint ||
+				transferRouteHint ||
+				transferCounterpartyHint ||
+				explicitTransferType ||
+				withdrawHint
+			) {
+				tx.direction = 'transfer'
+			} else if (hasPlusSign || incomeHintByText) {
+				tx.direction = 'income'
+			} else if (hasMinusSign || expenseHintByText) {
+				tx.direction = 'expense'
+			}
+			const tradeIntent = deriveTradeIntent(tx)
+			if (tradeIntent) {
+				const normalized = await normalizeTradeFields(tx, tradeIntent)
+				if (!normalized) {
+					continue
+				}
+			} else if (tx.currency && !supportedCurrencies.has(tx.currency)) {
 				await ctx.reply(
 					`Валюта ${tx.currency} не поддерживается, свяжитесь с разработчиком.`,
 					{
@@ -2915,25 +4724,38 @@ Pro открывает:
 				)
 				return
 			}
-			tx.account = normalizeAccountAlias(tx.account)
-			tx.fromAccount = normalizeAccountAlias(tx.fromAccount)
-			tx.toAccount = normalizeAccountAlias(tx.toAccount)
-			const sourceText = `${tx.rawText ?? ''} ${tx.description ?? ''}`.toLowerCase()
-			const transferHint =
-				/(перев[её]л|перевод|перекинул|вывел|снял в нал|в нал)/.test(sourceText) &&
-				/(с |из ).+( в | на )/.test(sourceText)
-			const explicitTransferType =
-				/тип\s*[:\-]?\s*перевод|это\s+перевод|\(тип\s*перевод\)/.test(sourceText)
-			if (transferHint || explicitTransferType) {
-				tx.direction = 'transfer'
-			}
 			if (tx.direction === 'transfer' && isGenericTransferDescription(tx.description)) {
-				const counterparty = extractTransferCounterparty(tx.rawText)
+				const counterparty = extractTransferCounterparty(tx.rawText ?? tx.description)
 				if (counterparty) {
-					tx.description = `Перевод ${counterparty}`
+					tx.description =
+						counterparty.charAt(0).toUpperCase() + counterparty.slice(1)
+				} else if (withdrawHint) {
+					tx.description = 'Вывод'
+				} else {
+					const fallbackName = String(tx.toAccount ?? tx.fromAccount ?? '')
+						.trim()
+					if (
+						fallbackName &&
+						fallbackName !== 'Вне Wallet' &&
+						isExplicitAccountMention(String(tx.rawText ?? ''), fallbackName)
+					) {
+						tx.description = fallbackName
+					}
 				}
 			}
-			if (!tx.category || tx.category === 'Не выбрано' || tx.category === '📦Другое' || !tx.tag_text) {
+			if (isGenericDescription(tx.description)) {
+				const fallbackDescription = deriveDescriptionFallback(tx)
+				if (fallbackDescription) {
+					tx.description = fallbackDescription
+				}
+			}
+			if (
+				!tx.tradeType &&
+				(!tx.category ||
+					tx.category === 'Не выбрано' ||
+					tx.category === '📦Другое' ||
+					!tx.tag_text)
+			) {
 				const similar = findSimilar(tx.description)
 				if (similar) {
 					if (!tx.category || tx.category === 'Не выбрано' || tx.category === '📦Другое') {
@@ -2949,52 +4771,184 @@ Pro открывает:
 					}
 				}
 			}
+			if (!tx.tradeType && tx.direction !== 'transfer') {
+				const specializedCategory = pickSpecializedFoodCategory(
+					`${tx.rawText ?? ''} ${tx.description ?? ''}`,
+					tx.category
+				)
+				if (specializedCategory) {
+					tx.category = specializedCategory
+				}
+			}
+			if (!tx.tradeType && tx.direction === 'expense') {
+				const digitalCategory = pickDigitalPaymentCategory(
+					`${tx.rawText ?? ''} ${tx.description ?? ''}`,
+					tx.category
+				)
+				if (digitalCategory) {
+					tx.category = digitalCategory
+				}
+			}
+		}
+
+		const pickTradeAccountBySoldCurrency = (
+			soldCurrency: string,
+			preferredIds: Array<string | null | undefined>
+		): { id: string; name: string } | null => {
+			const target = String(soldCurrency ?? '').toUpperCase()
+			if (!target) return null
+			const candidates = (visibleAccountsWithAssets as any[]).filter(
+				acc => acc.name !== 'Вне Wallet'
+			)
+			const withAsset = candidates.filter(acc => accountHasAsset(acc, target))
+			if (!withAsset.length) return null
+			for (const id of preferredIds) {
+				if (!id) continue
+				const found = withAsset.find(acc => acc.id === id)
+				if (found) return { id: found.id, name: found.name }
+			}
+			let best: any = null
+			for (const candidate of withAsset) {
+				if (!best) {
+					best = candidate
+					continue
+				}
+				if (getAccountAssetAmount(candidate, target) > getAccountAssetAmount(best, target)) {
+					best = candidate
+				}
+			}
+			return best ? { id: best.id, name: best.name } : null
 		}
 
 		for (const tx of withFeeTransactions) {
 			const isTransfer = tx.direction === 'transfer'
+			const isTrade = tx.tradeType === 'buy' || tx.tradeType === 'sell'
+			const txRawText = stripParseMarkers(String(tx.rawText ?? ''))
 			const parsedAccountStr = isTransfer
 				? (tx.fromAccount && String(tx.fromAccount).trim()) || (tx.account && String(tx.account).trim()) || ''
 				: (tx.account && String(tx.account).trim()) || ''
-			const matched = parsedAccountStr ? matchAccountByName(parsedAccountStr) : null
+			const hasExplicitFromMention = isExplicitAccountMention(txRawText, parsedAccountStr)
+			let matched =
+				parsedAccountStr &&
+				(hasExplicitFromMention || (isTrade && !!parsedAccountStr))
+					? matchAccountByName(parsedAccountStr)
+					: null
+			if (!matched) {
+				matched = findLooseMentionedAccount(txRawText)
+			}
 			const matchedAccountId = matched?.id ?? null
 			tx.accountId = isTransfer
-				? matchedAccountId ?? (parsedAccountStr ? defaultAccountId : outsideWalletId ?? defaultAccountId)
+				? matchedAccountId ?? defaultAccountId
 				: matchedAccountId ?? defaultAccountId
 			let acc = matchedAccountId
 				? userAccounts.find((a: any) => a.id === matchedAccountId)
 				: defaultAccount
 			tx.account = acc?.name ?? defaultAccount?.name ?? null
-			if (
-				!isTransfer &&
-				(matchedAccountId === outsideWalletId ||
-					tx.account === 'Вне Wallet')
-			) {
+			if (!isTransfer && (matchedAccountId === outsideWalletId || tx.account === 'Вне Wallet')) {
 				tx.accountId = defaultAccountId
 				tx.account = defaultAccount?.name ?? null
 				acc = defaultAccount
 			}
-			if (isTransfer) {
-				const toStr = tx.toAccount && String(tx.toAccount).trim()
-				if (toStr) {
-					const toMatched = matchAccountByName(toStr)
-					if (toMatched) {
-						tx.toAccountId = toMatched.id
-						tx.toAccount = toMatched.name
+			if (isTrade) {
+				const soldCurrency = String(
+					tx.tradeType === 'buy' ? tx.tradeQuoteCurrency : tx.tradeBaseCurrency
+				).toUpperCase()
+				if (!soldCurrency || !supportedCurrencies.has(soldCurrency)) {
+					tx.__tradeError =
+						'Не удалось определить валюту, которую нужно продать в сделке. Укажите пару в формате BASE/QUOTE.'
+					continue
+				}
+				const preferredMentioned =
+					findLooseMentionedAccount(txRawText)?.id ?? matchedAccountId
+				const tradeAccount = pickTradeAccountBySoldCurrency(soldCurrency, [
+					preferredMentioned,
+					ctx.state.activeAccount?.id,
+					defaultAccountId
+				])
+				if (!tradeAccount) {
+					tx.__tradeError =
+						`Для ${tx.tradeType === 'buy' ? 'покупки' : 'продажи'} требуется актив ${soldCurrency} на счёте. ` +
+						'Добавьте этот актив в любой счёт и повторите попытку.'
+					continue
+				}
+				tx.accountId = tradeAccount.id
+				tx.account = tradeAccount.name
+				tx.fromAccount = tradeAccount.name
+				tx.toAccountId = tradeAccount.id
+				tx.toAccount = tradeAccount.name
+				acc =
+					visibleAccountsWithAssets.find((a: any) => a.id === tradeAccount.id) ??
+					acc
+			}
+				if (isTransfer) {
+					const toStr = tx.toAccount && String(tx.toAccount).trim()
+					const hasExplicitToMention = isExplicitAccountMention(txRawText, toStr)
+					const withdrawHint = /\b(вывел|вывод|снял)\b/i.test(txRawText)
+					const withdrawWithoutExplicitAccounts =
+						withdrawHint && !hasExplicitFromMention && !hasExplicitToMention
+					if (isTrade) {
+						tx.toAccountId = tx.accountId
+						tx.toAccount = tx.account
+						if (
+							!tx.description ||
+							isGenericDescription(tx.description) ||
+							normalizeDescriptionKey(tx.description) ===
+								normalizeDescriptionKey(tx.tradeBaseCurrency)
+						) {
+							tx.description = 'Ордер'
+						}
 					} else {
+						const explicitCounterparty = extractTransferCounterparty(
+							tx.rawText ?? tx.description
+						)
+						const descriptionCandidate =
+							!isGenericTransferDescription(tx.description) &&
+							tx.description &&
+							tx.description !== 'Вывод'
+								? String(tx.description).trim()
+								: ''
+						const targetCandidate =
+							toStr || explicitCounterparty || descriptionCandidate
+						const toMatched =
+							targetCandidate && targetCandidate !== 'Вне Wallet'
+								? matchAccountByName(targetCandidate)
+								: null
+						if (toMatched) {
+							tx.toAccountId = toMatched.id
+							tx.toAccount = toMatched.name
+						} else {
+							tx.toAccountId = outsideWalletId
+							tx.toAccount = 'Вне Wallet'
+							if (targetCandidate && isGenericTransferDescription(tx.description)) {
+								tx.description =
+									targetCandidate.charAt(0).toUpperCase() +
+									targetCandidate.slice(1)
+							}
+						}
+					}
+					if (!tx.accountId) {
+						tx.accountId = defaultAccountId
+						tx.account = defaultAccount?.name
+					}
+					if (!isTrade && withdrawWithoutExplicitAccounts) {
+						tx.accountId = defaultAccountId
+						tx.account = defaultAccount?.name
 						tx.toAccountId = outsideWalletId
 						tx.toAccount = 'Вне Wallet'
+						tx.description = 'Вывод'
 					}
-				} else {
-					tx.toAccountId = outsideWalletId
-					tx.toAccount = 'Вне Wallet'
+					if (!isTrade && tx.accountId === tx.toAccountId && tx.accountId != null) {
+						if (tx.accountId === outsideWalletId) {
+							tx.accountId = defaultAccountId
+							tx.account = defaultAccount?.name
+						} else if (outsideWalletId) {
+							tx.toAccountId = outsideWalletId
+							tx.toAccount = 'Вне Wallet'
+						}
+					}
 				}
-				if (!tx.accountId) {
-					tx.accountId = outsideWalletId ?? defaultAccountId
-					tx.account = tx.accountId === outsideWalletId ? 'Вне Wallet' : defaultAccount?.name
-				}
-			}
 			if (
+				!isTransfer &&
 				tx.accountId === defaultAccountId &&
 				tx.currency === 'EUR' &&
 				!defaultHasEur &&
@@ -3028,7 +4982,13 @@ Pro открывает:
 			if (!tx.category || !categoryNames.includes(tx.category)) {
 				tx.category = '📦Другое'
 			}
-			if (tx.accountId && tx.currency && typeof tx.amount === 'number') {
+			tx.categoryId = tx.category ? categoryIdByName.get(tx.category) : undefined
+			if (
+				!tx.tradeType &&
+				tx.accountId &&
+				tx.currency &&
+				typeof tx.amount === 'number'
+			) {
 				const account = await this.accountsService.getOneWithAssets(
 					tx.accountId,
 					user.id
@@ -3043,12 +5003,18 @@ Pro открывает:
 					)
 					if (!codes.includes(tx.currency) && codes.length) {
 						tx.convertToCurrency = codes[0]
+						const converted = await this.exchangeService.convert(
+							tx.amount,
+							tx.currency,
+							tx.convertToCurrency
+						)
 						tx.convertedAmount =
-							await this.exchangeService.convert(
-								tx.amount,
-								tx.currency,
-								tx.convertToCurrency
-							)
+							converted == null
+								? null
+								: await this.exchangeService.roundByCurrency(
+										converted,
+										tx.convertToCurrency
+									)
 					}
 				}
 			}
@@ -3065,6 +5031,15 @@ Pro открывает:
 					tx.tagIsNew = resolved.isNew
 				}
 			}
+		}
+		const tradeErrorTx = withFeeTransactions.find(
+			tx => typeof (tx as any).__tradeError === 'string'
+		) as { __tradeError?: string } | undefined
+		if (tradeErrorTx?.__tradeError) {
+			await ctx.reply(tradeErrorTx.__tradeError, {
+				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+			})
+			return
 		}
 
 		const first = withFeeTransactions[0]
@@ -3103,8 +5078,35 @@ Pro открывает:
 		for (const tx of withFeeTransactions) {
 			const isTransfer = tx.direction === 'transfer'
 			const effectiveAccountId =
-				tx.accountId ?? defaultAccountId ?? outsideWalletId ?? null
-			if (!effectiveAccountId) continue
+				isTransfer
+					? tx.accountId ?? defaultAccountId ?? outsideWalletId ?? null
+					: tx.accountId ?? defaultAccountId ?? null
+			if (!effectiveAccountId) {
+				await ctx.reply(
+					'Не удалось определить счёт для транзакции. Добавьте счёт во вкладке «Счета».',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+			if (!isTransfer && effectiveAccountId === outsideWalletId) {
+				await ctx.reply(
+					'Счёт «Вне Wallet» нельзя использовать для доходов и расходов.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+			if (
+				isTransfer &&
+				!tx.tradeType &&
+				tx.toAccountId === effectiveAccountId &&
+				outsideWalletId
+			) {
+				tx.toAccountId = outsideWalletId === effectiveAccountId ? defaultAccountId : outsideWalletId
+			}
 			let tagId = tx.tagId as string | undefined
 			if (tx.tagIsNew && tx.tagName) {
 				const tagLimit = await this.subscriptionService.canCreateTag(user.id)
@@ -3130,23 +5132,43 @@ Pro открывает:
 			if (tagId) {
 				await this.tagsService.incrementUsage(tagId)
 			}
-			const created = await this.transactionsService.create({
-				userId: user.id,
-				accountId: effectiveAccountId,
-				amount: tx.amount ?? 0,
-				currency: tx.currency ?? 'USD',
-				direction: tx.direction,
-				...(isTransfer
-					? {
-							fromAccountId: effectiveAccountId,
-							toAccountId: tx.toAccountId ?? outsideWalletId ?? undefined
+				const created = await this.transactionsService.create({
+					userId: user.id,
+					accountId: effectiveAccountId,
+					amount: tx.amount ?? 0,
+					currency: tx.currency ?? 'USD',
+					direction: tx.direction,
+					tradeType: tx.tradeType ?? undefined,
+					tradeBaseCurrency: tx.tradeBaseCurrency ?? undefined,
+					tradeBaseAmount: tx.tradeBaseAmount ?? undefined,
+					tradeQuoteCurrency: tx.tradeQuoteCurrency ?? undefined,
+					tradeQuoteAmount: tx.tradeQuoteAmount ?? undefined,
+					executionPrice: tx.executionPrice ?? undefined,
+					tradeFeeCurrency: tx.tradeFeeCurrency ?? undefined,
+					tradeFeeAmount: tx.tradeFeeAmount ?? undefined,
+					...(isTransfer
+						? {
+								fromAccountId: effectiveAccountId,
+							toAccountId:
+								tx.toAccountId ??
+								(tx.tradeType ? effectiveAccountId : outsideWalletId ?? undefined)
 						}
-					: { category: tx.category ?? '📦Другое' }),
+					: {
+							categoryId: tx.categoryId ?? undefined,
+							category: tx.category ?? '📦Другое'
+						}),
 				description: tx.description,
 				rawText: tx.rawText || '',
 				transactionDate: pickTransactionDate({
 					userText: tx.rawText ?? '',
-					llmDate: tx.transactionDate
+					llmDate: shouldIgnoreLlmDateFromAmount(
+						String(tx.rawText ?? ''),
+						tx,
+						tx.transactionDate
+					)
+						? null
+						: tx.transactionDate,
+					preferLlmDate: /\bPHOTO_PARSE:\S+/u.test(String(tx.rawText ?? ''))
 				}),
 				tagId: tagId ?? undefined,
 				convertedAmount: tx.convertedAmount,
@@ -3199,8 +5221,9 @@ Pro открывает:
 					withFeeTransactions.length,
 					0,
 					showConversion,
-					first?.direction === 'transfer',
-					false
+					first?.direction === 'transfer' && !(first as any)?.tradeType,
+					false,
+					(first as any)?.tradeType
 				)
 			}
 		)

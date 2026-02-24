@@ -32,8 +32,16 @@ export const repeatParseCallback = (
 		ctx.session.confirmingTransaction = false
 		ctx.session.draftTransactions = undefined
 		ctx.session.currentTransactionIndex = undefined
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingCategoryName = false
+		ctx.session.editingTimezone = false
+		ctx.session.editingAccountField = undefined
+		ctx.session.awaitingTagInput = false
 		ctx.session.editingField = undefined
 		ctx.session.editMessageId = undefined
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
 		;(ctx.session as any).editingTransactionId = undefined
 
 		const text = await buildAddTransactionPrompt(ctx, subscriptionService)

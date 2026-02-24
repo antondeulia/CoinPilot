@@ -10,12 +10,24 @@ export const accountsJarvisEditCallback = (
 		const drafts = ctx.session.draftAccounts
 		if (!drafts || !drafts.length) return
 
+		ctx.session.awaitingTransaction = false
+		ctx.session.confirmingTransaction = false
+		ctx.session.draftTransactions = undefined
+		ctx.session.currentTransactionIndex = undefined
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingCategoryName = false
+		ctx.session.awaitingTagInput = false
+		ctx.session.editingTimezone = false
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
+		ctx.session.editingField = undefined
 		ctx.session.editingAccountField = 'jarvis'
 
 		const msg = await ctx.reply(
 			`Режим Jarvis-редактирования.
 
-Опишите, что нужно изменить в этом счёте.
+Опишите, что нужно изменить в валютах и суммах этого счёта.
 Например: убери доллары и замени грн на 50к грн.`,
 			{
 				parse_mode: 'HTML',
@@ -23,6 +35,34 @@ export const accountsJarvisEditCallback = (
 			}
 		)
 
+		ctx.session.editMessageId = msg.message_id
+	})
+
+	bot.callbackQuery('accounts_name_edit', async ctx => {
+		const drafts = ctx.session.draftAccounts
+		if (!drafts || !drafts.length) return
+
+		ctx.session.awaitingTransaction = false
+		ctx.session.confirmingTransaction = false
+		ctx.session.draftTransactions = undefined
+		ctx.session.currentTransactionIndex = undefined
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingCategoryName = false
+		ctx.session.awaitingTagInput = false
+		ctx.session.editingTimezone = false
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
+		ctx.session.editingField = undefined
+		ctx.session.editingAccountField = 'name'
+
+		const msg = await ctx.reply(
+			'Режим изменения названия счёта.\n\nОтправьте новое название. ИИ распознает и применит его.',
+			{
+				parse_mode: 'HTML',
+				reply_markup: new InlineKeyboard().text('Закрыть', 'close_edit_account')
+			}
+		)
 		ctx.session.editMessageId = msg.message_id
 	})
 

@@ -22,6 +22,7 @@ export class ExchangeService {
 	} | null = null
 	private coingeckoIds: Record<string, string> = {}
 	private coingeckoListFetchedAt = 0
+	private decimalsCache: { map: Map<string, number>; fetchedAt: number } | null = null
 
 	constructor(
 		private readonly config: ConfigService,
@@ -226,6 +227,17 @@ export class ExchangeService {
 				}
 			}
 		}
+		if (Object.keys(prices).length === 0) {
+			const snapshotRates = await this.getLatestSnapshotRates()
+			if (snapshotRates) {
+				for (const sym of knownCrypto) {
+					const candidate = snapshotRates[sym]
+					if (candidate != null && Number.isFinite(candidate) && candidate > 0) {
+						prices[sym] = candidate
+					}
+				}
+			}
+		}
 		if (Object.keys(prices).length > 0) {
 			this.cryptoCache = { prices, fetchedAt: Date.now() }
 			await this.upsertSnapshot(prices)
@@ -337,5 +349,36 @@ export class ExchangeService {
 	async isCryptoByCode(code: string): Promise<boolean> {
 		const known = await this.getKnownCurrencies()
 		return known.crypto.has((code || '').toUpperCase())
+	}
+
+	async getCurrencyDecimals(code: string): Promise<number> {
+		const upper = (code || '').toUpperCase()
+		if (!upper) return 2
+		if (
+			this.decimalsCache &&
+			Date.now() - this.decimalsCache.fetchedAt < 60 * 60 * 1000
+		) {
+			return this.decimalsCache.map.get(upper) ?? 2
+		}
+		const rows = await this.prisma.currency.findMany({
+			select: { code: true, decimals: true, type: true }
+		})
+		const map = new Map<string, number>()
+		for (const row of rows) {
+			const type = String(row.type || '').toLowerCase()
+			const fallback = type === 'crypto' ? 18 : 2
+			const safe = Number.isFinite(row.decimals)
+				? Math.max(0, Math.min(18, row.decimals))
+				: fallback
+			map.set(row.code.toUpperCase(), safe)
+		}
+		this.decimalsCache = { map, fetchedAt: Date.now() }
+		return map.get(upper) ?? 2
+	}
+
+	async roundByCurrency(amount: number, currencyCode: string): Promise<number> {
+		if (!Number.isFinite(amount)) return amount
+		const decimals = await this.getCurrencyDecimals(currencyCode)
+		return Number(amount.toFixed(decimals))
 	}
 }

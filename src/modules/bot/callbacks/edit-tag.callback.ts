@@ -46,6 +46,7 @@ function buildTagsKeyboard(
 			{ text: 'Вперёд »', callback_data: 'tags_page:next' }
 		])
 	}
+	rows.push([{ text: '➕ Создать новый тег', callback_data: 'create_tag_from_preview' }])
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
 	return { inline_keyboard: rows }
@@ -62,6 +63,13 @@ export const editTagCallback = (
 		const tags = await tagsService.getAllByUserId(userId)
 		ctx.session.editingField = 'tag'
 		ctx.session.tagsPage = 0
+		ctx.session.awaitingTransaction = false
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingCategoryName = false
+		ctx.session.editingTimezone = false
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
 		ctx.session.awaitingTagInput = true
 
 		const drafts = ctx.session.draftTransactions
@@ -85,6 +93,23 @@ export const editTagCallback = (
 				)
 			} catch {}
 		}
+	})
+
+	bot.callbackQuery('create_tag_from_preview', async ctx => {
+		ctx.session.awaitingTransaction = false
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingCategoryName = false
+		ctx.session.editingTimezone = false
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
+		ctx.session.awaitingTagInput = true
+		const hint = await ctx.reply('Введите название нового тега (до 20 символов):', {
+			reply_markup: {
+				inline_keyboard: [[{ text: 'Закрыть', callback_data: 'hide_message' }]]
+			}
+		})
+		;(ctx.session as any).tagInputHintMessageId = hint.message_id
 	})
 
 	bot.callbackQuery(/^tags_page:/, async ctx => {
@@ -162,8 +187,9 @@ export const editTagCallback = (
 							drafts.length,
 							index,
 							showConversion,
-							current?.direction === 'transfer',
-							!!ctx.session.editingTransactionId
+							current?.direction === 'transfer' && !current?.tradeType,
+							!!ctx.session.editingTransactionId,
+							current?.tradeType
 						)
 					}
 				)
@@ -205,8 +231,9 @@ export const editTagCallback = (
 						drafts.length,
 						index,
 						showConversion,
-						current?.direction === 'transfer',
-						!!ctx.session.editingTransactionId
+						current?.direction === 'transfer' && !current?.tradeType,
+						!!ctx.session.editingTransactionId,
+						current?.tradeType
 					)
 				}
 			)

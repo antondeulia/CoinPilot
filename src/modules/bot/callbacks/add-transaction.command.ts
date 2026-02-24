@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { AccountsService } from '../../../modules/accounts/accounts.service'
 
 export async function buildAddTransactionPrompt(
 	ctx: BotContext,
@@ -44,7 +45,8 @@ ${footer}`
 
 export const addTxCallback = (
 	bot: Bot<BotContext>,
-	subscriptionService: SubscriptionService
+	subscriptionService: SubscriptionService,
+	accountsService: AccountsService
 ) => {
 	bot.callbackQuery('add_transaction', async ctx => {
 		const txLimit = await subscriptionService.canCreateTransaction(ctx.state.user.id)
@@ -60,6 +62,18 @@ export const addTxCallback = (
 			)
 			return
 		}
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(
+			ctx.state.user.id
+		)
+		const realAccounts = allAccounts.filter(
+			a => !a.isHidden && a.name !== 'Вне Wallet'
+		)
+		if (!realAccounts.length) {
+			await ctx.reply('Сначала добавьте счёт во вкладке «Счета», затем создайте транзакцию.', {
+				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+			})
+			return
+		}
 		if (ctx.session.tempMessageId) {
 			try {
 				await ctx.api.deleteMessage(ctx.chat.id, ctx.session.tempMessageId)
@@ -67,6 +81,17 @@ export const addTxCallback = (
 		}
 		;(ctx.session as any).editingCurrency = false
 		;(ctx.session as any).editingMainCurrency = false
+		ctx.session.editingTimezone = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.awaitingCategoryName = false
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagInput = false
+		ctx.session.editingAccountField = undefined
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
+		ctx.session.confirmingTransaction = false
+		ctx.session.draftTransactions = undefined
+		ctx.session.currentTransactionIndex = undefined
 		ctx.session.editingField = undefined
 		ctx.session.awaitingTransaction = true
 

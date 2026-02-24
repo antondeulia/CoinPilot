@@ -14,6 +14,7 @@ export async function getShowConversion(
 	userId: string,
 	accountsService: AccountsService
 ): Promise<boolean> {
+	if (draft?.tradeType === 'buy' || draft?.tradeType === 'sell') return false
 	if (!accountId || !draft?.currency) return false
 	const account = await accountsService.getOneWithAssets(accountId, userId)
 	if (!account) return false
@@ -108,11 +109,27 @@ export const confirmTxCallback = (
 		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
 		const outsideWalletId =
 			allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
+		const visibleAccounts = allAccounts.filter(
+			a => !a.isHidden && a.name !== 'Вне Wallet'
+		)
+		const fallbackVisibleAccountId =
+			visibleAccounts.find(a => a.id === user.defaultAccountId)?.id ??
+			visibleAccounts[0]?.id ??
+			null
 
 		for (const draft of drafts as any[]) {
+			const isTransfer = draft.direction === 'transfer'
 			const accountId =
-				draft.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
+				draft.accountId ||
+				fallbackVisibleAccountId ||
+				ctx.state.activeAccount?.id
 			if (!accountId) continue
+			if (!isTransfer && accountId === outsideWalletId) {
+				await ctx.reply('Счёт «Вне Wallet» нельзя использовать для доходов и расходов.', {
+					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+				})
+				return
+			}
 
 			let tagId = draft.tagId
 			if (draft.tagIsNew && draft.tagName) {
@@ -123,18 +140,30 @@ export const confirmTxCallback = (
 				await tagsService.incrementUsage(tagId)
 			}
 
-			const isTransfer = draft.direction === 'transfer'
 			await transactionsService.create({
 				accountId,
 				amount: draft.amount!,
 				currency: draft.currency!,
 				direction: draft.direction,
+				tradeType: draft.tradeType ?? undefined,
+				tradeBaseCurrency: draft.tradeBaseCurrency ?? undefined,
+				tradeBaseAmount: draft.tradeBaseAmount ?? undefined,
+				tradeQuoteCurrency: draft.tradeQuoteCurrency ?? undefined,
+				tradeQuoteAmount: draft.tradeQuoteAmount ?? undefined,
+				executionPrice: draft.executionPrice ?? undefined,
+				tradeFeeCurrency: draft.tradeFeeCurrency ?? undefined,
+				tradeFeeAmount: draft.tradeFeeAmount ?? undefined,
 				...(isTransfer
 					? {
 							fromAccountId: accountId,
-							toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
+							toAccountId:
+								draft.toAccountId ??
+								(draft.tradeType ? accountId : outsideWalletId ?? undefined)
 						}
-					: { category: draft.category ?? '📦Другое' }),
+					: {
+							categoryId: draft.categoryId ?? undefined,
+							category: draft.category ?? '📦Другое'
+						}),
 				description: draft.description,
 				rawText: draft.rawText || '',
 				userId: ctx.state.user.id,
@@ -199,22 +228,28 @@ export function confirmKeyboard(
 	currentIndex: number,
 	showConversion: boolean = true,
 	isTransfer: boolean = false,
-	isEditingExisting: boolean = false
+	isEditingExisting: boolean = false,
+	tradeType?: 'buy' | 'sell'
 ): InlineKeyboard {
+	const isTrade = tradeType === 'buy' || tradeType === 'sell'
 	const hasPagination = total > 1 && !isEditingExisting
 
 	const kb = new InlineKeyboard()
 		.text('Тип', 'edit:type')
 		.text('Название', 'edit:description')
 		.text('Сумма', 'edit:amount')
-		.row()
-		.text('Счёт', 'edit:account')
-		.text('Дата', 'edit:date')
-	if (isTransfer) kb.text('На счёт', 'edit:target_account')
-	else kb.text('Категория', 'edit:category')
-	kb.row().text('Валюта', 'edit:currency')
+	if (isTrade) {
+		kb.row().text('Счёт', 'edit:account').text('Комиссия', 'edit:fee').text('Дата', 'edit:date')
+	} else {
+		kb.row().text('Счёт', 'edit:account').text('Дата', 'edit:date')
+		if (isTransfer) kb.text('На счёт', 'edit:target_account')
+		else kb.text('Категория', 'edit:category')
+	}
+	kb.row().text(isTrade ? 'Пара' : 'Валюта', isTrade ? 'edit:pair' : 'edit:currency')
 
-	if (showConversion) {
+	if (isTrade) {
+		kb.text('Ср. цена', 'edit:execution_price')
+	} else if (showConversion) {
 		kb.text('Конвертация', 'edit:conversion')
 	}
 	kb.text('Теги', 'edit:tag')

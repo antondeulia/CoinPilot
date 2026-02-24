@@ -6,7 +6,7 @@ type SettingsViewUser = {
 	mainCurrency?: string
 	timezone?: string
 	defaultAccountId?: string | null
-	accounts: { id: string; name: string }[]
+	accounts: { id: string; name: string; isHidden?: boolean }[]
 	isPremium: boolean
 	premiumUntil?: Date | string | null
 	createdAt?: Date | string
@@ -30,9 +30,11 @@ export function buildSettingsView(
 	alertsEnabledCount: number
 ): { text: string; keyboard: InlineKeyboard } {
 	const mainCode = user?.mainCurrency ?? 'USD'
-	const defaultAccount =
-		user.accounts.find(a => a.id === user.defaultAccountId) ?? user.accounts[0]
-	const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
+	const visibleAccounts = user.accounts.filter(
+		a => !a.isHidden && a.name !== 'Вне Wallet'
+	)
+	const defaultAccount = visibleAccounts.find(a => a.id === user.defaultAccountId)
+	const defaultAccountName = defaultAccount ? defaultAccount.name : ''
 	const isPrem = isPremiumNow(user)
 	const tariffStr = isPrem ? 'Pro' : 'Basic'
 	const createdAtStr = createdAtLabel(user.createdAt)

@@ -65,7 +65,8 @@ export const ModelName = {
   AlertConfig: 'AlertConfig',
   Subscription: 'Subscription',
   PremiumEvent: 'PremiumEvent',
-  LlmUserMemory: 'LlmUserMemory'
+  LlmUserMemory: 'LlmUserMemory',
+  TrialLedger: 'TrialLedger'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -143,6 +144,15 @@ export const TransactionScalarFieldEnum = {
   amount: 'amount',
   currency: 'currency',
   direction: 'direction',
+  tradeType: 'tradeType',
+  tradeBaseCurrency: 'tradeBaseCurrency',
+  tradeBaseAmount: 'tradeBaseAmount',
+  tradeQuoteCurrency: 'tradeQuoteCurrency',
+  tradeQuoteAmount: 'tradeQuoteAmount',
+  executionPrice: 'executionPrice',
+  tradeFeeCurrency: 'tradeFeeCurrency',
+  tradeFeeAmount: 'tradeFeeAmount',
+  categoryId: 'categoryId',
   category: 'category',
   description: 'description',
   rawText: 'rawText',
@@ -282,6 +292,19 @@ export const LlmUserMemoryScalarFieldEnum = {
 } as const
 
 export type LlmUserMemoryScalarFieldEnum = (typeof LlmUserMemoryScalarFieldEnum)[keyof typeof LlmUserMemoryScalarFieldEnum]
+
+
+export const TrialLedgerScalarFieldEnum = {
+  id: 'id',
+  telegramId: 'telegramId',
+  firstUserId: 'firstUserId',
+  stripeCustomerId: 'stripeCustomerId',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrialLedgerScalarFieldEnum = (typeof TrialLedgerScalarFieldEnum)[keyof typeof TrialLedgerScalarFieldEnum]
 
 
 export const SortOrder = {

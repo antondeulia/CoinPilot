@@ -52,6 +52,17 @@ export const viewTagsCallback = (
 	})
 
 	bot.callbackQuery('tags_jarvis_edit', async ctx => {
+		ctx.session.awaitingTransaction = false
+		ctx.session.confirmingTransaction = false
+		ctx.session.draftTransactions = undefined
+		ctx.session.currentTransactionIndex = undefined
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingCategoryName = false
+		ctx.session.awaitingTagInput = false
+		ctx.session.editingTimezone = false
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
+		ctx.session.editingField = undefined
 		ctx.session.awaitingTagsJarvisEdit = true
 		const msg = await ctx.reply(
 			'Опишите изменения: удали теги X, Y; добавь A, B; переименуй C в D. После отправки сообщения изменения применятся.',

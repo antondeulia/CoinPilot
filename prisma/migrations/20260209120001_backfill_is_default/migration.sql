@@ -2,7 +2,7 @@
 UPDATE "categories"
 SET "isDefault" = true
 WHERE "name" IN (
-  '🍔Еда и напитки',
+  '🥪Еда и напитки',
   '🚇Транспорт',
   '🏠Жильё',
   '🛒Покупки',

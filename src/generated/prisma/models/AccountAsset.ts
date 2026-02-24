@@ -27,25 +27,25 @@ export type AggregateAccountAsset = {
 }
 
 export type AccountAssetAvgAggregateOutputType = {
-  amount: number | null
+  amount: runtime.Decimal | null
 }
 
 export type AccountAssetSumAggregateOutputType = {
-  amount: number | null
+  amount: runtime.Decimal | null
 }
 
 export type AccountAssetMinAggregateOutputType = {
   id: string | null
   accountId: string | null
   currency: string | null
-  amount: number | null
+  amount: runtime.Decimal | null
 }
 
 export type AccountAssetMaxAggregateOutputType = {
   id: string | null
   accountId: string | null
   currency: string | null
-  amount: number | null
+  amount: runtime.Decimal | null
 }
 
 export type AccountAssetCountAggregateOutputType = {
@@ -177,7 +177,7 @@ export type AccountAssetGroupByOutputType = {
   id: string
   accountId: string
   currency: string
-  amount: number
+  amount: runtime.Decimal
   _count: AccountAssetCountAggregateOutputType | null
   _avg: AccountAssetAvgAggregateOutputType | null
   _sum: AccountAssetSumAggregateOutputType | null
@@ -207,7 +207,7 @@ export type AccountAssetWhereInput = {
   id?: Prisma.StringFilter<"AccountAsset"> | string
   accountId?: Prisma.StringFilter<"AccountAsset"> | string
   currency?: Prisma.StringFilter<"AccountAsset"> | string
-  amount?: Prisma.FloatFilter<"AccountAsset"> | number
+  amount?: Prisma.DecimalFilter<"AccountAsset"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   account?: Prisma.XOR<Prisma.AccountScalarRelationFilter, Prisma.AccountWhereInput>
 }
 
@@ -227,7 +227,7 @@ export type AccountAssetWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.AccountAssetWhereInput | Prisma.AccountAssetWhereInput[]
   accountId?: Prisma.StringFilter<"AccountAsset"> | string
   currency?: Prisma.StringFilter<"AccountAsset"> | string
-  amount?: Prisma.FloatFilter<"AccountAsset"> | number
+  amount?: Prisma.DecimalFilter<"AccountAsset"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   account?: Prisma.XOR<Prisma.AccountScalarRelationFilter, Prisma.AccountWhereInput>
 }, "id" | "accountId_currency">
 
@@ -250,13 +250,13 @@ export type AccountAssetScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"AccountAsset"> | string
   accountId?: Prisma.StringWithAggregatesFilter<"AccountAsset"> | string
   currency?: Prisma.StringWithAggregatesFilter<"AccountAsset"> | string
-  amount?: Prisma.FloatWithAggregatesFilter<"AccountAsset"> | number
+  amount?: Prisma.DecimalWithAggregatesFilter<"AccountAsset"> | runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetCreateInput = {
   id?: string
   currency: string
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   account: Prisma.AccountCreateNestedOneWithoutAssetsInput
 }
 
@@ -264,13 +264,13 @@ export type AccountAssetUncheckedCreateInput = {
   id?: string
   accountId: string
   currency: string
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   account?: Prisma.AccountUpdateOneRequiredWithoutAssetsNestedInput
 }
 
@@ -278,27 +278,27 @@ export type AccountAssetUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetCreateManyInput = {
   id?: string
   accountId: string
   currency: string
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetListRelationFilter = {
@@ -387,24 +387,24 @@ export type AccountAssetUncheckedUpdateManyWithoutAccountNestedInput = {
   deleteMany?: Prisma.AccountAssetScalarWhereInput | Prisma.AccountAssetScalarWhereInput[]
 }
 
-export type FloatFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
+export type DecimalFieldUpdateOperationsInput = {
+  set?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  increment?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  decrement?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  multiply?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  divide?: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetCreateWithoutAccountInput = {
   id?: string
   currency: string
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetUncheckedCreateWithoutAccountInput = {
   id?: string
   currency: string
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetCreateOrConnectWithoutAccountInput = {
@@ -440,31 +440,31 @@ export type AccountAssetScalarWhereInput = {
   id?: Prisma.StringFilter<"AccountAsset"> | string
   accountId?: Prisma.StringFilter<"AccountAsset"> | string
   currency?: Prisma.StringFilter<"AccountAsset"> | string
-  amount?: Prisma.FloatFilter<"AccountAsset"> | number
+  amount?: Prisma.DecimalFilter<"AccountAsset"> | runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetCreateManyAccountInput = {
   id?: string
   currency: string
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetUpdateWithoutAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetUncheckedUpdateWithoutAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 export type AccountAssetUncheckedUpdateManyWithoutAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
 
@@ -520,7 +520,7 @@ export type $AccountAssetPayload<ExtArgs extends runtime.Types.Extensions.Intern
     id: string
     accountId: string
     currency: string
-    amount: number
+    amount: runtime.Decimal
   }, ExtArgs["result"]["accountAsset"]>
   composites: {}
 }
@@ -948,7 +948,7 @@ export interface AccountAssetFieldRefs {
   readonly id: Prisma.FieldRef<"AccountAsset", 'String'>
   readonly accountId: Prisma.FieldRef<"AccountAsset", 'String'>
   readonly currency: Prisma.FieldRef<"AccountAsset", 'String'>
-  readonly amount: Prisma.FieldRef<"AccountAsset", 'Float'>
+  readonly amount: Prisma.FieldRef<"AccountAsset", 'Decimal'>
 }
     
 

@@ -41,14 +41,15 @@ export class DailyTipCronService {
 		let largestAsset: { name: string; sharePct: number } | undefined
 		let largestAssetAmount = 0
 
-		for (const account of accounts) {
-			for (const asset of account.assets) {
-				if (asset.amount === 0) continue
-				const converted = await this.exchange.convert(
-					asset.amount,
-					asset.currency,
-					mainCurrency
-				)
+			for (const account of accounts) {
+				for (const asset of account.assets) {
+					const amount = Number(asset.amount)
+					if (amount === 0) continue
+					const converted = await this.exchange.convert(
+						amount,
+						asset.currency,
+						mainCurrency
+					)
 				if (converted == null) continue
 				totalCapital += converted
 				const isCrypto = await this.exchange.isCryptoByCode(asset.currency)

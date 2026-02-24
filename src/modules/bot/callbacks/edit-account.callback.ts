@@ -57,12 +57,16 @@ export const editAccountCallback = (
 ) => {
 	bot.callbackQuery('edit:account', async ctx => {
 		const userId = ctx.state.user.id
-		const accounts = await accountsService.getAllByUserIdIncludingHidden(userId)
-		if (!accounts.length) return
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(userId)
 
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index] as any
+		const isTransfer = current?.direction === 'transfer'
+		const accounts = isTransfer
+			? allAccounts
+			: allAccounts.filter(a => a.name !== 'Вне Wallet')
+		if (!accounts.length) return
 
 		ctx.session.accountsPage = 0
 
@@ -89,21 +93,23 @@ export const editAccountCallback = (
 		if (ctx.session.tempMessageId == null) return
 
 		const userId = ctx.state.user.id
-		const accounts = await accountsService.getAllByUserIdIncludingHidden(userId)
-		if (!accounts.length) return
-
-		const totalPages = Math.max(1, Math.ceil(accounts.length / 9))
-		let page = ctx.session.accountsPage ?? 0
-
-		const action = ctx.callbackQuery.data.split(':')[1]
-		if (action === 'prev') page = page <= 0 ? totalPages - 1 : page - 1
-		if (action === 'next') page = page >= totalPages - 1 ? 0 : page + 1
-
-		ctx.session.accountsPage = page
 
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index] as any
+		const isTransfer = current?.direction === 'transfer'
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(userId)
+		const accounts = isTransfer
+			? allAccounts
+			: allAccounts.filter(a => a.name !== 'Вне Wallet')
+		if (!accounts.length) return
+		let page = ctx.session.accountsPage ?? 0
+		const totalPages = Math.max(1, Math.ceil(accounts.length / 9))
+		const action = ctx.callbackQuery.data.split(':')[1]
+		if (action === 'prev') page = page <= 0 ? totalPages - 1 : page - 1
+		if (action === 'next') page = page >= totalPages - 1 ? 0 : page + 1
+		if (page >= totalPages) page = 0
+		ctx.session.accountsPage = page
 
 		const kb = buildAccountsKeyboard(
 			accounts.map(a => ({ id: a.id, name: a.name })),
@@ -132,9 +138,25 @@ export const editAccountCallback = (
 		const user = ctx.state.user as any
 		const account = await accountsService.getOneWithAssets(accountId, user.id)
 		if (!account) return
+		if (current?.direction !== 'transfer' && account.name === 'Вне Wallet') {
+			await ctx.reply('Счёт «Вне Wallet» доступен только для переводов.', {
+				reply_markup: { inline_keyboard: [[{ text: 'Закрыть', callback_data: 'hide_message' }]] }
+			})
+			return
+		}
 
 		current.accountId = accountId
 		current.account = account.name
+		if (current?.direction === 'transfer' && account.name === 'Вне Wallet') {
+			const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+			const fallback = allAccounts.find(
+				a => !a.isHidden && a.name !== 'Вне Wallet'
+			)
+			if (current.toAccountId === account.id && fallback) {
+				current.toAccountId = fallback.id
+				current.toAccount = fallback.name
+			}
+		}
 
 		const accountCurrencies = Array.from(
 			new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
@@ -162,8 +184,9 @@ export const editAccountCallback = (
 						drafts.length,
 						index,
 						showConversion,
-						current?.direction === 'transfer',
-						!!ctx.session.editingTransactionId
+						current?.direction === 'transfer' && !current?.tradeType,
+						!!ctx.session.editingTransactionId,
+						current?.tradeType
 					)
 				}
 			)

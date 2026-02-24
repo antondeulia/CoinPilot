@@ -27,11 +27,11 @@ export type AggregateSubscription = {
 }
 
 export type SubscriptionAvgAggregateOutputType = {
-  amount: number | null
+  amount: runtime.Decimal | null
 }
 
 export type SubscriptionSumAggregateOutputType = {
-  amount: number | null
+  amount: runtime.Decimal | null
 }
 
 export type SubscriptionMinAggregateOutputType = {
@@ -43,7 +43,7 @@ export type SubscriptionMinAggregateOutputType = {
   endDate: Date | null
   telegramPaymentChargeId: string | null
   providerPaymentChargeId: string | null
-  amount: number | null
+  amount: runtime.Decimal | null
   currency: string | null
   createdAt: Date | null
   autoRenew: boolean | null
@@ -58,7 +58,7 @@ export type SubscriptionMaxAggregateOutputType = {
   endDate: Date | null
   telegramPaymentChargeId: string | null
   providerPaymentChargeId: string | null
-  amount: number | null
+  amount: runtime.Decimal | null
   currency: string | null
   createdAt: Date | null
   autoRenew: boolean | null
@@ -230,7 +230,7 @@ export type SubscriptionGroupByOutputType = {
   endDate: Date | null
   telegramPaymentChargeId: string | null
   providerPaymentChargeId: string | null
-  amount: number
+  amount: runtime.Decimal
   currency: string
   createdAt: Date
   autoRenew: boolean
@@ -268,7 +268,7 @@ export type SubscriptionWhereInput = {
   endDate?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
   telegramPaymentChargeId?: Prisma.StringNullableFilter<"Subscription"> | string | null
   providerPaymentChargeId?: Prisma.StringNullableFilter<"Subscription"> | string | null
-  amount?: Prisma.FloatFilter<"Subscription"> | number
+  amount?: Prisma.DecimalFilter<"Subscription"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFilter<"Subscription"> | string
   createdAt?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   autoRenew?: Prisma.BoolFilter<"Subscription"> | boolean
@@ -303,7 +303,7 @@ export type SubscriptionWhereUniqueInput = Prisma.AtLeast<{
   startDate?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   endDate?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
   providerPaymentChargeId?: Prisma.StringNullableFilter<"Subscription"> | string | null
-  amount?: Prisma.FloatFilter<"Subscription"> | number
+  amount?: Prisma.DecimalFilter<"Subscription"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFilter<"Subscription"> | string
   createdAt?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   autoRenew?: Prisma.BoolFilter<"Subscription"> | boolean
@@ -342,7 +342,7 @@ export type SubscriptionScalarWhereWithAggregatesInput = {
   endDate?: Prisma.DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
   telegramPaymentChargeId?: Prisma.StringNullableWithAggregatesFilter<"Subscription"> | string | null
   providerPaymentChargeId?: Prisma.StringNullableWithAggregatesFilter<"Subscription"> | string | null
-  amount?: Prisma.FloatWithAggregatesFilter<"Subscription"> | number
+  amount?: Prisma.DecimalWithAggregatesFilter<"Subscription"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringWithAggregatesFilter<"Subscription"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Subscription"> | Date | string
   autoRenew?: Prisma.BoolWithAggregatesFilter<"Subscription"> | boolean
@@ -356,7 +356,7 @@ export type SubscriptionCreateInput = {
   endDate?: Date | string | null
   telegramPaymentChargeId?: string | null
   providerPaymentChargeId?: string | null
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: string
   createdAt?: Date | string
   autoRenew?: boolean
@@ -372,7 +372,7 @@ export type SubscriptionUncheckedCreateInput = {
   endDate?: Date | string | null
   telegramPaymentChargeId?: string | null
   providerPaymentChargeId?: string | null
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: string
   createdAt?: Date | string
   autoRenew?: boolean
@@ -386,7 +386,7 @@ export type SubscriptionUpdateInput = {
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   telegramPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -402,7 +402,7 @@ export type SubscriptionUncheckedUpdateInput = {
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   telegramPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -417,7 +417,7 @@ export type SubscriptionCreateManyInput = {
   endDate?: Date | string | null
   telegramPaymentChargeId?: string | null
   providerPaymentChargeId?: string | null
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: string
   createdAt?: Date | string
   autoRenew?: boolean
@@ -431,7 +431,7 @@ export type SubscriptionUpdateManyMutationInput = {
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   telegramPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -446,7 +446,7 @@ export type SubscriptionUncheckedUpdateManyInput = {
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   telegramPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -573,7 +573,7 @@ export type SubscriptionCreateWithoutUserInput = {
   endDate?: Date | string | null
   telegramPaymentChargeId?: string | null
   providerPaymentChargeId?: string | null
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: string
   createdAt?: Date | string
   autoRenew?: boolean
@@ -587,7 +587,7 @@ export type SubscriptionUncheckedCreateWithoutUserInput = {
   endDate?: Date | string | null
   telegramPaymentChargeId?: string | null
   providerPaymentChargeId?: string | null
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: string
   createdAt?: Date | string
   autoRenew?: boolean
@@ -631,7 +631,7 @@ export type SubscriptionScalarWhereInput = {
   endDate?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
   telegramPaymentChargeId?: Prisma.StringNullableFilter<"Subscription"> | string | null
   providerPaymentChargeId?: Prisma.StringNullableFilter<"Subscription"> | string | null
-  amount?: Prisma.FloatFilter<"Subscription"> | number
+  amount?: Prisma.DecimalFilter<"Subscription"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFilter<"Subscription"> | string
   createdAt?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   autoRenew?: Prisma.BoolFilter<"Subscription"> | boolean
@@ -645,7 +645,7 @@ export type SubscriptionCreateManyUserInput = {
   endDate?: Date | string | null
   telegramPaymentChargeId?: string | null
   providerPaymentChargeId?: string | null
-  amount: number
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: string
   createdAt?: Date | string
   autoRenew?: boolean
@@ -659,7 +659,7 @@ export type SubscriptionUpdateWithoutUserInput = {
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   telegramPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -673,7 +673,7 @@ export type SubscriptionUncheckedUpdateWithoutUserInput = {
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   telegramPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -687,7 +687,7 @@ export type SubscriptionUncheckedUpdateManyWithoutUserInput = {
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   telegramPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerPaymentChargeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -783,7 +783,7 @@ export type $SubscriptionPayload<ExtArgs extends runtime.Types.Extensions.Intern
     endDate: Date | null
     telegramPaymentChargeId: string | null
     providerPaymentChargeId: string | null
-    amount: number
+    amount: runtime.Decimal
     currency: string
     createdAt: Date
     autoRenew: boolean
@@ -1219,7 +1219,7 @@ export interface SubscriptionFieldRefs {
   readonly endDate: Prisma.FieldRef<"Subscription", 'DateTime'>
   readonly telegramPaymentChargeId: Prisma.FieldRef<"Subscription", 'String'>
   readonly providerPaymentChargeId: Prisma.FieldRef<"Subscription", 'String'>
-  readonly amount: Prisma.FieldRef<"Subscription", 'Float'>
+  readonly amount: Prisma.FieldRef<"Subscription", 'Decimal'>
   readonly currency: Prisma.FieldRef<"Subscription", 'String'>
   readonly createdAt: Prisma.FieldRef<"Subscription", 'DateTime'>
   readonly autoRenew: Prisma.FieldRef<"Subscription", 'Boolean'>

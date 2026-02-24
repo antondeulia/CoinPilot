@@ -77,14 +77,34 @@ export function extractExplicitDateFromText(
 	}
 
 	const dmyMatch = lowered.match(
-		/\b([0-3]?\d)[./-]([01]?\d)(?:[./-](\d{2,4}))?\b/u
+		/\b([0-3]?\d)([./-])([01]?\d)(?:\2(\d{2,4}))?\b/u
 	)
 	if (dmyMatch) {
 		const day = Number(dmyMatch[1])
-		const month = Number(dmyMatch[2]) - 1
+		const sep = dmyMatch[2]
+		const monthRaw = dmyMatch[3]
+		const month = Number(monthRaw) - 1
+		const yearRaw = dmyMatch[4]
+		// Защита от ложного срабатывания суммы вида "11.1 TON" как даты "11.01".
+		if (!yearRaw && sep === '.' && monthRaw.length === 1) {
+			const start = dmyMatch.index ?? 0
+			const end = start + dmyMatch[0].length
+			const prefix = lowered.slice(Math.max(0, start - 16), start)
+			const tail = lowered.slice(end)
+			const hasDateContext =
+				/\b(?:дата|date|числа|число|от|за)\b/iu.test(prefix) ||
+				/\b(?:дата|date)\b/iu.test(tail.slice(0, 24))
+			const hasAmountTail =
+				/^\s*[-+()]?\s*(?:[a-zа-я]{2,12}|[$€₴₽]|usdt|usdc|usd|eur|btc|eth|ton|sol|xrp|ada|doge)\b/iu.test(
+					tail
+				)
+			if (hasAmountTail && !hasDateContext) {
+				return null
+			}
+		}
 		let year = yearNow
-		if (dmyMatch[3]) {
-			const y = Number(dmyMatch[3])
+		if (yearRaw) {
+			const y = Number(yearRaw)
 			year = y < 100 ? 2000 + y : y
 		}
 		return fromParts(day, month, year)
@@ -116,11 +136,13 @@ export function pickTransactionDate(params: {
 	userText?: string | null
 	llmDate?: string | Date | null
 	now?: Date
+	preferLlmDate?: boolean
 }): Date {
 	const now = params.now ?? new Date()
+	const fromLlm = normalizeTxDate(params.llmDate)
+	if (params.preferLlmDate && fromLlm) return fromLlm
 	const fromText = extractExplicitDateFromText(params.userText ?? '', now)
 	if (fromText) return fromText
-	const fromLlm = normalizeTxDate(params.llmDate)
 	if (fromLlm) return fromLlm
 	return now
 }

@@ -39,6 +39,7 @@ function buildCategoriesKeyboard(
 			{ text: 'Вперёд »', callback_data: 'categories_page:next' }
 		])
 	}
+	rows.push([{ text: '➕ Создать новую категорию', callback_data: 'create_category_from_preview' }])
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
 	return { inline_keyboard: rows }
@@ -79,6 +80,22 @@ export const editCategoryCallback = (
 				)
 			} catch {}
 		}
+	})
+
+	bot.callbackQuery('create_category_from_preview', async ctx => {
+		ctx.session.awaitingTransaction = false
+		ctx.session.awaitingAccountInput = false
+		ctx.session.awaitingTagsJarvisEdit = false
+		ctx.session.editingTimezone = false
+		;(ctx.session as any).editingMainCurrency = false
+		;(ctx.session as any).editingCurrency = false
+		ctx.session.awaitingCategoryName = true
+		ctx.session.editingCategory = 'create'
+		;(ctx.session as any).categoryCreateFromPreview = true
+		const hint = await ctx.reply('Введите название новой категории (до 20 символов)', {
+			reply_markup: { inline_keyboard: [[{ text: 'Закрыть', callback_data: 'close_category_hint' }]] }
+		})
+		ctx.session.categoriesHintMessageId = hint.message_id
 	})
 
 	bot.callbackQuery(/^categories_page:/, async ctx => {
@@ -135,8 +152,10 @@ export const editCategoryCallback = (
 
 		if (current.category === category.name) {
 			current.category = '📦Другое'
+			current.categoryId = undefined
 		} else {
 			current.category = category.name
+			current.categoryId = category.id
 		}
 
 		const user = ctx.state.user as any
@@ -168,8 +187,9 @@ export const editCategoryCallback = (
 						drafts.length,
 						index,
 						showConversion,
-						current?.direction === 'transfer',
-						!!ctx.session.editingTransactionId
+						current?.direction === 'transfer' && !current?.tradeType,
+						!!ctx.session.editingTransactionId,
+						current?.tradeType
 					)
 				}
 			)

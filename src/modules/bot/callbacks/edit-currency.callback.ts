@@ -53,6 +53,13 @@ export const editCurrencyCallback = (
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index] as any
 		if (!drafts || !current || ctx.session.tempMessageId == null) return
+		if (current.tradeType === 'buy' || current.tradeType === 'sell') {
+			await ctx.answerCallbackQuery({
+				text: 'Для покупки/продажи редактируйте поле «Пара».',
+				show_alert: true
+			})
+			return
+		}
 
 		const user = ctx.state.user as any
 		const accountId =
@@ -154,11 +161,15 @@ export const editCurrencyCallback = (
 				)
 				if (codes.length) {
 					current.convertToCurrency = codes[0]
-					current.convertedAmount = await exchangeService.convert(
+					const converted = await exchangeService.convert(
 						current.amount,
 						current.currency,
 						codes[0]
 					)
+					current.convertedAmount =
+						converted == null
+							? null
+							: await exchangeService.roundByCurrency(converted, codes[0])
 				}
 			}
 		}
@@ -180,8 +191,9 @@ export const editCurrencyCallback = (
 						drafts.length,
 						index,
 						showConversion,
-						current?.direction === 'transfer',
-						!!ctx.session.editingTransactionId
+						current?.direction === 'transfer' && !current?.tradeType,
+						!!ctx.session.editingTransactionId,
+						current?.tradeType
 					)
 				}
 			)
