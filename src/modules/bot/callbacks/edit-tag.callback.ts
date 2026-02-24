@@ -6,6 +6,7 @@ import { TransactionsService } from '../../../modules/transactions/transactions.
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 import { activateInputMode } from '../core/input-mode'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 const TAG_PAGE_SIZE = 9
 

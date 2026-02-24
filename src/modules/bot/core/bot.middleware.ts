@@ -85,6 +85,13 @@ export type BotContext = Context & {
 				accountDetailsEditMode?: 'jarvis' | 'name'
 				pendingTransactionDraft?: LlmTransaction
 				pendingTransactionMissing?: string[]
+				accountDeltaPromptMessageId?: number
+				pendingAccountDeltaOps?: Array<{
+					accountId: string
+					currency: string
+					amount: number
+					direction: 'in' | 'out'
+				}>
 			}
 	chat: {
 		id: string

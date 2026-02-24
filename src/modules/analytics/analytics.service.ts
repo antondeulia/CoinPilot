@@ -412,13 +412,14 @@ export class AnalyticsService {
 			}[] = []
 			for (const r of rows) {
 				const { amount, currency } = this.pickTxAmount(r)
-				sum += await this.toMainCurrency(
+				const inMain = await this.toMainCurrency(
 					amount,
 					currency,
 					mainCurrency,
 					r.transactionDate,
 					this.pickAmountUsd(r)
 				)
+				sum += inMain
 				const label = r.description?.trim() || '—'
 				descriptions.push(label)
 				detailItems.push({

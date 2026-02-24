@@ -1039,21 +1039,9 @@ export class BotService implements OnModuleInit {
 			)
 			resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
 		})
-		this.bot.callbackQuery('timezone_open', async ctx => {
-			const hint = await ctx.reply(
-				'Введите часовой пояс в формате IANA (например Europe/Berlin) или UTC-смещение (+03:00).',
-				{
-					reply_markup: new InlineKeyboard().text('Закрыть', 'back_to_settings')
-				}
-			)
-			ctx.session.editingTimezone = true
-			ctx.session.timezoneHintMessageId = hint.message_id
-			ctx.session.timezoneErrorMessageIds = []
-		})
 		this.bot.callbackQuery('back_to_settings', async ctx => {
 			resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
 			;(ctx.session as any).editingMainCurrency = false
-			ctx.session.editingTimezone = false
 			const hintMessageId = (ctx.session as any).mainCurrencyHintMessageId as
 				| number
 				| undefined
@@ -1993,6 +1981,12 @@ export class BotService implements OnModuleInit {
 					ctx.session.editingAccountDetailsId = undefined
 					return
 				}
+				let current:
+					| { name: string; assets: { currency: string; amount: number }[] }
+					| undefined
+				let updatedDraft:
+					| { name: string; assets: { currency: string; amount: number }[] }
+					| undefined
 				if (ctx.session.accountDetailsEditMode === 'name') {
 					const renamed = await this.accountsService.renameAccount(
 						accountId,
@@ -2004,16 +1998,13 @@ export class BotService implements OnModuleInit {
 						return
 					}
 				} else {
-				const current = {
+				current = {
 					name: account.name,
 					assets: account.assets.map(a => ({
 						currency: a.currency,
 						amount: a.amount
 					}))
 				}
-				let updatedDraft:
-					| { name: string; assets: { currency: string; amount: number }[] }
-					| undefined
 				try {
 					const updated = await this.llmService.parseAccountEdit(current, text)
 					if (
@@ -2261,7 +2252,7 @@ export class BotService implements OnModuleInit {
 						}
 					)
 				}
-				if (updatedDraft) {
+				if (updatedDraft && current) {
 					const beforeMap = new Map<string, number>()
 					for (const a of current.assets) {
 						beforeMap.set(String(a.currency).toUpperCase(), Number(a.amount))
