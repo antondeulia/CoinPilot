@@ -5,7 +5,7 @@ import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
-import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
+import { activateInputMode } from '../core/input-mode'
 
 const CATEGORY_PAGE_SIZE = 9
 
@@ -39,6 +39,7 @@ function buildCategoriesKeyboard(
 			{ text: 'Вперёд »', callback_data: 'categories_page:next' }
 		])
 	}
+	rows.push([{ text: 'Создать категорию', callback_data: 'create_category_from_preview' }])
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
 	return { inline_keyboard: rows }
@@ -133,11 +134,13 @@ export const editCategoryCallback = (
 		const category = await categoriesService.findById(categoryId, ctx.state.user.id)
 		if (!category) return
 
-		if (current.category === category.name) {
-			current.category = '📦Другое'
-		} else {
-			current.category = category.name
-		}
+			if (current.category === category.name) {
+				current.category = '📦Другое'
+				current.categoryId = undefined
+			} else {
+				current.category = category.name
+				current.categoryId = category.id
+			}
 
 		const user = ctx.state.user as any
 		const accountId =
@@ -174,5 +177,16 @@ export const editCategoryCallback = (
 				}
 			)
 		} catch {}
+	})
+
+	bot.callbackQuery('create_category_from_preview', async ctx => {
+		activateInputMode(ctx, 'category_create', {
+			awaitingInlineCategoryCreate: true,
+			awaitingInlineTagCreate: false
+		})
+		const hint = await ctx.reply(
+			'Введите название новой категории (до 20 символов).'
+		)
+		ctx.session.inlineCreateHintMessageId = hint.message_id
 	})
 }

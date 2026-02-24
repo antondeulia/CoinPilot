@@ -3,6 +3,7 @@ import { BotContext } from '../core/bot.middleware'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { buildAddTransactionPrompt } from './add-transaction.command'
+import { activateInputMode } from '../core/input-mode'
 
 export const repeatParseCallback = (
 	bot: Bot<BotContext>,
@@ -28,13 +29,12 @@ export const repeatParseCallback = (
 			} catch {}
 		}
 
-		ctx.session.awaitingTransaction = true
-		ctx.session.confirmingTransaction = false
-		ctx.session.draftTransactions = undefined
-		ctx.session.currentTransactionIndex = undefined
-		ctx.session.editingField = undefined
-		ctx.session.editMessageId = undefined
-		;(ctx.session as any).editingTransactionId = undefined
+		activateInputMode(ctx, 'transaction_parse', {
+			awaitingTransaction: true,
+			confirmingTransaction: false,
+			draftTransactions: undefined,
+			currentTransactionIndex: undefined
+		})
 
 		const text = await buildAddTransactionPrompt(ctx, subscriptionService)
 		const msg = await ctx.reply(text, {

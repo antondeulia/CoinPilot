@@ -3,19 +3,21 @@ import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { AnalyticsService } from '../../../modules/analytics/analytics.service'
 import { renderHome } from '../utils/render-home'
+import { resetInputModes } from '../core/input-mode'
 
 export const startCommand = (
 	bot: Bot<BotContext>,
 	accountsService: AccountsService,
 	analyticsService: AnalyticsService
 ) => {
-	bot.command('start', async ctx => {
+		bot.command('start', async ctx => {
 		if (ctx.session.tempMessageId != null) {
 			try {
 				await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
 			} catch {}
 		}
-		;(ctx.session as any).editingCurrency = false
+			resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
+			;(ctx.session as any).editingCurrency = false
 		;(ctx.session as any).editingMainCurrency = false
 		;(ctx.session as any).editingTimezone = false
 		ctx.session.editingField = undefined

@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { PrismaService } from '../prisma/prisma.service'
 import { SubscriptionPlan } from '../../generated/prisma/enums'
 import { addDays } from '../subscription/subscription.service'
+import { toDbMoney } from '../../utils/money'
 
 @Injectable()
 export class StripeService {
@@ -46,15 +47,22 @@ export class StripeService {
 
 		const user = await this.prisma.user.findUnique({
 			where: { id: params.userId },
-			select: { trialUsed: true }
+			select: { trialUsed: true, telegramId: true }
 		})
+		const trialLedger =
+			user?.telegramId != null
+				? await this.prisma.trialLedger.findUnique({
+						where: { telegramId: user.telegramId },
+						select: { id: true }
+					})
+				: null
 		const subscriptionData: { metadata: { user_id: string; plan: string }; trial_period_days?: number } = {
 			metadata: {
 				user_id: params.userId,
 				plan: params.plan
 			}
 		}
-		if (user && !user.trialUsed) {
+		if (user && !user.trialUsed && !trialLedger) {
 			subscriptionData.trial_period_days = 7
 		}
 		const session = await this.stripe.checkout.sessions.create({
@@ -119,8 +127,7 @@ export class StripeService {
 			this.logger.error('Stripe webhook signature verification failed', err as any)
 			return
 		}
-
-		switch (event.type) {
+			switch (event.type) {
 			case 'checkout.session.completed':
 				await this.handleCheckoutCompleted(
 					event.data.object as Stripe.Checkout.Session
@@ -169,11 +176,10 @@ export class StripeService {
 			this.logger.error('Не удалось получить Stripe subscription', e as any)
 			return
 		}
-
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
 
-	 end = new Date(stripeSub.current_period_end * 1000)
+		 end = new Date(stripeSub.current_period_end * 1000)
 }
 if (stripeSub.status === 'trialing') {
 	end = addDays(new Date(), 7)
@@ -184,6 +190,10 @@ if (stripeSub.status === 'trialing') {
 				: SubscriptionPlan.yearly
 
 		const stripeCustomerId = session.customer as string | null
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: { telegramId: true }
+		})
 
 		await this.prisma.$transaction([
 			this.prisma.user.update({
@@ -203,9 +213,29 @@ if (stripeSub.status === 'trialing') {
 					startDate: new Date(),
 					endDate: end,
 					amount: (session.amount_total ?? 0) / 100,
+					amountDecimal:
+						toDbMoney((session.amount_total ?? 0) / 100) ?? undefined,
 					currency: (session.currency ?? 'eur').toUpperCase()
 				}
-			})
+			}),
+			...(user?.telegramId
+				? [
+						this.prisma.trialLedger.upsert({
+							where: { telegramId: user.telegramId },
+							update: {
+								firstUserId: userId,
+								stripeCustomerId: stripeCustomerId ?? undefined,
+								usedAt: new Date()
+							},
+							create: {
+								telegramId: user.telegramId,
+								firstUserId: userId,
+								stripeCustomerId: stripeCustomerId ?? undefined,
+								usedAt: new Date()
+							}
+						})
+					]
+				: [])
 		])
 	}
 
@@ -224,7 +254,6 @@ if (stripeSub.status === 'trialing') {
 		const meta = stripeSub.metadata ?? {}
 		const userId = meta.user_id
 		if (!userId) return
-
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
 
@@ -250,7 +279,6 @@ if (stripeSub.current_period_end) {
 		const meta = stripeSub.metadata ?? {}
 		const userId = meta.user_id
 		if (!userId) return
-
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
 

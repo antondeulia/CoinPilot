@@ -6,6 +6,7 @@ import { TransactionsService } from '../transactions/transactions.service'
 import { LLMService } from '../llm/llm.service'
 import { LlmTransaction } from '../llm/schemas/transaction.schema'
 import { BotContext, userContextMiddleware } from './core/bot.middleware'
+import { activateInputMode, isInputMode, resetInputModes } from './core/input-mode'
 import { PrismaService } from '../prisma/prisma.service'
 import { AccountsService } from '../accounts/accounts.service'
 import { CategoriesService } from '../categories/categories.service'
@@ -286,7 +287,7 @@ export class BotService implements OnModuleInit {
 			stack.pop()
 			ctx.session.navigationStack = stack
 			if (!ctx.session.awaitingTransaction) {
-				ctx.session.tempMessageId = undefined
+				await this.closeTemp(ctx)
 			}
 			;(ctx.session as any).editingCurrency = false
 			;(ctx.session as any).editingMainCurrency = false
@@ -338,6 +339,7 @@ export class BotService implements OnModuleInit {
 			const stack = ctx.session.navigationStack ?? []
 			stack.pop()
 			ctx.session.navigationStack = stack
+			await this.closeTemp(ctx)
 			;(ctx.session as any).editingCurrency = false
 			;(ctx.session as any).editingMainCurrency = false
 			ctx.session.editingField = undefined
@@ -648,7 +650,8 @@ export class BotService implements OnModuleInit {
 				account.id === user.defaultAccountId,
 				isPremium,
 				lastTransactions,
-				analyticsData
+				analyticsData,
+				user.timezone ?? 'UTC+02:00'
 			)
 			const selectedFrozen = frozenAccountIds.has(accountId)
 			const visibleAccounts = (user.accounts ?? []).filter(
@@ -724,11 +727,33 @@ export class BotService implements OnModuleInit {
 				})
 				return
 			}
-			ctx.session.editingAccountDetailsId = selectedId
+			activateInputMode(ctx, 'account_jarvis_edit', {
+				editingAccountDetailsId: selectedId,
+				accountDetailsEditMode: 'jarvis'
+			})
 			const msg = await ctx.reply(
-				'Режим Jarvis-редактирования счёта.\n\nОпишите, что изменить: название, добавить/удалить валюты, изменить суммы.',
+				'Режим Jarvis-редактирования счёта.\n\nОпишите изменения только по активам и суммам (без переименования).',
 				{
 					parse_mode: 'HTML',
+					reply_markup: new InlineKeyboard().text(
+						'Закрыть',
+						'close_jarvis_details_edit'
+					)
+				}
+			)
+			ctx.session.editMessageId = msg.message_id
+		})
+
+		this.bot.callbackQuery('accounts_rename_details', async ctx => {
+			const selectedId = ctx.session.accountsViewSelectedId
+			if (!selectedId) return
+			activateInputMode(ctx, 'account_rename', {
+				editingAccountDetailsId: selectedId,
+				accountDetailsEditMode: 'name'
+			})
+			const msg = await ctx.reply(
+				'Отправьте новое название счёта (текст или голос).',
+				{
 					reply_markup: new InlineKeyboard().text(
 						'Закрыть',
 						'close_jarvis_details_edit'
@@ -969,9 +994,50 @@ export class BotService implements OnModuleInit {
 					reply_markup: new InlineKeyboard().text('Закрыть', 'back_to_settings')
 				}
 			)
+			activateInputMode(ctx, 'main_currency_edit', {
+				mainCurrencyHintMessageId: hint.message_id,
+				mainCurrencyErrorMessageIds: []
+			})
 			;(ctx.session as any).editingMainCurrency = true
-			;(ctx.session as any).mainCurrencyHintMessageId = hint.message_id
-			;(ctx.session as any).mainCurrencyErrorMessageIds = []
+		})
+
+		this.bot.callbackQuery('timezone_open', async ctx => {
+			const hint = await ctx.reply(
+				'Выберите или введите часовой пояс в формате UTC±HH:MM, например UTC+02:00.',
+				{
+					reply_markup: new InlineKeyboard()
+						.text('UTC+02:00', 'timezone_set:UTC+02:00')
+						.text('UTC+03:00', 'timezone_set:UTC+03:00')
+						.row()
+						.text('UTC+00:00', 'timezone_set:UTC+00:00')
+						.text('UTC-05:00', 'timezone_set:UTC-05:00')
+						.row()
+						.text('Закрыть', 'back_to_settings')
+				}
+			)
+			activateInputMode(ctx, 'timezone_edit', {
+				timezoneHintMessageId: hint.message_id,
+				timezoneErrorMessageIds: []
+			})
+		})
+
+		this.bot.callbackQuery(/^timezone_set:/, async ctx => {
+			const timezone = ctx.callbackQuery.data.replace('timezone_set:', '').trim()
+			const normalized = this.normalizeTimezone(timezone)
+			if (!normalized) return
+			await this.usersService.setTimezone(ctx.state.user.id, normalized)
+			const user: any = { ...ctx.state.user, timezone: normalized }
+			const alertsEnabledCount = await this.prisma.alertConfig.count({
+				where: { userId: user.id, enabled: true }
+			})
+			const view = buildSettingsView(user, alertsEnabledCount)
+			await ctx.api.editMessageText(
+				ctx.chat!.id,
+				ctx.session.homeMessageId,
+				view.text,
+				{ parse_mode: 'HTML', reply_markup: view.keyboard }
+			)
+			resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
 		})
 		this.bot.callbackQuery('timezone_open', async ctx => {
 			const hint = await ctx.reply(
@@ -985,6 +1051,7 @@ export class BotService implements OnModuleInit {
 			ctx.session.timezoneErrorMessageIds = []
 		})
 		this.bot.callbackQuery('back_to_settings', async ctx => {
+			resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
 			;(ctx.session as any).editingMainCurrency = false
 			ctx.session.editingTimezone = false
 			const hintMessageId = (ctx.session as any).mainCurrencyHintMessageId as
@@ -1005,18 +1072,24 @@ export class BotService implements OnModuleInit {
 				} catch {}
 			}
 			;(ctx.session as any).mainCurrencyErrorMessageIds = []
-			if (ctx.session.timezoneHintMessageId) {
+			const timezoneHintMessageId = (ctx.session as any).timezoneHintMessageId as
+				| number
+				| undefined
+			if (timezoneHintMessageId) {
 				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.timezoneHintMessageId)
+					await ctx.api.deleteMessage(ctx.chat!.id, timezoneHintMessageId)
 				} catch {}
-				ctx.session.timezoneHintMessageId = undefined
+				;(ctx.session as any).timezoneHintMessageId = undefined
 			}
-			for (const id of ctx.session.timezoneErrorMessageIds ?? []) {
+			const timezoneErrorMessageIds =
+				((ctx.session as any).timezoneErrorMessageIds as number[] | undefined) ??
+				[]
+			for (const id of timezoneErrorMessageIds) {
 				try {
 					await ctx.api.deleteMessage(ctx.chat!.id, id)
 				} catch {}
 			}
-			ctx.session.timezoneErrorMessageIds = []
+			;(ctx.session as any).timezoneErrorMessageIds = []
 			const user: any = ctx.state.user
 			const alertsEnabledCount = await this.prisma.alertConfig.count({
 				where: { userId: user.id, enabled: true }
@@ -1043,6 +1116,7 @@ export class BotService implements OnModuleInit {
 				view.text,
 				{ parse_mode: 'HTML', reply_markup: view.keyboard }
 			)
+			resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
 		})
 
 		this.bot.callbackQuery('confirm_delete_all_data', async ctx => {
@@ -1058,7 +1132,9 @@ export class BotService implements OnModuleInit {
 		})
 
 		this.bot.callbackQuery('delete_data_step2', async ctx => {
-			;(ctx.session as any).awaitingDeleteConfirm = true
+			activateInputMode(ctx, 'delete_confirm', {
+				awaitingDeleteConfirm: true
+			})
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.callbackQuery.message!.message_id,
@@ -1185,7 +1261,7 @@ export class BotService implements OnModuleInit {
 				if ((ctx.session as any).awaitingDeleteConfirm) {
 				if (text === 'delete-confirm') {
 					const userId = ctx.state.user.id
-					;(ctx.session as any).awaitingDeleteConfirm = false
+					resetInputModes(ctx)
 					await this.usersService.deleteAllUserData(userId)
 					await ctx.reply('Все данные пользователя удалены.')
 					const user = await this.usersService.getOrCreateByTelegramId(
@@ -1199,24 +1275,25 @@ export class BotService implements OnModuleInit {
 				return
 			}
 
-			if (text === 'На главное меню' || text === '🏠 На главное меню') {
-				ctx.session.awaitingTransaction = false
-				ctx.session.confirmingTransaction = false
-				ctx.session.draftTransactions = undefined
-				ctx.session.currentTransactionIndex = undefined
-				ctx.session.editingField = undefined
-				ctx.session.editMessageId = undefined
-				;(ctx.session as any).editingTransactionId = undefined
-				await renderHome(ctx, this.accountsService, this.analyticsService)
-				return
-			}
-			if (text === '➕ Добавить транзакцию') {
-				const txLimit = await this.subscriptionService.canCreateTransaction(
+			if (ctx.session.awaitingInlineCategoryCreate && ctx.session.draftTransactions) {
+				const name = text.trim().slice(0, 20)
+				if (!name) {
+					await ctx.reply('Введите корректное название категории.', {
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					})
+					return
+				}
+				const limit = await this.subscriptionService.canCreateCategory(
 					ctx.state.user.id
 				)
-				if (!txLimit.allowed) {
+				if (!limit.allowed) {
+					await this.subscriptionService.trackEvent(
+						ctx.state.user.id,
+						PremiumEventType.limit_hit,
+						'categories'
+					)
 					await ctx.reply(
-						'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+						'💠 В бесплатной версии недоступно создание своих категорий. Для добавления своих категорий, вы можете перейти на Premium.',
 						{
 							reply_markup: new InlineKeyboard()
 								.text('💠 Pro-тариф', 'view_premium')
@@ -1226,18 +1303,137 @@ export class BotService implements OnModuleInit {
 					)
 					return
 				}
-				ctx.session.awaitingTransaction = true
-				const promptText = await buildAddTransactionPrompt(
-					ctx as any,
-					this.subscriptionService
-				)
-				const msg = await ctx.reply(promptText, {
-					parse_mode: 'HTML',
-					reply_markup: new InlineKeyboard().text('Закрыть', 'close_add_transaction')
+				const created = await this.categoriesService.create(ctx.state.user.id, name)
+				const drafts = ctx.session.draftTransactions
+				const index = ctx.session.currentTransactionIndex ?? 0
+				const current = drafts[index] as any
+				current.category = created.name
+				current.categoryId = created.id
+
+				const hintId = ctx.session.inlineCreateHintMessageId
+				if (hintId) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, hintId)
+					} catch {}
+				}
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+				} catch {}
+				resetInputModes(ctx, {
+					draftTransactions: drafts,
+					currentTransactionIndex: index,
+					confirmingTransaction: true,
+					tempMessageId: ctx.session.tempMessageId,
+					homeMessageId: ctx.session.homeMessageId
 				})
-				ctx.session.tempMessageId = msg.message_id
+				const user = ctx.state.user as any
+				const accountId =
+					current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
+				const showConversion = await getShowConversion(
+					current,
+					accountId ?? null,
+					ctx.state.user.id,
+					this.accountsService
+				)
+				if (ctx.session.tempMessageId != null) {
+					await ctx.api.editMessageText(
+						ctx.chat!.id,
+						ctx.session.tempMessageId,
+						renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+						{
+							parse_mode: 'HTML',
+							reply_markup: confirmKeyboard(
+								drafts.length,
+								index,
+								showConversion,
+								current?.direction === 'transfer',
+								!!ctx.session.editingTransactionId
+							)
+						}
+					)
+				}
 				return
 			}
+
+			if (ctx.session.awaitingInlineTagCreate && ctx.session.draftTransactions) {
+				const raw = text.trim()
+				if (!raw || raw.length > 15) {
+					await ctx.reply('Введите название тега длиной до 15 символов.', {
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					})
+					return
+				}
+				const limit = await this.subscriptionService.canCreateTag(ctx.state.user.id)
+				if (!limit.allowed) {
+					await this.subscriptionService.trackEvent(
+						ctx.state.user.id,
+						PremiumEventType.limit_hit,
+						'tags'
+					)
+					await ctx.reply(
+						'💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!',
+						{
+							reply_markup: new InlineKeyboard()
+								.text('💠 Pro-тариф', 'view_premium')
+								.row()
+								.text('Закрыть', 'hide_message')
+						}
+					)
+					return
+				}
+				const created = await this.tagsService.create(ctx.state.user.id, raw)
+				const drafts = ctx.session.draftTransactions
+				const index = ctx.session.currentTransactionIndex ?? 0
+				const current = drafts[index] as any
+				current.tagId = created.id
+				current.tagName = created.name
+				current.tagIsNew = false
+
+				const hintId = ctx.session.inlineCreateHintMessageId
+				if (hintId) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, hintId)
+					} catch {}
+				}
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+				} catch {}
+				resetInputModes(ctx, {
+					draftTransactions: drafts,
+					currentTransactionIndex: index,
+					confirmingTransaction: true,
+					tempMessageId: ctx.session.tempMessageId,
+					homeMessageId: ctx.session.homeMessageId
+				})
+				const user = ctx.state.user as any
+				const accountId =
+					current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
+				const showConversion = await getShowConversion(
+					current,
+					accountId ?? null,
+					ctx.state.user.id,
+					this.accountsService
+				)
+				if (ctx.session.tempMessageId != null) {
+					await ctx.api.editMessageText(
+						ctx.chat!.id,
+						ctx.session.tempMessageId,
+						renderConfirmMessage(current, index, drafts.length, user.defaultAccountId),
+						{
+							parse_mode: 'HTML',
+							reply_markup: confirmKeyboard(
+								drafts.length,
+								index,
+								showConversion,
+								current?.direction === 'transfer',
+								!!ctx.session.editingTransactionId
+							)
+						}
+					)
+				}
+				return
+			}
+
 			if (ctx.session.awaitingTagInput && ctx.session.draftTransactions) {
 				const drafts = ctx.session.draftTransactions
 				if (!drafts.length) return
@@ -1534,7 +1730,10 @@ export class BotService implements OnModuleInit {
 					}
 
 					case 'date': {
-						const parsedDate = await this.llmService.parseDate(value)
+						const parsedDate = await this.llmService.parseDate(
+							value,
+							(ctx.state.user as any)?.timezone ?? 'UTC+02:00'
+						)
 						if (!parsedDate) {
 							await ctx.reply(
 								'Не удалось распознать дату, попробуйте ещё раз'
@@ -1635,68 +1834,7 @@ export class BotService implements OnModuleInit {
 				return
 			}
 
-			if (ctx.session.editingTimezone) {
-				const value = text.trim()
-				const isUtcOffset = /^[+-]\d{2}:\d{2}$/.test(value)
-				const isUtcPrefixOffset = /^UTC[+-]\d{2}:\d{2}$/i.test(value)
-				const normalizedOffset = isUtcPrefixOffset
-					? value.replace(/^UTC/i, '')
-					: value
-				let timezoneToSave = value
-				try {
-					if (isUtcOffset || isUtcPrefixOffset) {
-						timezoneToSave = normalizedOffset
-					} else {
-						new Intl.DateTimeFormat('ru-RU', { timeZone: value }).format(new Date())
-						timezoneToSave = value
-					}
-				} catch {
-					const err = await ctx.reply(
-						'Неверный часовой пояс. Пример: Europe/Berlin или +03:00',
-						{
-							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
-						}
-					)
-					const ids = ctx.session.timezoneErrorMessageIds ?? []
-					ids.push(err.message_id)
-					ctx.session.timezoneErrorMessageIds = ids
-					return
-				}
-				await (this.prisma as any).user.update({
-					where: { id: ctx.state.user.id },
-					data: { timezone: timezoneToSave }
-				})
-				if (ctx.session.timezoneHintMessageId) {
-					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.timezoneHintMessageId)
-					} catch {}
-					ctx.session.timezoneHintMessageId = undefined
-				}
-				for (const id of ctx.session.timezoneErrorMessageIds ?? []) {
-					try {
-						await ctx.api.deleteMessage(ctx.chat!.id, id)
-					} catch {}
-				}
-				ctx.session.timezoneErrorMessageIds = []
-				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
-				} catch {}
-				ctx.session.editingTimezone = false
-				const user: any = await this.usersService.getOrCreateByTelegramId(
-					String(ctx.from!.id)
-				)
-				const alertsEnabledCount = await this.prisma.alertConfig.count({
-					where: { userId: user.id, enabled: true }
-				})
-				const view = buildSettingsView(user as any, alertsEnabledCount)
-				await ctx.api.editMessageText(ctx.chat!.id, ctx.session.homeMessageId, view.text, {
-					parse_mode: 'HTML',
-					reply_markup: view.keyboard
-				})
-				return
-			}
-
-			if ((ctx.session as any).editingMainCurrency) {
+			if (isInputMode(ctx, 'main_currency_edit') || (ctx.session as any).editingMainCurrency) {
 				const value = text
 				const upper = value.trim().toUpperCase()
 				const map: Record<string, string> = {
@@ -1789,6 +1927,57 @@ export class BotService implements OnModuleInit {
 					ctx.session.homeMessageId = msg.message_id
 				}
 				;(ctx.session as any).editingMainCurrency = false
+				resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
+				return
+			}
+
+			if (isInputMode(ctx, 'timezone_edit')) {
+				const normalized = this.normalizeTimezone(text)
+				if (!normalized) {
+					const msg = await ctx.reply(
+						'Не удалось распознать часовой пояс. Используйте формат UTC+02:00.',
+						{
+							reply_markup: new InlineKeyboard().text('Закрыть', 'back_to_settings')
+						}
+					)
+					const ids =
+						((ctx.session as any).timezoneErrorMessageIds as number[] | undefined) ??
+						[]
+					ids.push(msg.message_id)
+					;(ctx.session as any).timezoneErrorMessageIds = ids
+					return
+				}
+				await this.usersService.setTimezone(ctx.state.user.id, normalized)
+				const hintMessageId = (ctx.session as any).timezoneHintMessageId as
+					| number
+					| undefined
+				if (hintMessageId) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, hintMessageId)
+					} catch {}
+					;(ctx.session as any).timezoneHintMessageId = undefined
+				}
+				for (const id of ((ctx.session as any).timezoneErrorMessageIds ?? []) as number[]) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, id)
+					} catch {}
+				}
+				;(ctx.session as any).timezoneErrorMessageIds = []
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+				} catch {}
+				const user: any = await this.usersService.getOrCreateByTelegramId(
+					String(ctx.from!.id)
+				)
+				const alertsEnabledCount = await this.prisma.alertConfig.count({
+					where: { userId: user.id, enabled: true }
+				})
+				const view = buildSettingsView(user as any, alertsEnabledCount)
+				await ctx.api.editMessageText(ctx.chat!.id, ctx.session.homeMessageId, view.text, {
+					parse_mode: 'HTML',
+					reply_markup: view.keyboard
+				})
+				resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
 				return
 			}
 
@@ -1804,6 +1993,17 @@ export class BotService implements OnModuleInit {
 					ctx.session.editingAccountDetailsId = undefined
 					return
 				}
+				if (ctx.session.accountDetailsEditMode === 'name') {
+					const renamed = await this.accountsService.renameAccount(
+						accountId,
+						user.id,
+						text
+					)
+					if (!renamed) {
+						await ctx.reply('Не удалось изменить название счёта.')
+						return
+					}
+				} else {
 				const current = {
 					name: account.name,
 					assets: account.assets.map(a => ({
@@ -1853,6 +2053,7 @@ export class BotService implements OnModuleInit {
 						'Не удалось применить изменения, попробуйте сформулировать иначе.'
 					)
 					return
+				}
 				}
 				if (ctx.session.editMessageId) {
 					try {
@@ -2027,7 +2228,8 @@ export class BotService implements OnModuleInit {
 						freshAccount.id === user.defaultAccountId,
 						isPremium,
 						lastTransactions,
-						analyticsData
+						analyticsData,
+						user.timezone ?? 'UTC+02:00'
 					)
 					const page = ctx.session.accountsViewPage ?? 0
 					const [freshUser, frozen] = await Promise.all([
@@ -2104,6 +2306,49 @@ export class BotService implements OnModuleInit {
 					}
 				}
 				ctx.session.editingAccountDetailsId = undefined
+				ctx.session.accountDetailsEditMode = undefined
+				return
+			}
+
+			if (
+				ctx.session.editingAccountField === 'name' &&
+				ctx.session.draftAccounts
+			) {
+				const drafts = ctx.session.draftAccounts
+				if (!drafts.length) return
+				const index = ctx.session.currentAccountIndex ?? 0
+				const current = drafts[index] as any
+				const raw = text.trim()
+				if (!raw) {
+					await ctx.reply('Введите корректное название счёта.')
+					return
+				}
+				const extractEmoji = (v: string) =>
+					v.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+)/u)?.[1] ??
+					''
+				const stripLeadingEmoji = (v: string) =>
+					v.replace(
+						/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+\s*)+/u,
+						''
+					).trim()
+				const prevEmoji = extractEmoji(String(current.name ?? ''))
+				const nextEmoji = extractEmoji(raw) || prevEmoji || '💼'
+				const baseName = stripLeadingEmoji(raw) || stripLeadingEmoji(String(current.name ?? '')) || 'Счёт'
+				current.name = `${nextEmoji} ${baseName}`.trim()
+
+				ctx.session.editingAccountField = undefined
+				if (ctx.session.editMessageId) {
+					try {
+						await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+					} catch {}
+					ctx.session.editMessageId = undefined
+				}
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id)
+				} catch {}
+				if (ctx.session.tempMessageId != null) {
+					await refreshAccountsPreview(ctx as any)
+				}
 				return
 			}
 
@@ -2119,9 +2364,16 @@ export class BotService implements OnModuleInit {
 
 				// пока простая перезапарсировка всего текста как одного счёта
 				try {
-					const parsed = await this.llmService.parseAccount(text)
-					if (parsed && parsed.length) {
-						drafts[index] = parsed[0]
+					const updated = await this.llmService.parseAccountEdit(
+						{
+							name: current.name,
+							assets: current.assets
+						},
+						text
+					)
+					drafts[index] = {
+						...current,
+						assets: updated.assets
 					}
 				} catch {}
 
@@ -2375,6 +2627,7 @@ export class BotService implements OnModuleInit {
 			if (ctx.session.awaitingTransaction) {
 				let parsed: LlmTransaction[]
 				const user: any = ctx.state.user
+				const timezone = user?.timezone ?? 'UTC+02:00'
 				const [userCategories, frozen, userAccounts] = await Promise.all([
 					this.categoriesService.getAllByUserId(user.id),
 					this.subscriptionService.getFrozenItems(user.id),
@@ -2405,7 +2658,7 @@ export class BotService implements OnModuleInit {
 						categoryNames,
 						existingTags,
 						accountNames,
-						memoryHints
+						timezone
 					)
 				} catch (e: unknown) {
 					const err = e instanceof Error ? e : new Error(String(e))
@@ -2424,10 +2677,21 @@ export class BotService implements OnModuleInit {
 					)
 					return
 				}
-			parsed = parsed.map(tx => ({
-				...tx,
-				rawText: tx.rawText && tx.rawText.trim().length > 0 ? tx.rawText : text
-			}))
+				const pending = ctx.session.pendingTransactionDraft as any
+				if (pending) {
+					const next = (parsed && parsed.length ? parsed[0] : {}) as any
+					const merged: any = { ...pending }
+					for (const [k, v] of Object.entries(next)) {
+						if (v == null) continue
+						if (typeof v === 'string' && v.trim().length === 0) continue
+						merged[k] = v
+					}
+					parsed = [merged]
+				}
+				parsed = parsed.map(tx => ({
+					...tx,
+					rawText: tx.rawText && tx.rawText.trim().length > 0 ? tx.rawText : text
+				}))
 
 				await this.processParsedTransactions(ctx, parsed)
 				return
@@ -2445,11 +2709,19 @@ export class BotService implements OnModuleInit {
 						await ctx.reply('Не удалось распознать счёт, попробуйте ещё раз')
 						return
 					}
-
-					ctx.session.awaitingAccountInput = false
-					ctx.session.confirmingAccounts = true
-					ctx.session.draftAccounts = parsed as any
-					ctx.session.currentAccountIndex = 0
+					const normalized = parsed.map(acc => ({
+						...acc,
+						rawText:
+							acc.rawText && acc.rawText.trim().length > 0
+								? acc.rawText
+								: text
+					}))
+					activateInputMode(ctx, 'idle', {
+						awaitingAccountInput: false,
+						confirmingAccounts: true,
+						draftAccounts: normalized as any,
+						currentAccountIndex: 0
+					})
 
 					await refreshAccountsPreview(ctx as any)
 				} catch (e: any) {
@@ -2476,42 +2748,23 @@ export class BotService implements OnModuleInit {
 				)
 				return
 			}
-			const [userCategories, frozen, userAccounts] = await Promise.all([
-				this.categoriesService.getAllByUserId(user.id),
-				this.subscriptionService.getFrozenItems(user.id),
-				this.accountsService.getAllByUserIdIncludingHidden(user.id)
-			])
-			const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
-			const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
-			const frozenTagIds = frozen.customTagIdsOverLimit
-			const visibleCategories = userCategories.filter(
-				c => !frozenCategoryIds.has(c.id)
-			)
-			const categoryNames = visibleCategories.map(c => c.name)
-			const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
-				excludeIds: frozenTagIds
-			})
-			const visibleAccounts = userAccounts.filter(
-				(a: any) => !frozenAccountIds.has(a.id)
-			)
-			const accountNames = visibleAccounts
-				.map((a: any) => a.name)
-				.filter((n: string) => n !== 'Вне Wallet')
-			const memoryHints = await this.llmMemoryService.getHints(user.id)
-
 			const photos = ctx.message.photo
 			if (!photos?.length) return
 			const largest = photos[photos.length - 1]
-			let imageDataUrl: string
 			try {
-				const file = await ctx.api.getFile(largest.file_id)
-				const token = this.config.getOrThrow<string>('BOT_TOKEN')
-				const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
-				const res = await fetch(url)
-				if (!res.ok) throw new Error('Failed to download photo')
-				const buf = Buffer.from(await res.arrayBuffer())
-				const base64 = buf.toString('base64')
-				imageDataUrl = `data:image/jpeg;base64,${base64}`
+				const imageDataUrl = await this.buildImageDataUrl(
+					largest.file_id,
+					'image/jpeg'
+				)
+				const parseToken = `PHOTO_PARSE:${new Date()
+					.toISOString()
+					.slice(0, 7)}:${largest.file_unique_id}`
+				await this.parseTransactionsFromImage(
+					ctx,
+					imageDataUrl,
+					ctx.message.caption?.trim() || undefined,
+					parseToken
+				)
 			} catch {
 				await ctx.reply(
 					'Не удалось загрузить фото. Попробуйте ещё раз или отправьте текст.',
@@ -2524,45 +2777,177 @@ export class BotService implements OnModuleInit {
 				)
 				return
 			}
+		})
 
-			const userCaption = ctx.message.caption?.trim() || ''
-			if (userCaption) {
-				await this.llmMemoryService.rememberRuleFromText(user.id, userCaption)
-			}
-			let parsed: LlmTransaction[]
-			try {
-				parsed = await this.llmService.parseTransactionFromImage(
-					imageDataUrl,
-					categoryNames,
-					existingTags,
-					accountNames,
-					userCaption || undefined,
-					memoryHints
-				)
-			} catch (e: unknown) {
-				const err = e instanceof Error ? e : new Error(String(e))
-				this.logger.warn(
-					`parseTransactionFromImage failed: ${err.message}`,
-					err.stack
-				)
+		this.bot.on('message:document', async ctx => {
+			if (!ctx.session.awaitingTransaction) return
+			const doc = ctx.message.document
+			if (!doc?.mime_type || !doc.mime_type.startsWith('image/')) return
+			const user: any = ctx.state.user
+			if (!user) return
+			const imageLimit = await this.subscriptionService.canParseImage(user.id)
+			if (!ctx.state.isPremium && !imageLimit.allowed) {
 				await ctx.reply(
-					'Техническая ошибка парсинга (ИИ недоступен или превышен лимит). Обратитесь к разработчику: @sselnorr',
+					'📸 Лимит фото-распознавания в Basic исчерпан. Перейдите на Pro для безлимита.',
 					{
-						reply_markup: new InlineKeyboard().text(
-							'Закрыть',
-							'hide_message'
-						)
+						reply_markup: new InlineKeyboard()
+							.text('💠 Pro-тариф', 'view_premium')
+							.row()
+							.text('Закрыть', 'hide_message')
 					}
 				)
 				return
 			}
+			try {
+				const imageDataUrl = await this.buildImageDataUrl(
+					doc.file_id,
+					doc.mime_type || 'image/jpeg'
+				)
+				const parseToken = `PHOTO_PARSE:${new Date()
+					.toISOString()
+					.slice(0, 7)}:${doc.file_unique_id}`
+				await this.parseTransactionsFromImage(
+					ctx,
+					imageDataUrl,
+					ctx.message.caption?.trim() || undefined,
+					parseToken
+				)
+			} catch {
+				await ctx.reply(
+					'Не удалось загрузить изображение. Попробуйте ещё раз или отправьте текст.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+			}
+		})
 
-			const parseToken = `PHOTO_PARSE:${new Date().toISOString().slice(0, 7)}:${largest.file_unique_id}`
-			parsed = parsed.map(tx => ({
-				...tx,
-				rawText: userCaption ? `${parseToken} ${userCaption}` : parseToken
-			}))
-			await this.processParsedTransactions(ctx, parsed)
+		this.bot.on('message:voice', async ctx => {
+			const user: any = ctx.state.user
+			if (!user) return
+			try {
+				const audioBuffer = await this.downloadTelegramFile(ctx.message.voice.file_id)
+				const textFromVoice = await this.llmService.transcribeAudio(audioBuffer, {
+					fileName: `${ctx.message.voice.file_unique_id}.ogg`,
+					mimeType: 'audio/ogg',
+					language: 'ru'
+				})
+				if (!textFromVoice) {
+					await ctx.reply('Не удалось распознать голосовое сообщение.')
+					return
+				}
+				if (ctx.session.awaitingTransaction) {
+					const [userCategories, frozen, userAccounts] = await Promise.all([
+						this.categoriesService.getAllByUserId(user.id),
+						this.subscriptionService.getFrozenItems(user.id),
+						this.accountsService.getAllByUserIdIncludingHidden(user.id)
+					])
+					const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+					const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
+					const frozenTagIds = frozen.customTagIdsOverLimit
+					const visibleCategories = userCategories.filter(
+						c => !frozenCategoryIds.has(c.id)
+					)
+					const categoryNames = visibleCategories.map(c => c.name)
+					const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+						excludeIds: frozenTagIds
+					})
+					const visibleAccounts = userAccounts.filter(
+						(a: any) => !frozenAccountIds.has(a.id)
+					)
+					const accountNames = visibleAccounts
+						.map((a: any) => a.name)
+						.filter((n: string) => n !== 'Вне Wallet')
+					const parsed = await this.llmService.parseTransaction(
+						textFromVoice,
+						categoryNames,
+						existingTags,
+						accountNames,
+						user?.timezone ?? 'UTC+02:00'
+					)
+					const normalized = parsed.map(tx => ({
+						...tx,
+						rawText:
+							tx.rawText && tx.rawText.trim().length > 0
+								? tx.rawText
+								: textFromVoice
+					}))
+					await this.processParsedTransactions(ctx, normalized)
+					return
+				}
+				if (ctx.session.awaitingAccountInput) {
+					const parsed = await this.llmService.parseAccount(textFromVoice)
+					if (!parsed.length) {
+						await ctx.reply('Не удалось распознать счёт, попробуйте ещё раз')
+						return
+					}
+					ctx.session.awaitingAccountInput = false
+					ctx.session.confirmingAccounts = true
+					ctx.session.draftAccounts = parsed as any
+					ctx.session.currentAccountIndex = 0
+					await refreshAccountsPreview(ctx as any)
+					return
+				}
+				if (
+					ctx.session.editingAccountField === 'name' &&
+					ctx.session.draftAccounts
+				) {
+					const drafts = ctx.session.draftAccounts
+					const index = ctx.session.currentAccountIndex ?? 0
+					const current = drafts[index] as any
+					const extractEmoji = (v: string) =>
+						v.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+)/u)?.[1] ??
+						''
+					const stripLeadingEmoji = (v: string) =>
+						v.replace(
+							/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+\s*)+/u,
+							''
+						).trim()
+					const prevEmoji = extractEmoji(String(current.name ?? ''))
+					const nextEmoji = extractEmoji(textFromVoice) || prevEmoji || '💼'
+					const baseName =
+						stripLeadingEmoji(textFromVoice) ||
+						stripLeadingEmoji(String(current.name ?? '')) ||
+						'Счёт'
+					current.name = `${nextEmoji} ${baseName}`.trim()
+					ctx.session.editingAccountField = undefined
+					if (ctx.session.editMessageId) {
+						try {
+							await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+						} catch {}
+						ctx.session.editMessageId = undefined
+					}
+					if (ctx.session.tempMessageId != null) {
+						await refreshAccountsPreview(ctx as any)
+					}
+					return
+				}
+				if (ctx.session.accountDetailsEditMode === 'name' && ctx.session.editingAccountDetailsId) {
+					const renamed = await this.accountsService.renameAccount(
+						ctx.session.editingAccountDetailsId,
+						user.id,
+						textFromVoice
+					)
+					if (!renamed) {
+						await ctx.reply('Не удалось изменить название счёта.')
+						return
+					}
+					if (ctx.session.editMessageId) {
+						try {
+							await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.editMessageId)
+						} catch {}
+						ctx.session.editMessageId = undefined
+					}
+					await ctx.reply('✅ Название счёта обновлено.', {
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					})
+					return
+				}
+			} catch {
+				await ctx.reply(
+					'Не удалось обработать голосовое сообщение. Попробуйте текстом.'
+				)
+			}
 		})
 
 			this.bot.start()
@@ -2630,15 +3015,153 @@ Pro открывает:
 		})
 	}
 
-		async closeTemp(ctx) {
-		if (ctx.session.confirmingTransaction) return
-		const tempId = ctx.session.tempMessageId
-		if (tempId && tempId !== ctx.session.homeMessageId) {
+	private normalizeTimezone(value: string): string | null {
+		const raw = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '')
+		const m = raw.match(/^UTC([+-])(\d{1,2})(?::?(\d{2}))?$/)
+		if (!m) return null
+		const sign = m[1]
+		const hh = Number(m[2])
+		const mm = Number(m[3] ?? '0')
+		if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh > 14 || mm > 59) {
+			return null
+		}
+		return `UTC${sign}${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+	}
+
+	private async downloadTelegramFile(fileId: string): Promise<Buffer> {
+		const file = await this.bot.api.getFile(fileId)
+		const token = this.config.getOrThrow<string>('BOT_TOKEN')
+		const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
+		const res = await fetch(url)
+		if (!res.ok) {
+			throw new Error('Failed to download telegram file')
+		}
+		return Buffer.from(await res.arrayBuffer())
+	}
+
+	private async buildImageDataUrl(
+		fileId: string,
+		mimeType: string = 'image/jpeg'
+	): Promise<string> {
+		const fileBuffer = await this.downloadTelegramFile(fileId)
+		return `data:${mimeType};base64,${fileBuffer.toString('base64')}`
+	}
+
+	private normalizeDescription(
+		description: string | null | undefined,
+		direction: string | undefined
+	): string {
+		const raw = String(description ?? '').trim()
+		if (!raw) return direction === 'transfer' ? 'Перевод' : '—'
+		const cleaned = raw
+			.replace(/\b(перевод|доход|расход|income|expense|transfer)\b/gi, '')
+			.replace(/\s{2,}/g, ' ')
+			.trim()
+		if (cleaned.length === 0) {
+			if (direction === 'transfer') return 'Перевод'
+			if (direction === 'income') return 'Доход'
+			if (direction === 'expense') return 'Расход'
+			return '—'
+		}
+		return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+	}
+
+	private getMissingCriticalFields(
+		tx: any,
+		outsideWalletId: string | null
+	): string[] {
+		const missing: string[] = []
+		if (!(typeof tx.amount === 'number') || !Number.isFinite(tx.amount) || tx.amount <= 0) {
+			missing.push('сумма (> 0)')
+		}
+		if (!tx.currency || String(tx.currency).trim().length === 0) {
+			missing.push('валюта')
+		}
+		if (tx.direction === 'transfer') {
+			if (!tx.accountId) missing.push('счёт отправителя')
+			if (!tx.toAccountId) missing.push('счёт получателя')
+			if (
+				outsideWalletId &&
+				tx.accountId === outsideWalletId &&
+				tx.toAccountId === outsideWalletId
+			) {
+				missing.push('одна сторона перевода должна быть обычным счётом')
+			}
+		} else {
+			if (!tx.accountId) missing.push('счёт')
+			if (outsideWalletId && tx.accountId === outsideWalletId) {
+				missing.push('для дохода/расхода нужен обычный счёт')
+			}
+		}
+		return missing
+	}
+
+	private async parseTransactionsFromImage(
+		ctx: BotContext,
+		imageDataUrl: string,
+		caption: string | undefined,
+		parseToken: string
+	): Promise<void> {
+		const user: any = ctx.state.user
+		const [userCategories, frozen, userAccounts] = await Promise.all([
+			this.categoriesService.getAllByUserId(user.id),
+			this.subscriptionService.getFrozenItems(user.id),
+			this.accountsService.getAllByUserIdIncludingHidden(user.id)
+		])
+		const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
+		const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
+		const frozenTagIds = frozen.customTagIdsOverLimit
+		const visibleCategories = userCategories.filter(c => !frozenCategoryIds.has(c.id))
+		const categoryNames = visibleCategories.map(c => c.name)
+		const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+			excludeIds: frozenTagIds
+		})
+		const visibleAccounts = userAccounts.filter(
+			(a: any) => !frozenAccountIds.has(a.id)
+		)
+		const accountNames = visibleAccounts
+			.map((a: any) => a.name)
+			.filter((n: string) => n !== 'Вне Wallet')
+
+		const parsed = await this.llmService.parseTransactionFromImage(
+			imageDataUrl,
+			categoryNames,
+			existingTags,
+			accountNames,
+			caption,
+			user?.timezone ?? 'UTC+02:00'
+		)
+		const normalized = parsed.map(tx => ({
+			...tx,
+			rawText: parseToken
+		}))
+		await this.processParsedTransactions(ctx, normalized)
+	}
+
+	async closeTemp(ctx) {
+		const keep = new Set<number>((ctx.session.resultMessageIds ?? []) as number[])
+		const ids = [
+			ctx.session.tempMessageId,
+			ctx.session.hintMessageId,
+			ctx.session.previewMessageId,
+			ctx.session.inlineCreateHintMessageId,
+			(ctx.session as any).accountInputHintMessageId,
+			(ctx.session as any).mainCurrencyHintMessageId,
+			(ctx.session as any).timezoneHintMessageId
+		].filter((id): id is number => typeof id === 'number')
+		for (const id of ids) {
+			if (id === ctx.session.homeMessageId || keep.has(id)) continue
 			try {
-				await ctx.api.deleteMessage(ctx.chat.id, tempId)
+				await ctx.api.deleteMessage(ctx.chat.id, id)
 			} catch {}
 		}
 		ctx.session.tempMessageId = undefined
+		ctx.session.hintMessageId = undefined
+		ctx.session.previewMessageId = undefined
+		ctx.session.inlineCreateHintMessageId = undefined
+		;(ctx.session as any).accountInputHintMessageId = undefined
+		;(ctx.session as any).mainCurrencyHintMessageId = undefined
+		;(ctx.session as any).timezoneHintMessageId = undefined
 	}
 
 	private async processParsedTransactions(
@@ -2920,18 +3443,32 @@ Pro открывает:
 			tx.toAccount = normalizeAccountAlias(tx.toAccount)
 			const sourceText = `${tx.rawText ?? ''} ${tx.description ?? ''}`.toLowerCase()
 			const transferHint =
-				/(перев[её]л|перевод|перекинул|вывел|снял в нал|в нал)/.test(sourceText) &&
-				/(с |из ).+( в | на )/.test(sourceText)
-			const explicitTransferType =
-				/тип\s*[:\-]?\s*перевод|это\s+перевод|\(тип\s*перевод\)/.test(sourceText)
-			if (transferHint || explicitTransferType) {
+				/(перев[её]л|перевел|перевод|перекинул|вывел|send|sent|withdraw|withdrawal)/.test(
+					sourceText
+				)
+			if (transferHint) {
 				tx.direction = 'transfer'
 			}
-			if (tx.direction === 'transfer' && isGenericTransferDescription(tx.description)) {
-				const counterparty = extractTransferCounterparty(tx.rawText)
-				if (counterparty) {
-					tx.description = `Перевод ${counterparty}`
+			if (
+				/(telegram\s*stars|донат|подписк|subscription|apple\.com\/bill|google\*|patreon|payment)/.test(
+					sourceText
+				)
+			) {
+				const paymentCategory = categoryNames.find((name: string) =>
+					/платеж|платёж|оплат/i.test(name)
+				)
+				if (paymentCategory) {
+					tx.category = paymentCategory
 				}
+			}
+			if (
+				/(кофе|cafe|кафе|ресторан|обед|ужин|блюд)/.test(sourceText) &&
+				(!tx.category || tx.category === '📦Другое')
+			) {
+				const foodLike = categoryNames.find((name: string) =>
+					/еда|food|кафе|кофе|рестора|напит/i.test(name)
+				)
+				if (foodLike) tx.category = foodLike
 			}
 			if (!tx.category || tx.category === 'Не выбрано' || tx.category === '📦Другое' || !tx.tag_text) {
 				const similar = findSimilar(tx.description)
@@ -2949,9 +3486,14 @@ Pro открывает:
 					}
 				}
 			}
+			tx.description = this.normalizeDescription(tx.description, tx.direction)
 		}
 
-		for (const tx of withFeeTransactions) {
+		for (const tx of parsedNormalized) {
+			tx.userTimezone = user.timezone ?? 'UTC+02:00'
+			if (typeof tx.amount === 'number' && Number.isFinite(tx.amount)) {
+				tx.amount = Math.abs(tx.amount)
+			}
 			const isTransfer = tx.direction === 'transfer'
 			const parsedAccountStr = isTransfer
 				? (tx.fromAccount && String(tx.fromAccount).trim()) || (tx.account && String(tx.account).trim()) || ''
@@ -2975,7 +3517,16 @@ Pro открывает:
 				acc = defaultAccount
 			}
 			if (isTransfer) {
-				const toStr = tx.toAccount && String(tx.toAccount).trim()
+				let toStr = tx.toAccount && String(tx.toAccount).trim()
+				if (!toStr) {
+					const source = `${tx.rawText ?? ''} ${tx.description ?? ''}`.trim()
+					const m = source.match(
+						/(?:перев[её]л|перевел|перевод|to|кому|send)\s+([A-Za-zА-Яа-яЁё0-9_\- ]{2,})/i
+					)
+					if (m?.[1]) {
+						toStr = m[1].trim()
+					}
+				}
 				if (toStr) {
 					const toMatched = matchAccountByName(toStr)
 					if (toMatched) {
@@ -2992,6 +3543,16 @@ Pro открывает:
 				if (!tx.accountId) {
 					tx.accountId = outsideWalletId ?? defaultAccountId
 					tx.account = tx.accountId === outsideWalletId ? 'Вне Wallet' : defaultAccount?.name
+				}
+				if (
+					outsideWalletId &&
+					tx.accountId === outsideWalletId &&
+					tx.toAccountId === outsideWalletId &&
+					defaultAccountId &&
+					defaultAccountId !== outsideWalletId
+				) {
+					tx.accountId = defaultAccountId
+					tx.account = defaultAccount?.name ?? tx.account
 				}
 			}
 			if (
@@ -3028,6 +3589,8 @@ Pro открывает:
 			if (!tx.category || !categoryNames.includes(tx.category)) {
 				tx.category = '📦Другое'
 			}
+			const matchedCategory = visibleCategories.find(c => c.name === tx.category)
+			tx.categoryId = matchedCategory?.id
 			if (tx.accountId && tx.currency && typeof tx.amount === 'number') {
 				const account = await this.accountsService.getOneWithAssets(
 					tx.accountId,
@@ -3067,99 +3630,65 @@ Pro открывает:
 			}
 		}
 
-		const first = withFeeTransactions[0]
-		const hasAnyField =
-			typeof first.amount === 'number' ||
-			(typeof first.description === 'string' &&
-				first.description.trim().length > 0)
-		if (!hasAnyField) {
+		const first = parsedNormalized[0] as any
+		const hasTransactionalSignal = parsedNormalized.some(
+			tx =>
+				(typeof tx.amount === 'number' && Number.isFinite(tx.amount) && tx.amount > 0) ||
+				(typeof tx.currency === 'string' && tx.currency.trim().length > 0)
+		)
+		if (!hasTransactionalSignal) {
 			await ctx.reply(
-				'Прости, я не смог понять, что ты имеешь в виду 😕\n' +
-					'Попробуй, например:\n\n' +
-					'• Купил кофе за 120 грн\n' +
-					'• Зарплата 1500 USD\n' +
-					'• Купил 5 монет BTC'
-			)
-			return
-		}
-
-		const txLimit = await this.subscriptionService.canCreateTransaction(user.id)
-		if (
-			!txLimit.allowed ||
-			(!ctx.state.isPremium && txLimit.current + withFeeTransactions.length > txLimit.limit)
-		) {
-			await ctx.reply(
-				'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				'Прости, я не смог выделить данные транзакции. Добавьте сумму и валюту, например: "кофе 120 UAH".',
 				{
-					reply_markup: new InlineKeyboard()
-						.text('💠 Pro-тариф', 'view_premium')
-						.row()
-						.text('Закрыть', 'hide_message')
+					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+				}
+			)
+			return
+		}
+		const firstInvalid = parsedNormalized.find(tx => {
+			const missing = this.getMissingCriticalFields(tx, outsideWalletId)
+			;(tx as any).__missing = missing
+			return missing.length > 0
+		}) as any
+		if (firstInvalid) {
+			const missing = (firstInvalid.__missing as string[]) ?? []
+			const recognized: string[] = []
+			if (firstInvalid.description) {
+				recognized.push(`Название: ${firstInvalid.description}`)
+			}
+			if (firstInvalid.category) {
+				recognized.push(`Категория: ${firstInvalid.category}`)
+			}
+			if (firstInvalid.account) {
+				recognized.push(`Счёт: ${firstInvalid.account}`)
+			}
+			activateInputMode(ctx, 'transaction_parse', {
+				awaitingTransaction: true,
+				pendingTransactionDraft: {
+					...firstInvalid,
+					__missing: undefined
+				} as any,
+				pendingTransactionMissing: missing
+			})
+			await ctx.reply(
+				`Не хватает данных для создания операции: ${missing.join(', ')}.\n` +
+					`Отправьте только недостающие поля, я дополню текущий черновик.` +
+					(recognized.length > 0
+						? `\n\nУже распознано:\n${recognized.join('\n')}`
+						: ''),
+				{
+					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
 				}
 			)
 			return
 		}
 
-		for (const tx of withFeeTransactions) {
-			const isTransfer = tx.direction === 'transfer'
-			const effectiveAccountId =
-				tx.accountId ?? defaultAccountId ?? outsideWalletId ?? null
-			if (!effectiveAccountId) continue
-			let tagId = tx.tagId as string | undefined
-			if (tx.tagIsNew && tx.tagName) {
-				const tagLimit = await this.subscriptionService.canCreateTag(user.id)
-				if (
-					!tagLimit.allowed ||
-					(!ctx.state.isPremium && tagLimit.current + 1 > tagLimit.limit)
-				) {
-					tx.tagIsNew = false
-					tx.tagName = undefined
-					tagId = undefined
-				} else {
-					try {
-						const createdTag = await this.tagsService.create(user.id, tx.tagName)
-						tagId = createdTag.id
-						tx.tagId = createdTag.id
-						tx.tagName = createdTag.name
-						tx.tagIsNew = false
-					} catch {
-						tagId = undefined
-					}
-				}
-			}
-			if (tagId) {
-				await this.tagsService.incrementUsage(tagId)
-			}
-			const created = await this.transactionsService.create({
-				userId: user.id,
-				accountId: effectiveAccountId,
-				amount: tx.amount ?? 0,
-				currency: tx.currency ?? 'USD',
-				direction: tx.direction,
-				...(isTransfer
-					? {
-							fromAccountId: effectiveAccountId,
-							toAccountId: tx.toAccountId ?? outsideWalletId ?? undefined
-						}
-					: { category: tx.category ?? '📦Другое' }),
-				description: tx.description,
-				rawText: tx.rawText || '',
-				transactionDate: pickTransactionDate({
-					userText: tx.rawText ?? '',
-					llmDate: tx.transactionDate
-				}),
-				tagId: tagId ?? undefined,
-				convertedAmount: tx.convertedAmount,
-				convertToCurrency: tx.convertToCurrency
-			})
-			tx.id = created.id
-			tx.transactionDate = created.transactionDate.toISOString()
-		}
-
-		ctx.session.awaitingTransaction = false
-		ctx.session.confirmingTransaction = true
-		ctx.session.draftTransactions = withFeeTransactions
-		ctx.session.currentTransactionIndex = 0
+		activateInputMode(ctx, 'transaction_edit', {
+			awaitingTransaction: false,
+			confirmingTransaction: true,
+			draftTransactions: parsedNormalized,
+			currentTransactionIndex: 0
+		})
 
 		const firstAccountId = (first as any)?.accountId ?? defaultAccountId
 		const previewAccount =
@@ -3205,7 +3734,7 @@ Pro открывает:
 			}
 		)
 		ctx.session.tempMessageId = msg.message_id
-		await renderHome(ctx, this.accountsService, this.analyticsService)
+		ctx.session.previewMessageId = msg.message_id
 	}
 }
 

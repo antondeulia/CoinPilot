@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { activateInputMode } from '../core/input-mode'
 
 async function buildAddAccountPrompt(
 	ctx: BotContext,
@@ -48,10 +49,12 @@ export const addAccountCallback = (
 			)
 			return
 		}
-		ctx.session.awaitingAccountInput = true
-		ctx.session.confirmingAccounts = false
-		ctx.session.draftAccounts = undefined
-		ctx.session.currentAccountIndex = undefined
+			activateInputMode(ctx, 'account_parse', {
+				awaitingAccountInput: true,
+				confirmingAccounts: false,
+			draftAccounts: undefined,
+			currentAccountIndex: undefined
+		})
 
 		const prompt = await buildAddAccountPrompt(ctx, subscriptionService)
 		const msg = await ctx.reply(prompt, {
@@ -59,7 +62,8 @@ export const addAccountCallback = (
 			reply_markup: new InlineKeyboard().text('Закрыть', 'close_add_account')
 		})
 
-		;(ctx.session as any).accountInputHintMessageId = msg.message_id
-		ctx.session.tempMessageId = undefined
-	})
+			;(ctx.session as any).accountInputHintMessageId = msg.message_id
+			ctx.session.hintMessageId = msg.message_id
+			ctx.session.tempMessageId = undefined
+		})
 }

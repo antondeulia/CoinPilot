@@ -5,7 +5,7 @@ import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
-import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
+import { activateInputMode } from '../core/input-mode'
 
 const TAG_PAGE_SIZE = 9
 
@@ -46,6 +46,7 @@ function buildTagsKeyboard(
 			{ text: 'Вперёд »', callback_data: 'tags_page:next' }
 		])
 	}
+	rows.push([{ text: 'Создать тег', callback_data: 'create_tag_from_preview' }])
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
 	return { inline_keyboard: rows }
@@ -211,5 +212,14 @@ export const editTagCallback = (
 				}
 			)
 		} catch {}
+	})
+
+	bot.callbackQuery('create_tag_from_preview', async ctx => {
+		activateInputMode(ctx, 'tag_create', {
+			awaitingInlineTagCreate: true,
+			awaitingInlineCategoryCreate: false
+		})
+		const hint = await ctx.reply('Введите название нового тега (до 15 символов).')
+		ctx.session.inlineCreateHintMessageId = hint.message_id
 	})
 }

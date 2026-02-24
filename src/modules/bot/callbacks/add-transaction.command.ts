@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
+import { activateInputMode, resetInputModes } from '../core/input-mode'
 
 export async function buildAddTransactionPrompt(
 	ctx: BotContext,
@@ -47,6 +48,18 @@ export const addTxCallback = (
 	subscriptionService: SubscriptionService
 ) => {
 	bot.callbackQuery('add_transaction', async ctx => {
+		const visibleAccounts = (ctx.state.user.accounts ?? []).filter(
+			(a: { isHidden?: boolean }) => !a.isHidden
+		)
+		if (visibleAccounts.length === 0) {
+			await ctx.reply(
+				'Нельзя создать операцию: у вас нет счётов. Добавьте счёт во вкладке «Счета».',
+				{
+					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+				}
+			)
+			return
+		}
 		const txLimit = await subscriptionService.canCreateTransaction(ctx.state.user.id)
 		if (!txLimit.allowed) {
 			await ctx.reply(
@@ -68,19 +81,20 @@ export const addTxCallback = (
 		;(ctx.session as any).editingCurrency = false
 		;(ctx.session as any).editingMainCurrency = false
 		ctx.session.editingField = undefined
-		ctx.session.awaitingTransaction = true
+		activateInputMode(ctx, 'transaction_parse', { awaitingTransaction: true })
 
 		const text = await buildAddTransactionPrompt(ctx, subscriptionService)
-		const msg = await ctx.reply(text, {
-			parse_mode: 'HTML',
-			reply_markup: new InlineKeyboard().text('Закрыть', 'close_add_transaction')
+			const msg = await ctx.reply(text, {
+				parse_mode: 'HTML',
+				reply_markup: new InlineKeyboard().text('Закрыть', 'close_add_transaction')
+			})
+
+			ctx.session.tempMessageId = msg.message_id
+			ctx.session.hintMessageId = msg.message_id
 		})
 
-		ctx.session.tempMessageId = msg.message_id
-	})
-
 	bot.callbackQuery('close_add_transaction', async ctx => {
-		ctx.session.awaitingTransaction = false
+		resetInputModes(ctx)
 
 		try {
 			await ctx.api.deleteMessage(
