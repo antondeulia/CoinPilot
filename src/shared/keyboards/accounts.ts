@@ -37,12 +37,13 @@ export function accountSwitchKeyboard(
 	}
 
 	if (selectedId) {
-		if (selectedFrozen) {
-			kb.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
-		} else {
-			kb.text('Jarvis-редактирование', 'accounts_jarvis_edit_details')
-				.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
-		}
+			if (selectedFrozen) {
+				kb.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
+			} else {
+				kb.text('Jarvis-редактирование', 'accounts_jarvis_edit_details')
+					.text('Название', 'accounts_rename_details')
+					.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
+			}
 		kb.text('← Назад', 'accounts_back')
 	} else {
 		kb.text('+ Добавить счёт', 'add_account').row()

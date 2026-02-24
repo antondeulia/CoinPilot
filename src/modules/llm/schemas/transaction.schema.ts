@@ -9,6 +9,7 @@ export const LlmTransactionSchema = z.object({
 	toAccount: z.string().optional(),
 	account: z.string().optional(),
 	accountId: z.string().optional(),
+	categoryId: z.string().optional(),
 	transactionDate: z.string().optional(),
 	category: z.string().optional(),
 	description: z.string().optional(),

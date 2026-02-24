@@ -26,7 +26,9 @@ function renderAccountPreview(account, index: number, total: number, isDefault: 
 function accountPreviewKeyboard(total: number, index: number) {
 	const hasPagination = total > 1
 
-	const kb = new InlineKeyboard().text('Jarvis-редактирование', 'accounts_jarvis_edit')
+	const kb = new InlineKeyboard()
+		.text('Jarvis-редактирование', 'accounts_jarvis_edit')
+		.text('Название', 'accounts_rename')
 
 	if (total > 1) {
 		kb.row()

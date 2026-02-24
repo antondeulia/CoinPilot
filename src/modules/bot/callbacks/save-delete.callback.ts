@@ -67,8 +67,22 @@ export const saveDeleteCallback = (
 
 		if (!drafts || !drafts.length || !account) return
 
-		const draft = drafts[index] as any
-		// Лимит транзакций для Free
+			const draft = drafts[index] as any
+			if (
+				typeof draft.amount !== 'number' ||
+				!Number.isFinite(draft.amount) ||
+				draft.amount <= 0 ||
+				!draft.currency
+			) {
+				await ctx.reply(
+					'Транзакция не сохранена: не хватает критичных данных (сумма, валюта).',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+			// Лимит транзакций для Free
 		const limit = await subscriptionService.canCreateTransaction(ctx.state.user.id)
 		if (!limit.allowed) {
 			await ctx.answerCallbackQuery({
@@ -113,35 +127,64 @@ export const saveDeleteCallback = (
 		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(
 			ctx.state.user.id
 		)
-		const outsideWalletId =
-			allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
-		await transactionsService.create({
-			accountId: draft.accountId || account.id,
-			amount: draft.amount!,
-			currency: draft.currency!,
-			direction: draft.direction,
-			...(isTransfer
-				? {
-						fromAccountId: draft.accountId || account.id,
-						toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
+			const outsideWalletId =
+				allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
+			if (
+				draft.direction !== 'transfer' &&
+				outsideWalletId &&
+				(draft.accountId || account.id) === outsideWalletId
+			) {
+				await ctx.reply(
+					'Для доходов и расходов нельзя использовать счёт «Вне Wallet». Выберите обычный счёт.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
 					}
-				: { category: draft.category ?? '📦Другое' }),
-			description: draft.description,
-			rawText: draft.rawText || '',
-			userId: ctx.state.user.id,
-			transactionDate: draft.transactionDate
-				? new Date(draft.transactionDate)
-				: undefined,
-			fromAccountId: isTransfer
-				? draft.accountId || account.id
-				: draft.fromAccountId,
-			toAccountId: isTransfer
-				? draft.toAccountId ?? outsideWalletId ?? undefined
-				: draft.toAccountId,
-			tagId: tagId ?? undefined,
-			convertedAmount: draft.convertedAmount,
-			convertToCurrency: draft.convertToCurrency
-		})
+				)
+				return
+			}
+			const transferToAccountId = draft.toAccountId ?? outsideWalletId ?? undefined
+			if (
+				isTransfer &&
+				outsideWalletId &&
+				(draft.accountId || account.id) === outsideWalletId &&
+				transferToAccountId === outsideWalletId
+			) {
+				await ctx.reply(
+					'В переводе счёт «Вне Wallet» можно выбрать только в одном поле.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
+				return
+			}
+				await transactionsService.create({
+					accountId: draft.accountId || account.id,
+				amount: draft.amount!,
+				currency: draft.currency!,
+				direction: draft.direction,
+					...(isTransfer
+						? {
+								fromAccountId: draft.accountId || account.id,
+								toAccountId: transferToAccountId
+							}
+						: {
+								categoryId: draft.categoryId ?? undefined,
+								category: draft.category ?? '📦Другое'
+							}),
+				description: draft.description,
+				rawText: draft.rawText || '',
+				userId: ctx.state.user.id,
+				transactionDate: draft.transactionDate
+					? new Date(draft.transactionDate)
+					: undefined,
+				fromAccountId: isTransfer
+					? draft.accountId || account.id
+					: draft.fromAccountId,
+				toAccountId: isTransfer ? transferToAccountId : draft.toAccountId,
+				tagId: tagId ?? undefined,
+				convertedAmount: draft.convertedAmount,
+				convertToCurrency: draft.convertToCurrency
+			})
 
 		drafts.splice(index, 1)
 
@@ -159,16 +202,19 @@ export const saveDeleteCallback = (
 
 			;(ctx.session as any).homeMessageId = undefined
 
-			const msg = await ctx.reply(
-				'✅ Транзакция успешно сохранена.\n\nВозвращаюсь на главный экран.',
+				const msg = await ctx.reply(
+					'✅ Транзакция успешно сохранена.\n\nВозвращаюсь на главный экран.',
 				{
 					parse_mode: 'HTML',
 					reply_markup: {
 						inline_keyboard: [[{ text: 'Закрыть', callback_data: 'hide_message' }]]
 					}
 				}
-			)
-			ctx.session.tempMessageId = msg.message_id
+				)
+				ctx.session.resultMessageIds = [
+					...((ctx.session.resultMessageIds ?? []) as number[]),
+					msg.message_id
+				]
 
 			await renderHome(ctx as any, accountsService, analyticsService)
 

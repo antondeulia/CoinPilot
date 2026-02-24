@@ -123,6 +123,22 @@ export const editTargetAccountCallback = (
 
 		current.toAccountId = accountId
 		current.toAccount = account.name
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+		const outsideWallet = allAccounts.find(a => a.name === 'Вне Wallet')
+		const visibleAccounts = allAccounts.filter(a => !a.isHidden)
+		const fallbackId =
+			user.defaultAccountId && visibleAccounts.some(a => a.id === user.defaultAccountId)
+				? user.defaultAccountId
+				: visibleAccounts[0]?.id
+		const fallbackAccount = (fallbackId && allAccounts.find(a => a.id === fallbackId)) || null
+		if (
+			outsideWallet &&
+			current.accountId === outsideWallet.id &&
+			current.toAccountId === outsideWallet.id
+		) {
+			current.accountId = fallbackAccount?.id
+			current.account = fallbackAccount?.name
+		}
 
 		const accountCurrencies = Array.from(
 			new Set(account.assets?.map(a => a.currency || account.currency) ?? [])

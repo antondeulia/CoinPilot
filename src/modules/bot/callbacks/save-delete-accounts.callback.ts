@@ -148,12 +148,7 @@ export const saveDeleteAccountsCallback = (
 				} catch {}
 				;(ctx.session as any).accountInputHintMessageId = undefined
 			}
-			for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
-				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, msgId)
-				} catch {}
-			}
-			;(ctx.session as any).accountInputMessageIds = []
+				;(ctx.session as any).accountInputMessageIds = []
 
 			await ctx.reply(`✅ Счёт сохранён: ${draft.name}`, {
 				reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
@@ -194,12 +189,7 @@ export const saveDeleteAccountsCallback = (
 				} catch {}
 				;(ctx.session as any).accountInputHintMessageId = undefined
 			}
-			for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
-				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, msgId)
-				} catch {}
-			}
-			;(ctx.session as any).accountInputMessageIds = []
+				;(ctx.session as any).accountInputMessageIds = []
 
 			return
 		}
@@ -301,12 +291,7 @@ export const saveDeleteAccountsCallback = (
 			} catch {}
 			;(ctx.session as any).accountInputHintMessageId = undefined
 		}
-		for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
-			try {
-				await ctx.api.deleteMessage(ctx.chat!.id, msgId)
-			} catch {}
-		}
-		;(ctx.session as any).accountInputMessageIds = []
+			;(ctx.session as any).accountInputMessageIds = []
 
 		await ctx.reply(
 			created > 0
@@ -338,11 +323,6 @@ export const saveDeleteAccountsCallback = (
 			} catch {}
 			;(ctx.session as any).accountInputHintMessageId = undefined
 		}
-		for (const msgId of (((ctx.session as any).accountInputMessageIds ?? []) as number[])) {
-			try {
-				await ctx.api.deleteMessage(ctx.chat!.id, msgId)
-			} catch {}
-		}
-		;(ctx.session as any).accountInputMessageIds = []
-	})
-}
+			;(ctx.session as any).accountInputMessageIds = []
+		})
+	}

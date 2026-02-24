@@ -83,16 +83,43 @@ export const confirmTxCallback = (
 			}
 		}
 
-		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
-		const outsideWalletId =
-			allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
+			const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+			const outsideWalletId =
+				allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
 
-		for (const draft of drafts as any[]) {
-			const accountId =
-				draft.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
-			if (!accountId) continue
+				for (const draft of drafts as any[]) {
+					const accountId =
+						draft.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
+					if (!accountId) continue
+					if (
+						typeof draft.amount !== 'number' ||
+						!Number.isFinite(draft.amount) ||
+						draft.amount <= 0 ||
+						!draft.currency
+					) {
+						await ctx.reply(
+							'Транзакция не сохранена: не хватает критичных данных (сумма, валюта).',
+							{
+								reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+							}
+						)
+						return
+					}
+					if (
+						draft.direction !== 'transfer' &&
+						outsideWalletId &&
+					accountId === outsideWalletId
+				) {
+					await ctx.reply(
+						'Для доходов и расходов нельзя использовать счёт «Вне Wallet». Выберите обычный счёт.',
+						{
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						}
+					)
+					return
+				}
 
-			let tagId = draft.tagId
+				let tagId = draft.tagId
 			if (draft.tagIsNew && draft.tagName) {
 				const tag = await tagsService.create(ctx.state.user.id, draft.tagName)
 				tagId = tag.id
@@ -101,18 +128,36 @@ export const confirmTxCallback = (
 				await tagsService.incrementUsage(tagId)
 			}
 
-			const isTransfer = draft.direction === 'transfer'
-			await transactionsService.create({
-				accountId,
+				const isTransfer = draft.direction === 'transfer'
+				const toAccountId = draft.toAccountId ?? outsideWalletId ?? undefined
+				if (
+					isTransfer &&
+					outsideWalletId &&
+					accountId === outsideWalletId &&
+					toAccountId === outsideWalletId
+				) {
+					await ctx.reply(
+						'В переводе счёт «Вне Wallet» можно выбрать только в одном поле.',
+						{
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						}
+					)
+					return
+				}
+				await transactionsService.create({
+					accountId,
 				amount: draft.amount!,
 				currency: draft.currency!,
 				direction: draft.direction,
-				...(isTransfer
-					? {
-							fromAccountId: accountId,
-							toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
-						}
-					: { category: draft.category ?? '📦Другое' }),
+						...(isTransfer
+							? {
+									fromAccountId: accountId,
+									toAccountId
+								}
+							: {
+									categoryId: draft.categoryId ?? undefined,
+									category: draft.category ?? '📦Другое'
+								}),
 				description: draft.description,
 				rawText: draft.rawText || '',
 				userId: ctx.state.user.id,
@@ -150,12 +195,14 @@ export const confirmTxCallback = (
 		;(ctx.session as any).homeMessageId = undefined
 
 		// 🟢 success-сообщение
-		const msg = await ctx.reply(successText, {
-			parse_mode: 'HTML',
-			reply_markup: successKeyboard
-		})
-
-		ctx.session.tempMessageId = msg.message_id
+			const msg = await ctx.reply(successText, {
+				parse_mode: 'HTML',
+				reply_markup: successKeyboard
+			})
+			ctx.session.resultMessageIds = [
+				...((ctx.session.resultMessageIds ?? []) as number[]),
+				msg.message_id
+			]
 
 		// показать домашний экран как после /start (новым сообщением)
 		await renderHome(ctx as any, accountsService, analyticsService)

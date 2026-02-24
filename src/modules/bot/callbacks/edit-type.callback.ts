@@ -64,31 +64,68 @@ export const editTypeCallback = (
 
 		current.direction = type
 
-		const user = ctx.state.user as any
-		const accountId =
-			current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
-		if (type === 'transfer') {
-			if (accountId && !current.accountId) {
-				current.accountId = accountId
-			}
-			if (current.accountId && !current.account) {
-				const fromAccount = await accountsService.getOneWithAssets(
-					current.accountId,
-					ctx.state.user.id
-				)
-				if (fromAccount) current.account = fromAccount.name
-			}
-			if (!current.toAccountId) {
+			const user = ctx.state.user as any
+			const accountId =
+				current.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
+			if (type === 'transfer') {
 				const allAccounts = await accountsService.getAllByUserIdIncludingHidden(
 					ctx.state.user.id
 				)
 				const outside = allAccounts.find(a => a.name === 'Вне Wallet')
-				if (outside) {
-					current.toAccountId = outside.id
-					current.toAccount = outside.name
+				const visibleAccounts = allAccounts.filter(a => !a.isHidden)
+				const fallbackId =
+					user.defaultAccountId &&
+					visibleAccounts.some(a => a.id === user.defaultAccountId)
+						? user.defaultAccountId
+						: visibleAccounts[0]?.id
+				const fallbackAccount =
+					(fallbackId &&
+						(await accountsService.getOneWithAssets(
+							fallbackId,
+							ctx.state.user.id
+						))) ||
+					null
+				if (accountId && !current.accountId) {
+					current.accountId = accountId
+				}
+				if (current.accountId && !current.account) {
+					const fromAccount = await accountsService.getOneWithAssets(
+					current.accountId,
+					ctx.state.user.id
+				)
+				if (fromAccount) current.account = fromAccount.name
+				}
+				if (!current.toAccountId) {
+					if (outside) {
+						current.toAccountId = outside.id
+						current.toAccount = outside.name
+					}
+				}
+				if (
+					outside &&
+					current.accountId === outside.id &&
+					current.toAccountId === outside.id
+				) {
+					current.accountId = fallbackAccount?.id
+					current.account = fallbackAccount?.name
+				}
+			} else {
+				current.toAccountId = undefined
+				current.toAccount = undefined
+				const selectedAccount = current.accountId
+					? await accountsService.getOneWithAssets(
+							current.accountId,
+							ctx.state.user.id
+						)
+					: null
+				if (selectedAccount?.isHidden) {
+					const visible = await accountsService.getAllByUserId(ctx.state.user.id)
+					const nextAccount =
+						visible.find(a => a.id === user.defaultAccountId) || visible[0] || null
+					current.accountId = nextAccount?.id
+					current.account = nextAccount?.name
 				}
 			}
-		}
 		const showConversion = await getShowConversion(
 			current,
 			accountId ?? null,

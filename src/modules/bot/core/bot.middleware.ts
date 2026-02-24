@@ -12,16 +12,35 @@ export interface BotState {
 	isPremium: boolean
 }
 
+export type InputMode =
+	| 'idle'
+	| 'transaction_parse'
+	| 'transaction_edit'
+	| 'account_parse'
+	| 'account_jarvis_edit'
+	| 'account_rename'
+	| 'category_create'
+	| 'tag_create'
+	| 'tags_jarvis_edit'
+	| 'main_currency_edit'
+	| 'timezone_edit'
+	| 'delete_confirm'
+
 export type BotContext = Context & {
 	state: BotState
-	session: {
-		awaitingAccount: boolean
-		awaitingTransaction: boolean
-		tempMessageId: number | undefined
-		homeMessageId: number
-		confirmingTransaction?: boolean
-		draftTransactions?: LlmTransaction[]
-		currentTransactionIndex?: number
+		session: {
+			inputMode?: InputMode
+			awaitingAccount: boolean
+			awaitingTransaction: boolean
+			tempMessageId: number | undefined
+			homeMessageId: number
+			hintMessageId?: number
+			resultMessageIds?: number[]
+			previewMessageId?: number
+			accountInputMessageIds?: number[]
+			confirmingTransaction?: boolean
+			draftTransactions?: LlmTransaction[]
+			currentTransactionIndex?: number
 		editingField?:
 			| 'type'
 			| 'description'
@@ -46,7 +65,7 @@ export type BotContext = Context & {
 		currentAccountIndex?: number
 		accountsViewPage?: number
 		accountsViewSelectedId?: string | null
-		editingAccountField?: 'jarvis'
+			editingAccountField?: 'jarvis' | 'name'
 		editingAccountDetailsId?: string
 		transactionsViewPage?: number
 		categoriesSelectedId?: string | null
@@ -56,9 +75,17 @@ export type BotContext = Context & {
 		categoriesHintMessageId?: number
 		editingTransactionId?: string
 		awaitingDeleteConfirm?: boolean
-		mainCurrencyHintMessageId?: number
-		mainCurrencyErrorMessageIds?: number[]
-	}
+			mainCurrencyHintMessageId?: number
+			mainCurrencyErrorMessageIds?: number[]
+			timezoneHintMessageId?: number
+			timezoneErrorMessageIds?: number[]
+			awaitingInlineCategoryCreate?: boolean
+			awaitingInlineTagCreate?: boolean
+				inlineCreateHintMessageId?: number
+				accountDetailsEditMode?: 'jarvis' | 'name'
+				pendingTransactionDraft?: LlmTransaction
+				pendingTransactionMissing?: string[]
+			}
 	chat: {
 		id: string
 	}

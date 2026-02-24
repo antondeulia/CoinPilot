@@ -141,12 +141,12 @@ export async function renderAnalyticsMain(
 	if (topCategories.length > 0) {
 		body += '\n<b>Топ расходов:</b>\n'
 		topCategories.forEach((c, i) => {
-			body += `${i + 1}. ${c.categoryName} — ${c.sum.toFixed(0)} ${symbol} (${c.pct.toFixed(0)}%)\n`
-			if (c.tagDetails?.length) {
-				const tagLine = c.tagDetails
-					.map(t => `${t.tagName} ${t.sum.toFixed(0)} ${symbol}`)
+			body += `${i + 1}. ${c.categoryName} — ${fmt(c.sum)} ${symbol} (${c.pct.toFixed(0)}%)\n`
+			if (c.descriptionDetails?.length) {
+				const txNames = c.descriptionDetails
+					.map(t => `${t.description} ${fmt(t.sum)} ${symbol}`)
 					.join(' · ')
-				body += `<blockquote>${escapeHtml(tagLine)}</blockquote>\n`
+				body += `<blockquote>${escapeHtml(txNames)}</blockquote>\n`
 			}
 		})
 	}
@@ -154,19 +154,20 @@ export async function renderAnalyticsMain(
 	if (topIncome.length > 0) {
 		body += '\n<b>Топ доходов:</b>\n'
 		topIncome.forEach((c, i) => {
-			body += `${i + 1}. ${c.categoryName} — ${c.sum.toFixed(0)} ${symbol} (${c.pct.toFixed(0)}%)\n`
-			if (c.tagDetails?.length) {
-				const tagLine = c.tagDetails
-					.map(t => `${t.tagName} ${t.sum.toFixed(0)} ${symbol}`)
+			body += `${i + 1}. ${c.categoryName} — ${fmt(c.sum)} ${symbol} (${c.pct.toFixed(0)}%)\n`
+			if (c.descriptionDetails?.length) {
+				const txNames = c.descriptionDetails
+					.map(t => `${t.description} ${fmt(t.sum)} ${symbol}`)
 					.join(' · ')
-				body += `<blockquote>${escapeHtml(tagLine)}</blockquote>\n`
+				body += `<blockquote>${escapeHtml(txNames)}</blockquote>\n`
 			}
 		})
 	}
 
 	if (topTransfers.length > 0) {
 		const t = topTransfers[0]
-		body += `\n<b>Крупнейший перевод:</b>\n${t.fromAccountName} → ${t.toAccountName} — ${t.sum.toFixed(0)} ${symbol} (${t.pct.toFixed(0)}%)\n`
+		const desc = `${t.fromAccountName} → ${t.toAccountName} — ${fmt(t.sum)} ${symbol} (${t.pct.toFixed(0)}%)`
+		body += `\nКрупнейший перевод:\n<blockquote>${escapeHtml(desc)}</blockquote>\n`
 	}
 
 	return body.trim()

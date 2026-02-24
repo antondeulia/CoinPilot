@@ -8,8 +8,6 @@ export const hideMessageCallback = (bot: Bot<BotContext>) => {
 				ctx.chat!.id,
 				ctx.callbackQuery.message!.message_id
 			)
-		} catch (err) {
-			throw new Error(err)
-		}
+		} catch {}
 	})
 }

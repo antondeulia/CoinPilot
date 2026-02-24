@@ -3,6 +3,7 @@ import type { User } from '../../generated/prisma/client'
 import { PremiumEventType, SubscriptionPlan } from '../../generated/prisma/enums'
 import { PrismaService } from '../prisma/prisma.service'
 import { FREE_LIMITS, TRIAL_DAYS } from './subscription.constants'
+import { toDbMoney } from '../../utils/money'
 
 export function addDays(date: Date, days: number): Date {
 	const r = new Date(date)
@@ -166,10 +167,21 @@ export class SubscriptionService {
 	async canStartTrial(userId: string): Promise<{ allowed: boolean; reason?: string }> {
 		const user = await this.prisma.user.findUnique({
 			where: { id: userId },
-			include: { transactions: { take: 1 } }
+			select: {
+				id: true,
+				telegramId: true,
+				trialUsed: true,
+				transactions: { take: 1, select: { id: true } }
+			}
 		})
 		if (!user) return { allowed: false, reason: 'user_not_found' }
-		if (user.trialUsed) return { allowed: false, reason: 'trial_used' }
+		const trialLedger = await this.prisma.trialLedger.findUnique({
+			where: { telegramId: user.telegramId },
+			select: { id: true }
+		})
+		if (user.trialUsed || trialLedger) {
+			return { allowed: false, reason: 'trial_used' }
+		}
 		if (user.transactions.length === 0)
 			return { allowed: false, reason: 'add_transaction_first' }
 		return { allowed: true }
@@ -178,6 +190,11 @@ export class SubscriptionService {
 	async startTrial(userId: string): Promise<void> {
 		const check = await this.canStartTrial(userId)
 		if (!check.allowed) throw new Error(check.reason ?? 'Trial not allowed')
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: { id: true, telegramId: true }
+		})
+		if (!user) throw new Error('user_not_found')
 		const endDate = addDays(new Date(), TRIAL_DAYS)
 		await this.prisma.$transaction([
 			this.prisma.user.update({
@@ -188,14 +205,27 @@ export class SubscriptionService {
 					trialUsed: true
 				}
 			}),
-			this.prisma.subscription.create({
-				data: {
-					userId,
-					plan: SubscriptionPlan.trial,
-					status: 'active',
-					endDate,
-					amount: 0,
-					currency: 'EUR'
+				this.prisma.subscription.create({
+					data: {
+						userId,
+						plan: SubscriptionPlan.trial,
+						status: 'active',
+						endDate,
+						amount: 0,
+						amountDecimal: toDbMoney(0) ?? undefined,
+						currency: 'EUR'
+					}
+				}),
+			this.prisma.trialLedger.upsert({
+				where: { telegramId: user.telegramId },
+				update: {
+					firstUserId: user.id,
+					usedAt: new Date()
+				},
+				create: {
+					telegramId: user.telegramId,
+					firstUserId: user.id,
+					usedAt: new Date()
 				}
 			})
 		])

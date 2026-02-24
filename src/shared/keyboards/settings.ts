@@ -4,8 +4,9 @@ type SettingsViewUser = {
 	id: string
 	telegramId: string
 	mainCurrency?: string
+	timezone?: string
 	defaultAccountId?: string | null
-	accounts: { id: string; name: string }[]
+	accounts: { id: string; name: string; isHidden?: boolean }[]
 	isPremium: boolean
 	premiumUntil?: Date | string | null
 	createdAt?: Date | string
@@ -29,8 +30,10 @@ export function buildSettingsView(
 	alertsEnabledCount: number
 ): { text: string; keyboard: InlineKeyboard } {
 	const mainCode = user?.mainCurrency ?? 'USD'
+	const timezone = user?.timezone ?? 'UTC+02:00'
+	const visibleAccounts = (user.accounts ?? []).filter(a => !a.isHidden)
 	const defaultAccount =
-		user.accounts.find(a => a.id === user.defaultAccountId) ?? user.accounts[0]
+		visibleAccounts.find(a => a.id === user.defaultAccountId) ?? null
 	const defaultAccountName = defaultAccount ? defaultAccount.name : '—'
 	const isPrem = isPremiumNow(user)
 	const tariffStr = isPrem ? 'Pro' : 'Basic'
@@ -43,14 +46,17 @@ export function buildSettingsView(
 
 💠 Ваш тариф: ${tariffStr}
 🌍 Основная валюта: ${mainCode}
+🕒 Часовой пояс: ${timezone}
 🏦 Основной счёт: ${defaultAccountName}
 
 🆔 Ваш Telegram ID: ${user.telegramId}
 📅 Дата регистрации: ${createdAtStr}`
 	const keyboard = new InlineKeyboard()
 		.text('🌍 Основная валюта', 'main_currency_open')
-		.text('🏦 Основной счёт', 'default_account_open')
+		.text('🕒 Часовой пояс', 'timezone_open')
 		.row()
+		.text('🏦 Основной счёт', 'default_account_open')
+			.row()
 		.text('📂 Категории', 'view_categories')
 		.text('🏷️ Теги', 'view_tags')
 		.row()

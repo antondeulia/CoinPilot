@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { LLMService } from '../../../modules/llm/llm.service'
+import { activateInputMode } from '../core/input-mode'
 
 export const accountsJarvisEditCallback = (
 	bot: Bot<BotContext>,
@@ -10,7 +11,9 @@ export const accountsJarvisEditCallback = (
 		const drafts = ctx.session.draftAccounts
 		if (!drafts || !drafts.length) return
 
-		ctx.session.editingAccountField = 'jarvis'
+		activateInputMode(ctx, 'account_jarvis_edit', {
+			editingAccountField: 'jarvis'
+		})
 
 		const msg = await ctx.reply(
 			`Режим Jarvis-редактирования.
@@ -26,6 +29,24 @@ export const accountsJarvisEditCallback = (
 		ctx.session.editMessageId = msg.message_id
 	})
 
+	bot.callbackQuery('accounts_rename', async ctx => {
+		const drafts = ctx.session.draftAccounts
+		if (!drafts || !drafts.length) return
+
+		activateInputMode(ctx, 'account_rename', {
+			editingAccountField: 'name'
+		})
+
+		const msg = await ctx.reply(
+			'Отправьте новое название счёта (текст или голос).',
+			{
+				reply_markup: new InlineKeyboard().text('Закрыть', 'close_edit_account')
+			}
+		)
+
+		ctx.session.editMessageId = msg.message_id
+	})
+
 	bot.callbackQuery('repeat_parse_accounts', async ctx => {
 		if (ctx.session.tempMessageId) {
 			try {
@@ -33,10 +54,12 @@ export const accountsJarvisEditCallback = (
 			} catch {}
 		}
 
-		ctx.session.awaitingAccountInput = true
-		ctx.session.confirmingAccounts = false
-		ctx.session.draftAccounts = undefined
-		ctx.session.currentAccountIndex = undefined
+		activateInputMode(ctx, 'account_parse', {
+			awaitingAccountInput: true,
+			confirmingAccounts: false,
+			draftAccounts: undefined,
+			currentAccountIndex: undefined
+		})
 
 		const msg = await ctx.reply(
 			`➕ <b>Добавь счёт</b>

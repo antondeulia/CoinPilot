@@ -1,5 +1,10 @@
 import { LlmTransaction } from '../../../modules/llm/schemas/transaction.schema'
-import { formatAmount, getCurrencySymbol, formatAccountName } from '../../../utils/format'
+import {
+	formatByCurrencyPolicy,
+	formatExactAmount,
+	getCurrencySymbol,
+	formatAccountName
+} from '../../../utils/format'
 import { formatTransactionDate } from '../../../utils/date'
 
 function formatDirection(direction: LlmTransaction['direction']) {
@@ -26,14 +31,18 @@ export function renderConfirmMessage(
 			: 'Теги: —'
 	const amountText =
 		typeof tx.amount === 'number' && tx.currency
-			? formatAmount(Math.abs(tx.amount), tx.currency)
+			? formatExactAmount(Math.abs(tx.amount), tx.currency, {
+					maxFractionDigits: 18,
+					trimTrailingZeros: true
+				})
 			: '—'
 	const signPrefix =
 		tx.direction === 'expense' ? '-' : tx.direction === 'income' ? '+' : ''
 	const isDeletedCurrency = !!(draft as any).currencyDeleted
 
 	const date = tx.transactionDate ? new Date(tx.transactionDate) : new Date()
-	const dateText = formatTransactionDate(date)
+	const timezone = (draft.userTimezone as string | undefined) ?? 'UTC+02:00'
+	const dateText = formatTransactionDate(date, timezone)
 	const headerIndex =
 		typeof index === 'number' && typeof total === 'number'
 			? ` ${index + 1}/${total}`
@@ -52,10 +61,12 @@ export function renderConfirmMessage(
 		!isDeletedCurrency
 	) {
 		const sym = getCurrencySymbol(tx.convertToCurrency)
-		const convertedStr = Math.abs(tx.convertedAmount).toLocaleString('ru-RU', {
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		})
+		const convertedStr = formatByCurrencyPolicy(
+			Math.abs(tx.convertedAmount),
+			tx.convertToCurrency,
+			undefined,
+			{ withSymbol: false }
+		)
 		amountLine = `Сумма: ${signPrefix}${amountText} (🠒 ${convertedStr} ${sym})`
 	}
 

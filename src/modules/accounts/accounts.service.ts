@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ExchangeService } from '../exchange/exchange.service'
 import { LlmAccount } from '../llm/schemas/account.schema'
+import { pickMoneyNumber, toDbMoney } from '../../utils/money'
 
 @Injectable()
 export class AccountsService {
@@ -75,6 +76,89 @@ export class AccountsService {
 		})
 	}
 
+	private extractEmojiPrefix(value: string): string {
+		const m = String(value ?? '')
+			.trim()
+			.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+)/u)
+		return m?.[1] ?? ''
+	}
+
+	private stripLeadingEmoji(value: string): string {
+		return String(value ?? '')
+			.replace(
+				/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+\s*)+/u,
+				''
+			)
+			.trim()
+	}
+
+	private buildAccountNameFromRawText(
+		rawText: string | undefined,
+		assets: { currency: string; amount: number }[]
+	): string {
+		let cleaned = String(rawText ?? '').trim()
+		if (!cleaned) return ''
+		for (const asset of assets) {
+			const code = (asset.currency ?? '').trim()
+			if (!code) continue
+			const escaped = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+			cleaned = cleaned.replace(
+				new RegExp(
+					`(?:^|\\s)${escaped}\\s*[:=\\-–—]?\\s*[-+]?\\d[\\d\\s.,]*`,
+					'ig'
+				),
+				' '
+			)
+			cleaned = cleaned.replace(
+				new RegExp(
+					`(?:^|\\s)[-+]?\\d[\\d\\s.,]*\\s*${escaped}(?:\\s|$)`,
+					'ig'
+				),
+				' '
+			)
+		}
+		cleaned = cleaned
+			.replace(/[;,]+/g, ' ')
+			.replace(/\s{2,}/g, ' ')
+			.trim()
+		return this.stripLeadingEmoji(cleaned)
+	}
+
+	private resolvePreferredName(draft: LlmAccount): {
+		emoji: string
+		baseName: string
+	} {
+		const rawName = String(draft.name ?? '').trim()
+		const draftEmoji = this.extractEmojiPrefix(rawName) || draft.emoji || '💼'
+		const stripped = this.stripLeadingEmoji(rawName)
+		const fallbackByRaw = this.buildAccountNameFromRawText(
+			draft.rawText,
+			draft.assets ?? []
+		)
+		const genericNames = new Set([
+			'банк',
+			'счёт',
+			'счет',
+			'кошелёк',
+			'кошелек',
+			'аккаунт',
+			'exchange',
+			'wallet'
+		])
+		const strippedLower = stripped.toLowerCase()
+		const shouldUseRawFallback =
+			!stripped ||
+			genericNames.has(strippedLower) ||
+			(/^банк\s*\d*$/i.test(stripped) && fallbackByRaw.length > 0)
+		const baseName = (
+			shouldUseRawFallback ? fallbackByRaw || stripped : stripped
+		).trim()
+		return {
+			emoji: draftEmoji,
+			baseName: baseName || 'Счёт'
+		}
+	}
+
 	/**
 	 * Обновляет название и текущий баланс счёта (активы).
 	 * Баланс — всегда текущий: хранится только в AccountAsset, без отдельного «начального».
@@ -87,16 +171,46 @@ export class AccountsService {
 	) {
 		await this.ensureCurrenciesSupported(draft.assets.map(a => a.currency))
 		await this.prisma.$transaction(async tx => {
-			await tx.account.update({
-				where: { id: accountId, userId },
-				data: { name: draft.name.trim() }
-			})
 			await tx.accountAsset.deleteMany({ where: { accountId } })
 			for (const a of draft.assets) {
 				await tx.accountAsset.create({
-					data: { accountId, currency: a.currency, amount: a.amount }
+					data: {
+						accountId,
+						currency: a.currency,
+						amount: a.amount,
+						amountDecimal: toDbMoney(a.amount) ?? undefined
+					}
 				})
 			}
+		})
+	}
+
+	async renameAccount(accountId: string, userId: string, requestedName: string) {
+		const account = await this.prisma.account.findFirst({
+			where: { id: accountId, userId, isHidden: false },
+			select: { id: true, name: true }
+		})
+		if (!account) return null
+		const input = String(requestedName ?? '').trim()
+		const currentEmoji = this.extractEmojiPrefix(account.name)
+		const newEmoji = this.extractEmojiPrefix(input) || currentEmoji || '💼'
+		const base = this.stripLeadingEmoji(input) || this.stripLeadingEmoji(account.name)
+		if (!base) return null
+		let candidate = `${newEmoji} ${base}`.trim()
+		if (candidate === account.name) return account
+		let suffix = 1
+		while (
+			await this.prisma.account.findFirst({
+				where: { userId, name: candidate, NOT: { id: accountId } },
+				select: { id: true }
+			})
+		) {
+			suffix += 1
+			candidate = `${newEmoji} ${base} ${suffix}`.trim()
+		}
+		return this.prisma.account.update({
+			where: { id: accountId, userId },
+			data: { name: candidate }
 		})
 	}
 
@@ -129,12 +243,12 @@ export class AccountsService {
 				where: { id: userId },
 				select: { activeAccountId: true, defaultAccountId: true }
 			})
-			if (user && (user.activeAccountId === accountId || user.defaultAccountId === accountId)) {
-				const other = await tx.account.findFirst({
-					where: { userId }
-				})
-				await tx.user.update({
-					where: { id: userId },
+				if (user && (user.activeAccountId === accountId || user.defaultAccountId === accountId)) {
+					const other = await tx.account.findFirst({
+						where: { userId, isHidden: false }
+					})
+					await tx.user.update({
+						where: { id: userId },
 					data: {
 						activeAccountId: other?.id ?? null,
 						defaultAccountId: other?.id ?? null
@@ -188,21 +302,23 @@ export class AccountsService {
 		)
 
 		const [txs, transferTxs] = await Promise.all([
-			this.prisma.transaction.findMany({
+				this.prisma.transaction.findMany({
 				where: {
 					userId,
 					direction: { in: ['income', 'expense'] },
 					account: { userId, isHidden: false },
 					transactionDate: { gte: startOfMonth, lte: endOfToday }
 				},
-				select: {
-					direction: true,
-					amount: true,
-					currency: true,
-					convertedAmount: true,
-					convertToCurrency: true
-				}
-			}),
+					select: {
+						direction: true,
+						amount: true,
+						amountDecimal: true,
+						currency: true,
+						convertedAmount: true,
+						convertedAmountDecimal: true,
+						convertToCurrency: true
+					}
+				}),
 			this.prisma.transaction.findMany({
 				where: {
 					userId,
@@ -214,13 +330,15 @@ export class AccountsService {
 						{ account: { userId, isHidden: true }, toAccount: { isHidden: false } }
 					]
 				},
-				select: {
-					amount: true,
-					currency: true,
-					convertedAmount: true,
-					convertToCurrency: true,
-					account: { select: { isHidden: true } },
-					toAccount: { select: { isHidden: true } }
+					select: {
+						amount: true,
+						amountDecimal: true,
+						currency: true,
+						convertedAmount: true,
+						convertedAmountDecimal: true,
+						convertToCurrency: true,
+						account: { select: { isHidden: true } },
+						toAccount: { select: { isHidden: true } }
 				}
 			})
 		])
@@ -233,8 +351,12 @@ export class AccountsService {
 				tx.convertToCurrency != null &&
 				tx.convertToCurrency === main
 			const converted = useConverted
-				? tx.convertedAmount!
-				: await this.exchangeService.convert(tx.amount, tx.currency, main)
+				? pickMoneyNumber(tx.convertedAmountDecimal, tx.convertedAmount, 0)
+				: await this.exchangeService.convert(
+						pickMoneyNumber(tx.amountDecimal, tx.amount, 0),
+						tx.currency,
+						main
+					)
 			const amountMain = converted ?? 0
 			if (tx.direction === 'income') inflowsMain += amountMain
 			else outflowsMain += amountMain
@@ -245,8 +367,12 @@ export class AccountsService {
 				tx.convertToCurrency != null &&
 				tx.convertToCurrency === main
 			const converted = useConverted
-				? tx.convertedAmount!
-				: await this.exchangeService.convert(tx.amount, tx.currency, main)
+				? pickMoneyNumber(tx.convertedAmountDecimal, tx.convertedAmount, 0)
+				: await this.exchangeService.convert(
+						pickMoneyNumber(tx.amountDecimal, tx.amount, 0),
+						tx.currency,
+						main
+					)
 			const amountMain = converted ?? 0
 			const toExternal = tx.toAccount?.isHidden === true
 			if (toExternal) outflowsMain += amountMain
@@ -256,24 +382,7 @@ export class AccountsService {
 	}
 
 	async createAccountWithAssets(userId: string, draft: LlmAccount) {
-		const rawName = draft.name.trim()
-		const userEmojiMatch = rawName.match(
-			/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+)/u
-		)
-		const userEmoji = userEmojiMatch?.[1]
-		const emoji = userEmoji ?? draft.emoji ?? '💼'
-		const nameWithoutLeadingEmoji = rawName
-			.replace(
-				/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+\s*)+/u,
-				''
-			)
-			.trim()
-		const safeName = nameWithoutLeadingEmoji || 'Счёт'
-		const [firstWord, ...rest] = safeName.split(/\s+/)
-		const formattedName =
-			firstWord.charAt(0).toUpperCase() +
-			firstWord.slice(1).toLowerCase() +
-			(rest.length ? ' ' + rest.join(' ') : '')
+		const { emoji, baseName } = this.resolvePreferredName(draft)
 		const accountTypeMap: Record<string, 'bank' | 'cash' | 'crypto'> = {
 			bank: 'bank',
 			exchange: 'bank',
@@ -299,13 +408,13 @@ export class AccountsService {
 		}
 		await this.ensureCurrenciesSupported(assets.map(a => a.currency))
 
-		return this.prisma.$transaction(async tx => {
-			let name = `${emoji} ${formattedName}`.trim()
-			let suffix = 1
-			while (await tx.account.findFirst({ where: { userId, name } })) {
-				suffix++
-				name = `${emoji} ${formattedName} ${suffix}`.trim()
-			}
+			return this.prisma.$transaction(async tx => {
+				let name = `${emoji} ${baseName}`.trim()
+				let suffix = 1
+				while (await tx.account.findFirst({ where: { userId, name } })) {
+					suffix++
+					name = `${emoji} ${baseName} ${suffix}`.trim()
+				}
 			const existingCount = await tx.account.count({
 				where: { userId, isHidden: false }
 			})
@@ -319,14 +428,15 @@ export class AccountsService {
 			})
 
 			for (const asset of assets) {
-				await tx.accountAsset.create({
-					data: {
-						accountId: account.id,
-						currency: asset.currency,
-						amount: asset.amount
-					}
-				})
-			}
+					await tx.accountAsset.create({
+						data: {
+							accountId: account.id,
+							currency: asset.currency,
+							amount: asset.amount,
+							amountDecimal: toDbMoney(asset.amount) ?? undefined
+						}
+					})
+				}
 
 			if (existingCount === 0) {
 				await tx.user.update({
