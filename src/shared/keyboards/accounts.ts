@@ -8,9 +8,16 @@ export function accountSwitchKeyboard(
 	selectedId?: string | null,
 	defaultAccountId?: string,
 	frozenIds: Set<string> = new Set(),
-	selectedFrozen = false
+	selectedFrozen = false,
+	accountsViewExpanded = false
 ) {
 	const kb = new InlineKeyboard()
+	if (!selectedId) {
+		kb.text(
+			accountsViewExpanded ? 'Скрыть' : 'Показать все счета',
+			'accounts_view_toggle'
+		).row()
+	}
 	const pageSize = 9
 	const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize))
 	const start = page * pageSize
@@ -37,15 +44,17 @@ export function accountSwitchKeyboard(
 	}
 
 	if (selectedId) {
-		if (selectedFrozen) {
-			kb.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
-		} else {
-			kb.text('Jarvis-редактирование', 'accounts_jarvis_edit_details')
-				.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
-		}
+			if (selectedFrozen) {
+				kb.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
+			} else {
+				kb.text('✏️ Активы', 'accounts_jarvis_edit_details')
+					.text('🎨 Название', 'accounts_rename_details')
+					.text('🗑 Удалить счёт', `account_delete:${selectedId}`).row()
+			}
 		kb.text('← Назад', 'accounts_back')
 	} else {
-		kb.text('+ Добавить счёт', 'add_account').row()
+		kb.text('➕ Добавить счёт', 'add_account').row()
+		kb.text('🪄 Массовое изменение счетов', 'accounts_mass_edit_open').row()
 		kb.text('← Назад', 'accounts_back')
 	}
 

@@ -21,22 +21,22 @@ export async function renderHome(
 	ctx.session.editingField = undefined
 	const user: any = ctx.state.user
 	const mainCurrency = user?.mainCurrency ?? 'USD'
-	const accounts = (user?.accounts ?? []).filter(
-		(a: { isHidden?: boolean }) => !a.isHidden
-	)
-	const accountsCount = accounts.length
+	const visibleAccounts = user?.id
+		? await accountsService.getAllByUserId(user.id)
+		: []
+	const accountsCount = visibleAccounts.length
 	let totalBalance = 0
-	let monthlyChangePct = 0
+	let monthlyChangePct = Number.NaN
 	try {
 		const [summary, cashflow] = await Promise.all([
 			analyticsService.getSummary(user.id, '30d', mainCurrency),
 			analyticsService.getCashflow(user.id, '30d', mainCurrency)
 		])
-		totalBalance = summary.balance
-		const beginning = summary.balance - cashflow
-		if (beginning > 0) {
-			monthlyChangePct = (cashflow / beginning) * 100
-		}
+			totalBalance = summary.balance
+			const beginning = summary.balance - cashflow
+			if (beginning > 0) {
+				monthlyChangePct = (cashflow / beginning) * 100
+			}
 	} catch {}
 
 	let msg: any

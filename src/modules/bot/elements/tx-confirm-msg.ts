@@ -1,5 +1,12 @@
 import { LlmTransaction } from '../../../modules/llm/schemas/transaction.schema'
-import { formatAmount, getCurrencySymbol, formatAccountName } from '../../../utils/format'
+import {
+	formatByCurrencyPolicy,
+	formatExactAmount,
+	getCurrencySymbol,
+	formatAccountName,
+	roundByCurrencyPolicy,
+	getCurrencyFractionDigits
+} from '../../../utils/format'
 import { formatTransactionDate } from '../../../utils/date'
 
 function formatDirection(direction: LlmTransaction['direction']) {
@@ -15,27 +22,41 @@ export function renderConfirmMessage(
 	total?: number,
 	defaultAccountId?: string,
 	tagInfo?: { name: string; isNew: boolean },
-	title: string = 'Предпросмотр операции'
+	title: string = 'Просмотр транзакций'
 ) {
 	const draft = tx as any
 	const tagName = tagInfo?.name ?? draft?.tagName ?? ''
 	const tagIsNew = tagInfo?.isNew ?? draft?.tagIsNew ?? false
+	const tagSessionNew = Boolean(draft?.tagWasNewInSession)
 	const tagLine =
 		tagName.length > 0
-			? `Тег:\n<blockquote>${tagName}${tagIsNew ? ' (новый)' : ''}</blockquote>`
+			? `Тег:\n<blockquote>${tagName}${tagIsNew || tagSessionNew ? ' (новый)' : ''}</blockquote>`
 			: 'Тег: -'
+	const roundedAmount =
+		typeof tx.amount === 'number' ? roundByCurrencyPolicy(Math.abs(tx.amount), tx.currency ?? '') : 0
 	const amountText =
 		typeof tx.amount === 'number' && tx.currency
-			? formatAmount(Math.abs(tx.amount), tx.currency)
+			? formatExactAmount(roundedAmount, tx.currency, {
+					maxFractionDigits: getCurrencyFractionDigits(tx.currency),
+					trimTrailingZeros: true
+				})
 			: '—'
 	const signPrefix =
 		tx.direction === 'expense' ? '-' : tx.direction === 'income' ? '+' : ''
 	const isDeletedCurrency = !!(draft as any).currencyDeleted
 
 	const date = tx.transactionDate ? new Date(tx.transactionDate) : new Date()
-	const dateText = formatTransactionDate(date)
+	const timezone = (draft.userTimezone as string | undefined) ?? 'UTC+02:00'
+	const dateText = formatTransactionDate(date, timezone)
+	const isDetailsTitle = title.toLowerCase().includes('детали транзакции')
+	const hasMany = typeof total === 'number' && total > 1
+	const resolvedTitle = isDetailsTitle
+		? 'Детали транзакции'
+		: hasMany
+			? 'Просмотр транзакций'
+			: 'Просмотр транзакции'
 	const headerIndex =
-		typeof index === 'number' && typeof total === 'number'
+		!isDetailsTitle && hasMany && typeof index === 'number'
 			? ` ${index + 1}/${total}`
 			: ''
 
@@ -52,10 +73,12 @@ export function renderConfirmMessage(
 		!isDeletedCurrency
 	) {
 		const sym = getCurrencySymbol(tx.convertToCurrency)
-		const convertedStr = Math.abs(tx.convertedAmount).toLocaleString('ru-RU', {
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		})
+		const convertedStr = formatByCurrencyPolicy(
+			Math.abs(tx.convertedAmount),
+			tx.convertToCurrency,
+			undefined,
+			{ withSymbol: false }
+		)
 		amountLine = `Сумма: ${signPrefix}${amountText} (→ ${convertedStr} ${sym})`
 	}
 
@@ -72,7 +95,7 @@ export function renderConfirmMessage(
 		: ''
 
 	return `
-📄 <b>${title}${headerIndex}</b>
+	📄 <b>${resolvedTitle}${headerIndex}</b>
 
 ${formatDirection(tx.direction)}
 ${tx.description ?? '—'}

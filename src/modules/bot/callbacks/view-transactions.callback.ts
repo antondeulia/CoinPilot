@@ -100,6 +100,7 @@ function txToDraft(tx: any) {
 		amount: tx.amount,
 		currency: tx.currency,
 		direction: tx.direction,
+		categoryId: tx.categoryId ?? undefined,
 		category: tx.category ?? '📦Другое',
 		description: tx.description ?? null,
 		transactionDate: tx.transactionDate
@@ -161,8 +162,10 @@ export const viewTransactionsCallback = (
 		if (!tx) return
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
-		const draft = txToDraft(tx)
-		ctx.session.draftTransactions = [draft]
+			const draft = txToDraft(tx)
+			;(draft as any).userTimezone =
+				(ctx.state.user as any)?.timezone ?? 'UTC+02:00'
+			ctx.session.draftTransactions = [draft]
 		ctx.session.currentTransactionIndex = 0
 		ctx.session.editingTransactionId = txId
 		ctx.session.tempMessageId = msgId
@@ -199,13 +202,14 @@ export const viewTransactionsCallback = (
 		const drafts = ctx.session.draftTransactions
 		if (!txId || !drafts?.length) return
 		const draft = drafts[0] as any
-		await transactionsService.update(txId, ctx.state.user.id, {
-			accountId: draft.accountId,
-			amount: draft.amount,
-			currency: draft.currency,
-			direction: draft.direction,
-			category: draft.category,
-			description: draft.description,
+			await transactionsService.update(txId, ctx.state.user.id, {
+				accountId: draft.accountId,
+				amount: draft.amount,
+				currency: draft.currency,
+				direction: draft.direction,
+				categoryId: draft.categoryId ?? null,
+				category: draft.category,
+				description: draft.description,
 			transactionDate: draft.transactionDate
 				? (normalizeTxDate(draft.transactionDate) ?? undefined)
 				: undefined,

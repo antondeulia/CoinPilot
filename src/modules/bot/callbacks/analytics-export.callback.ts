@@ -8,6 +8,7 @@ import {
 	AnalyticsService,
 	type AnalyticsPeriod
 } from '../../../modules/analytics/analytics.service'
+import { formatByCurrencyPolicy } from '../../../utils/format'
 
 export const analyticsExportCallback = (
 	bot: Bot<BotContext>,
@@ -24,10 +25,10 @@ export const analyticsExportCallback = (
 				PremiumEventType.export_blocked
 			)
 			await ctx.answerCallbackQuery({
-				text: '📊 Экспорт доступен в Premium. Выгружайте данные в CSV/Excel одним нажатием!'
+				text: '📊 Экспорт доступен в Pro-тарифе. Выгружайте данные в CSV/Excel одним нажатием!'
 			})
 			await ctx.reply(
-				'📊 Экспорт доступен в Premium. Выгружайте данные в CSV/Excel одним нажатием!',
+				'📊 Экспорт доступен в Pro-тарифе. Выгружайте данные в CSV/Excel одним нажатием!',
 				{
 					reply_markup: new InlineKeyboard()
 						.text('💠 Pro-тариф', 'view_premium')
@@ -39,39 +40,77 @@ export const analyticsExportCallback = (
 		}
 		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
 		const { from, to } = analyticsService.getDateRange(period)
-		const txs = await prisma.transaction.findMany({
+			const txs = await prisma.transaction.findMany({
 			where: {
 				userId: user.id,
 				transactionDate: { gte: from, lte: to },
 				account: { isHidden: false }
 			},
-			select: {
-				id: true,
-				amount: true,
-				currency: true,
-				direction: true,
-				category: true,
-				description: true,
+				select: {
+					id: true,
+					amount: true,
+					currency: true,
+					convertedAmount: true,
+					convertToCurrency: true,
+					direction: true,
+					category: true,
+					description: true,
 				transactionDate: true,
 				createdAt: true
 			},
 			orderBy: { transactionDate: 'desc' }
 		})
-		if (!txs.length) {
-			await ctx.answerCallbackQuery({ text: 'Нет транзакций за период' })
-			return
-		}
-		const parser = new Parser({
-			fields: [
-				'transactionDate',
-				'direction',
-				'amount',
-				'currency',
-				'category',
-				'description'
-			]
-		})
-		const csv = parser.parse(txs)
+			if (!txs.length) {
+				await ctx.answerCallbackQuery({ text: 'Нет транзакций за период' })
+				return
+			}
+			const currencies = await prisma.currency.findMany({
+				select: { code: true, type: true, decimals: true }
+			})
+			const metaByCode = new Map(
+				currencies.map(c => [c.code.toUpperCase(), c])
+			)
+			const exportRows = txs.map(tx => {
+				const amountMeta = metaByCode.get(tx.currency.toUpperCase())
+				const convertCode = tx.convertToCurrency || ''
+				const convertMeta = convertCode
+					? metaByCode.get(convertCode.toUpperCase())
+					: undefined
+				return {
+					transactionDate: tx.transactionDate,
+					direction: tx.direction,
+					amount: formatByCurrencyPolicy(tx.amount, tx.currency, amountMeta, {
+						withSymbol: false,
+						locale: 'en-US'
+					}),
+					currency: tx.currency,
+					convertedAmount:
+						tx.convertedAmount != null && convertCode
+							? formatByCurrencyPolicy(
+									tx.convertedAmount,
+									convertCode,
+									convertMeta,
+									{ withSymbol: false, locale: 'en-US' }
+								)
+							: '',
+					convertToCurrency: convertCode,
+					category: tx.category ?? '',
+					description: tx.description ?? ''
+				}
+			})
+			const parser = new Parser({
+				fields: [
+					'transactionDate',
+					'direction',
+					'amount',
+					'currency',
+					'convertedAmount',
+					'convertToCurrency',
+					'category',
+					'description'
+				]
+			})
+			const csv = parser.parse(exportRows)
 		const buffer = Buffer.from(csv, 'utf-8')
 		await ctx.replyWithDocument(new InputFile(buffer, `transactions_${period}.csv`))
 		await ctx.answerCallbackQuery()

@@ -80,6 +80,7 @@ export const cancelTxCallback = (
 		ctx.session.draftTransactions = undefined
 		ctx.session.currentTransactionIndex = undefined
 		ctx.session.editingTransactionId = undefined
+		ctx.session.autoCreatedTxIdsForCurrentParse = undefined
 		if (ctx.session.tempMessageId) {
 			try {
 				await ctx.api.deleteMessage(ctx.chat.id, ctx.session.tempMessageId)
@@ -96,14 +97,19 @@ async function deleteAllPreview(
 	analyticsService: AnalyticsService
 ) {
 	const drafts = ctx.session.draftTransactions ?? []
-	for (const d of drafts as any[]) {
-		if (d?.id) {
-			await transactionsService.delete(d.id, ctx.state.user.id)
-		}
+	const rollbackIds = new Set<string>([
+		...(((ctx.session.autoCreatedTxIdsForCurrentParse ?? []) as string[]) || []),
+		...(drafts as any[])
+			.map(draft => String(draft?.id ?? '').trim())
+			.filter(Boolean)
+	])
+	for (const txId of rollbackIds) {
+		await transactionsService.delete(txId, ctx.state.user.id).catch(() => {})
 	}
 	ctx.session.confirmingTransaction = false
 	ctx.session.draftTransactions = undefined
 	ctx.session.currentTransactionIndex = undefined
+	ctx.session.autoCreatedTxIdsForCurrentParse = undefined
 
 	if (ctx.session.tempMessageId) {
 		try {

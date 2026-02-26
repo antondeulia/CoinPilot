@@ -267,7 +267,7 @@ export class TagsService {
 				isSuggestion: false
 			}
 		}
-		if (best && (best.similarity >= 0.6 || (confidence >= 0.5 && confidence < 0.8))) {
+		if (best && (best.similarity >= 0.6 || confidence >= 0.5)) {
 			return {
 				tagId: best.tag.id,
 				tagName: best.tag.name,
@@ -275,7 +275,7 @@ export class TagsService {
 				isSuggestion: true
 			}
 		}
-		if (confidence >= 0.6) {
+		if (confidence >= 0.9) {
 			return {
 				tagName: normalized.slice(0, MAX_TAG_NAME_LENGTH),
 				isNew: true,

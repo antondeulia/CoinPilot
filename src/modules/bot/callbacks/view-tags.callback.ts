@@ -5,7 +5,7 @@ import { buildSettingsView } from '../../../shared/keyboards/settings'
 
 function tagsSettingsKeyboard() {
 	return new InlineKeyboard()
-		.text('Jarvis-редактирование', 'tags_jarvis_edit')
+		.text('Добавить или удалить теги', 'tags_jarvis_edit')
 		.row()
 		.text('← Назад', 'back_from_tags')
 }
@@ -19,7 +19,7 @@ export function tagsListText(
 	const activeStr = active.length > 0 ? active.join(', ') : '—'
 	let text = `<b>Теги</b>\n\nСписок ваших тегов:\n<blockquote>${activeStr}</blockquote>`
 	if (frozen.length > 0) {
-		text += `\n\n🔒 Доступно в Premium:\n${frozen.join(', ')}`
+		text += `\n\n🔒 Доступно в Pro:\n${frozen.join(', ')}`
 	}
 	return text
 }
@@ -27,8 +27,9 @@ export function tagsListText(
 export const viewTagsCallback = (
 	bot: Bot<BotContext>,
 	tagsService: TagsService,
-	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customTagIdsOverLimit: string[] }> },
-	prisma: { alertConfig: { count: (args: { where: { userId: string; enabled: boolean } }) => Promise<number> } }
+	subscriptionService: {
+		getFrozenItems: (userId: string) => Promise<{ customTagIdsOverLimit: string[] }>
+	}
 ) => {
 	bot.callbackQuery('view_tags', async ctx => {
 		const userId = ctx.state.user.id
@@ -54,7 +55,7 @@ export const viewTagsCallback = (
 	bot.callbackQuery('tags_jarvis_edit', async ctx => {
 		ctx.session.awaitingTagsJarvisEdit = true
 		const msg = await ctx.reply(
-			'Опишите изменения: удали теги X, Y; добавь A, B; переименуй C в D. После отправки сообщения изменения применятся.',
+			'🎨 Опишите, какие изменения нужно внести в список тегов. Укажите, что именно следует сделать: удалить ненужные теги, добавить новые или переименовать существующие. Например: «удали X и Y; добавь A и B; переименуй C в D». После отправки сообщения изменения будут применены автоматически.',
 			{
 				parse_mode: 'HTML',
 				reply_markup: new InlineKeyboard().text('Закрыть', 'close_tags_jarvis')
@@ -80,10 +81,7 @@ export const viewTagsCallback = (
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		const user: any = ctx.state.user
-		const alertsEnabledCount = await prisma.alertConfig.count({
-			where: { userId: user.id, enabled: true }
-		})
-		const view = buildSettingsView(user, alertsEnabledCount)
+		const view = buildSettingsView(user)
 		await ctx.api.editMessageText(ctx.chat!.id, msgId, view.text, {
 			parse_mode: 'HTML',
 			reply_markup: view.keyboard

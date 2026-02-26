@@ -14,8 +14,11 @@ export function homeText(
 	const pct =
 		Number.isFinite(monthlyChangePct) && !Number.isNaN(monthlyChangePct)
 			? monthlyChangePct
-			: 0
-	const pctStr = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%'
+			: NaN
+	const pctStr =
+		Number.isFinite(pct) && Math.abs(pct) <= 10000
+			? `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
+			: '—'
 
 	return `<b>CoinPilot AI – бот по управлению капиталом.</b>
 

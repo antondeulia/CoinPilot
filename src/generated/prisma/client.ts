@@ -73,6 +73,11 @@ export type ExchangeRateSnapshot = Prisma.ExchangeRateSnapshotModel
  */
 export type Category = Prisma.CategoryModel
 /**
+ * Model TrialLedger
+ * 
+ */
+export type TrialLedger = Prisma.TrialLedgerModel
+/**
  * Model Tag
  * 
  */

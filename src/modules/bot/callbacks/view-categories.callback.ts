@@ -22,7 +22,7 @@ export function categoriesListKb(
 		const row = slice.slice(i, i + 3)
 		for (const c of row) {
 			const label = frozenIds.has(c.id)
-				? `${c.name} (🔒Premium)`
+				? `${c.name} (🔒Pro)`
 				: selectedId === c.id
 					? `✅ ${c.name}`
 					: c.name
@@ -51,8 +51,9 @@ export function categoriesListKb(
 export const viewCategoriesCallback = (
 	bot: Bot<BotContext>,
 	categoriesService: CategoriesService,
-	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customCategoryIdsOverLimit: string[] }> },
-	prisma: { alertConfig: { count: (args: { where: { userId: string; enabled: boolean } }) => Promise<number> } }
+	subscriptionService: {
+		getFrozenItems: (userId: string) => Promise<{ customCategoryIdsOverLimit: string[] }>
+	}
 ) => {
 	bot.callbackQuery('view_categories', async ctx => {
 		const userId = ctx.state.user.id
@@ -72,7 +73,7 @@ export const viewCategoriesCallback = (
 			null,
 			frozenSet
 		)
-		await ctx.api.editMessageText(ctx.chat!.id, msgId, '<b>Категории</b>', {
+		await ctx.api.editMessageText(ctx.chat!.id, msgId, '<b>Категории</b>\n\nВыделите категорию для удаления или переименования.', {
 			parse_mode: 'HTML',
 			reply_markup: kb
 		})
@@ -105,7 +106,7 @@ export const viewCategoriesCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.categoriesMessageId,
-				'<b>Категории</b>',
+				'<b>Категории</b>\n\nВыделите категорию для удаления или переименования.',
 				{ parse_mode: 'HTML', reply_markup: kb }
 			)
 		}
@@ -122,7 +123,7 @@ export const viewCategoriesCallback = (
 		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 		if (frozenSet.has(id)) {
 			await ctx.reply(
-				'Категория доступна только по Premium. В Free — только дефолтные категории.',
+				'Категория доступна только по Pro-тарифу. В Basic — только дефолтные категории.',
 				{
 					reply_markup: new InlineKeyboard()
 						.text('💠 Pro-тариф', 'view_premium')
@@ -279,10 +280,7 @@ export const viewCategoriesCallback = (
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		const user: any = ctx.state.user
-		const alertsEnabledCount = await prisma.alertConfig.count({
-			where: { userId: user.id, enabled: true }
-		})
-		const view = buildSettingsView(user, alertsEnabledCount)
+		const view = buildSettingsView(user)
 		await ctx.api.editMessageText(ctx.chat!.id, msgId, view.text, {
 			parse_mode: 'HTML',
 			reply_markup: view.keyboard

@@ -30,13 +30,13 @@ export type UserMinAggregateOutputType = {
   activeAccountId: string | null
   defaultAccountId: string | null
   mainCurrency: string | null
+  timezone: string | null
   isPremium: boolean | null
   premiumUntil: Date | null
   trialUsed: boolean | null
   stripeCustomerId: string | null
   lastTipText: string | null
   lastTipDate: Date | null
-  timezone: string | null
   lastDailyReminderAt: Date | null
   createdAt: Date | null
 }
@@ -47,13 +47,13 @@ export type UserMaxAggregateOutputType = {
   activeAccountId: string | null
   defaultAccountId: string | null
   mainCurrency: string | null
+  timezone: string | null
   isPremium: boolean | null
   premiumUntil: Date | null
   trialUsed: boolean | null
   stripeCustomerId: string | null
   lastTipText: string | null
   lastTipDate: Date | null
-  timezone: string | null
   lastDailyReminderAt: Date | null
   createdAt: Date | null
 }
@@ -64,13 +64,13 @@ export type UserCountAggregateOutputType = {
   activeAccountId: number
   defaultAccountId: number
   mainCurrency: number
+  timezone: number
   isPremium: number
   premiumUntil: number
   trialUsed: number
   stripeCustomerId: number
   lastTipText: number
   lastTipDate: number
-  timezone: number
   lastDailyReminderAt: number
   createdAt: number
   _all: number
@@ -83,13 +83,13 @@ export type UserMinAggregateInputType = {
   activeAccountId?: true
   defaultAccountId?: true
   mainCurrency?: true
+  timezone?: true
   isPremium?: true
   premiumUntil?: true
   trialUsed?: true
   stripeCustomerId?: true
   lastTipText?: true
   lastTipDate?: true
-  timezone?: true
   lastDailyReminderAt?: true
   createdAt?: true
 }
@@ -100,13 +100,13 @@ export type UserMaxAggregateInputType = {
   activeAccountId?: true
   defaultAccountId?: true
   mainCurrency?: true
+  timezone?: true
   isPremium?: true
   premiumUntil?: true
   trialUsed?: true
   stripeCustomerId?: true
   lastTipText?: true
   lastTipDate?: true
-  timezone?: true
   lastDailyReminderAt?: true
   createdAt?: true
 }
@@ -117,13 +117,13 @@ export type UserCountAggregateInputType = {
   activeAccountId?: true
   defaultAccountId?: true
   mainCurrency?: true
+  timezone?: true
   isPremium?: true
   premiumUntil?: true
   trialUsed?: true
   stripeCustomerId?: true
   lastTipText?: true
   lastTipDate?: true
-  timezone?: true
   lastDailyReminderAt?: true
   createdAt?: true
   _all?: true
@@ -207,13 +207,13 @@ export type UserGroupByOutputType = {
   activeAccountId: string | null
   defaultAccountId: string | null
   mainCurrency: string
+  timezone: string
   isPremium: boolean
   premiumUntil: Date | null
   trialUsed: boolean
   stripeCustomerId: string | null
   lastTipText: string | null
   lastTipDate: Date | null
-  timezone: string
   lastDailyReminderAt: Date | null
   createdAt: Date
   _count: UserCountAggregateOutputType | null
@@ -245,13 +245,13 @@ export type UserWhereInput = {
   activeAccountId?: Prisma.StringNullableFilter<"User"> | string | null
   defaultAccountId?: Prisma.StringNullableFilter<"User"> | string | null
   mainCurrency?: Prisma.StringFilter<"User"> | string
+  timezone?: Prisma.StringFilter<"User"> | string
   isPremium?: Prisma.BoolFilter<"User"> | boolean
   premiumUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   trialUsed?: Prisma.BoolFilter<"User"> | boolean
   stripeCustomerId?: Prisma.StringNullableFilter<"User"> | string | null
   lastTipText?: Prisma.StringNullableFilter<"User"> | string | null
   lastTipDate?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
-  timezone?: Prisma.StringFilter<"User"> | string
   lastDailyReminderAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   accounts?: Prisma.AccountListRelationFilter
@@ -271,13 +271,13 @@ export type UserOrderByWithRelationInput = {
   activeAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  timezone?: Prisma.SortOrder
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrderInput | Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
   stripeCustomerId?: Prisma.SortOrderInput | Prisma.SortOrder
   lastTipText?: Prisma.SortOrderInput | Prisma.SortOrder
   lastTipDate?: Prisma.SortOrderInput | Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   accounts?: Prisma.AccountOrderByRelationAggregateInput
@@ -300,13 +300,13 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   activeAccountId?: Prisma.StringNullableFilter<"User"> | string | null
   defaultAccountId?: Prisma.StringNullableFilter<"User"> | string | null
   mainCurrency?: Prisma.StringFilter<"User"> | string
+  timezone?: Prisma.StringFilter<"User"> | string
   isPremium?: Prisma.BoolFilter<"User"> | boolean
   premiumUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   trialUsed?: Prisma.BoolFilter<"User"> | boolean
   stripeCustomerId?: Prisma.StringNullableFilter<"User"> | string | null
   lastTipText?: Prisma.StringNullableFilter<"User"> | string | null
   lastTipDate?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
-  timezone?: Prisma.StringFilter<"User"> | string
   lastDailyReminderAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   accounts?: Prisma.AccountListRelationFilter
@@ -326,13 +326,13 @@ export type UserOrderByWithAggregationInput = {
   activeAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  timezone?: Prisma.SortOrder
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrderInput | Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
   stripeCustomerId?: Prisma.SortOrderInput | Prisma.SortOrder
   lastTipText?: Prisma.SortOrderInput | Prisma.SortOrder
   lastTipDate?: Prisma.SortOrderInput | Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
@@ -349,13 +349,13 @@ export type UserScalarWhereWithAggregatesInput = {
   activeAccountId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   defaultAccountId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   mainCurrency?: Prisma.StringWithAggregatesFilter<"User"> | string
+  timezone?: Prisma.StringWithAggregatesFilter<"User"> | string
   isPremium?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   premiumUntil?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   trialUsed?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   stripeCustomerId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   lastTipText?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   lastTipDate?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
-  timezone?: Prisma.StringWithAggregatesFilter<"User"> | string
   lastDailyReminderAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
@@ -366,13 +366,13 @@ export type UserCreateInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -392,13 +392,13 @@ export type UserUncheckedCreateInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -418,13 +418,13 @@ export type UserUpdateInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -444,13 +444,13 @@ export type UserUncheckedUpdateInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -470,13 +470,13 @@ export type UserCreateManyInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
 }
@@ -487,13 +487,13 @@ export type UserUpdateManyMutationInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -504,13 +504,13 @@ export type UserUncheckedUpdateManyInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -521,13 +521,13 @@ export type UserCountOrderByAggregateInput = {
   activeAccountId?: Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  timezone?: Prisma.SortOrder
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
   stripeCustomerId?: Prisma.SortOrder
   lastTipText?: Prisma.SortOrder
   lastTipDate?: Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -538,13 +538,13 @@ export type UserMaxOrderByAggregateInput = {
   activeAccountId?: Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  timezone?: Prisma.SortOrder
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
   stripeCustomerId?: Prisma.SortOrder
   lastTipText?: Prisma.SortOrder
   lastTipDate?: Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -555,13 +555,13 @@ export type UserMinOrderByAggregateInput = {
   activeAccountId?: Prisma.SortOrder
   defaultAccountId?: Prisma.SortOrder
   mainCurrency?: Prisma.SortOrder
+  timezone?: Prisma.SortOrder
   isPremium?: Prisma.SortOrder
   premiumUntil?: Prisma.SortOrder
   trialUsed?: Prisma.SortOrder
   stripeCustomerId?: Prisma.SortOrder
   lastTipText?: Prisma.SortOrder
   lastTipDate?: Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -715,13 +715,13 @@ export type UserCreateWithoutAccountsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -740,13 +740,13 @@ export type UserUncheckedCreateWithoutAccountsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -781,13 +781,13 @@ export type UserUpdateWithoutAccountsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -806,13 +806,13 @@ export type UserUncheckedUpdateWithoutAccountsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -831,13 +831,13 @@ export type UserCreateWithoutTransactionsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -856,13 +856,13 @@ export type UserUncheckedCreateWithoutTransactionsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -897,13 +897,13 @@ export type UserUpdateWithoutTransactionsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -922,13 +922,13 @@ export type UserUncheckedUpdateWithoutTransactionsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -947,13 +947,13 @@ export type UserCreateWithoutCategoriesInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -972,13 +972,13 @@ export type UserUncheckedCreateWithoutCategoriesInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1013,13 +1013,13 @@ export type UserUpdateWithoutCategoriesInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1038,13 +1038,13 @@ export type UserUncheckedUpdateWithoutCategoriesInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1063,13 +1063,13 @@ export type UserCreateWithoutTagsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1088,13 +1088,13 @@ export type UserUncheckedCreateWithoutTagsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1129,13 +1129,13 @@ export type UserUpdateWithoutTagsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1154,13 +1154,13 @@ export type UserUncheckedUpdateWithoutTagsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1179,13 +1179,13 @@ export type UserCreateWithoutSavedAnalyticsViewsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1204,13 +1204,13 @@ export type UserUncheckedCreateWithoutSavedAnalyticsViewsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1245,13 +1245,13 @@ export type UserUpdateWithoutSavedAnalyticsViewsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1270,13 +1270,13 @@ export type UserUncheckedUpdateWithoutSavedAnalyticsViewsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1295,13 +1295,13 @@ export type UserCreateWithoutAlertConfigsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1320,13 +1320,13 @@ export type UserUncheckedCreateWithoutAlertConfigsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1361,13 +1361,13 @@ export type UserUpdateWithoutAlertConfigsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1386,13 +1386,13 @@ export type UserUncheckedUpdateWithoutAlertConfigsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1411,13 +1411,13 @@ export type UserCreateWithoutSubscriptionsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1436,13 +1436,13 @@ export type UserUncheckedCreateWithoutSubscriptionsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1477,13 +1477,13 @@ export type UserUpdateWithoutSubscriptionsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1502,13 +1502,13 @@ export type UserUncheckedUpdateWithoutSubscriptionsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1527,13 +1527,13 @@ export type UserCreateWithoutPremiumEventsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1552,13 +1552,13 @@ export type UserUncheckedCreateWithoutPremiumEventsInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1593,13 +1593,13 @@ export type UserUpdateWithoutPremiumEventsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1618,13 +1618,13 @@ export type UserUncheckedUpdateWithoutPremiumEventsInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1643,13 +1643,13 @@ export type UserCreateWithoutLlmMemoriesInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1668,13 +1668,13 @@ export type UserUncheckedCreateWithoutLlmMemoriesInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1709,13 +1709,13 @@ export type UserUpdateWithoutLlmMemoriesInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1734,13 +1734,13 @@ export type UserUncheckedUpdateWithoutLlmMemoriesInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1862,13 +1862,13 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   activeAccountId?: boolean
   defaultAccountId?: boolean
   mainCurrency?: boolean
+  timezone?: boolean
   isPremium?: boolean
   premiumUntil?: boolean
   trialUsed?: boolean
   stripeCustomerId?: boolean
   lastTipText?: boolean
   lastTipDate?: boolean
-  timezone?: boolean
   lastDailyReminderAt?: boolean
   createdAt?: boolean
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
@@ -1889,13 +1889,13 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   activeAccountId?: boolean
   defaultAccountId?: boolean
   mainCurrency?: boolean
+  timezone?: boolean
   isPremium?: boolean
   premiumUntil?: boolean
   trialUsed?: boolean
   stripeCustomerId?: boolean
   lastTipText?: boolean
   lastTipDate?: boolean
-  timezone?: boolean
   lastDailyReminderAt?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -1906,13 +1906,13 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   activeAccountId?: boolean
   defaultAccountId?: boolean
   mainCurrency?: boolean
+  timezone?: boolean
   isPremium?: boolean
   premiumUntil?: boolean
   trialUsed?: boolean
   stripeCustomerId?: boolean
   lastTipText?: boolean
   lastTipDate?: boolean
-  timezone?: boolean
   lastDailyReminderAt?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -1923,18 +1923,18 @@ export type UserSelectScalar = {
   activeAccountId?: boolean
   defaultAccountId?: boolean
   mainCurrency?: boolean
+  timezone?: boolean
   isPremium?: boolean
   premiumUntil?: boolean
   trialUsed?: boolean
   stripeCustomerId?: boolean
   lastTipText?: boolean
   lastTipDate?: boolean
-  timezone?: boolean
   lastDailyReminderAt?: boolean
   createdAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "activeAccountId" | "defaultAccountId" | "mainCurrency" | "isPremium" | "premiumUntil" | "trialUsed" | "stripeCustomerId" | "lastTipText" | "lastTipDate" | "timezone" | "lastDailyReminderAt" | "createdAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "activeAccountId" | "defaultAccountId" | "mainCurrency" | "timezone" | "isPremium" | "premiumUntil" | "trialUsed" | "stripeCustomerId" | "lastTipText" | "lastTipDate" | "lastDailyReminderAt" | "createdAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   transactions?: boolean | Prisma.User$transactionsArgs<ExtArgs>
@@ -1969,13 +1969,13 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     activeAccountId: string | null
     defaultAccountId: string | null
     mainCurrency: string
+    timezone: string
     isPremium: boolean
     premiumUntil: Date | null
     trialUsed: boolean
     stripeCustomerId: string | null
     lastTipText: string | null
     lastTipDate: Date | null
-    timezone: string
     lastDailyReminderAt: Date | null
     createdAt: Date
   }, ExtArgs["result"]["user"]>
@@ -2415,13 +2415,13 @@ export interface UserFieldRefs {
   readonly activeAccountId: Prisma.FieldRef<"User", 'String'>
   readonly defaultAccountId: Prisma.FieldRef<"User", 'String'>
   readonly mainCurrency: Prisma.FieldRef<"User", 'String'>
+  readonly timezone: Prisma.FieldRef<"User", 'String'>
   readonly isPremium: Prisma.FieldRef<"User", 'Boolean'>
   readonly premiumUntil: Prisma.FieldRef<"User", 'DateTime'>
   readonly trialUsed: Prisma.FieldRef<"User", 'Boolean'>
   readonly stripeCustomerId: Prisma.FieldRef<"User", 'String'>
   readonly lastTipText: Prisma.FieldRef<"User", 'String'>
   readonly lastTipDate: Prisma.FieldRef<"User", 'DateTime'>
-  readonly timezone: Prisma.FieldRef<"User", 'String'>
   readonly lastDailyReminderAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
 }
