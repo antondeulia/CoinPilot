@@ -17,6 +17,12 @@ function buildConversionKeyboard(
 	const slice = codes.slice(start, start + pageSize)
 
 	const rows: any[] = []
+	rows.push([
+		{
+			text: !currentCode ? '✅ Не выбрано' : 'Не выбрано',
+			callback_data: 'set_conversion:none'
+		}
+	])
 
 	for (let i = 0; i < slice.length; i += 3) {
 		const chunk = slice.slice(i, i + 3)
@@ -78,19 +84,11 @@ export const editConversionCallback = (
 		if (!account) return
 
 		const codes = Array.from(
-			new Set(account.assets.map(a => a.currency || account.currency))
-		).filter(code => code !== current.currency)
+			new Set(account.assets.map(a => String(a.currency || account.currency).toUpperCase()))
+		).filter(code => code !== String(current.currency ?? '').toUpperCase())
 		if (!codes.length) return
 
 		ctx.session.accountsPage = 0
-		if (!current.convertToCurrency) {
-			current.convertToCurrency = codes[0]
-			current.convertedAmount = await exchangeService.convert(
-				current.amount,
-				current.currency,
-				current.convertToCurrency
-			)
-		}
 
 		const kb = buildConversionKeyboard(codes, 0, current.convertToCurrency ?? null)
 
@@ -121,8 +119,8 @@ export const editConversionCallback = (
 		if (!account) return
 
 		const codes = Array.from(
-			new Set(account.assets.map(a => a.currency || account.currency))
-		).filter(code => code !== current.currency)
+			new Set(account.assets.map(a => String(a.currency || account.currency).toUpperCase()))
+		).filter(code => code !== String(current.currency ?? '').toUpperCase())
 		if (!codes.length) return
 
 		const totalPages = Math.max(1, Math.ceil(codes.length / 9))
@@ -154,12 +152,17 @@ export const editConversionCallback = (
 		if (!current.currency || typeof current.amount !== 'number') return
 
 		const code = ctx.callbackQuery.data.split(':')[1]
-		current.convertToCurrency = code
-		current.convertedAmount = await exchangeService.convert(
-			current.amount,
-			current.currency,
-			current.convertToCurrency
-		)
+		if (code === 'none') {
+			current.convertToCurrency = undefined
+			current.convertedAmount = undefined
+		} else {
+			current.convertToCurrency = code
+			current.convertedAmount = await exchangeService.convert(
+				current.amount,
+				current.currency,
+				current.convertToCurrency
+			)
+		}
 
 		const user = ctx.state.user as any
 		const accountId =

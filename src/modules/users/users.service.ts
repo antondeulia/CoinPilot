@@ -14,7 +14,7 @@ export class UsersService {
 	async getOrCreateByTelegramId(telegramId: string) {
 		const existing = await this.prisma.user.findUnique({
 			where: { telegramId },
-			include: { accounts: true }
+			include: { accounts: { orderBy: { createdAt: 'asc' } } }
 		})
 
 		if (existing) return existing
@@ -42,7 +42,7 @@ export class UsersService {
 
 		const withAccounts = await this.prisma.user.findUnique({
 			where: { id: user.id },
-			include: { accounts: true }
+			include: { accounts: { orderBy: { createdAt: 'asc' } } }
 		})
 		return withAccounts!
 	}

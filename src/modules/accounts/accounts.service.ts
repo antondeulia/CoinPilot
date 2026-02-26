@@ -92,6 +92,49 @@ export class AccountsService {
 			.trim()
 	}
 
+	private normalizeAccountNameBase(value: string): string {
+		const base = String(value ?? '').trim()
+		if (!base) return 'Счёт'
+		const letters = base.replace(/[^A-Za-zА-Яа-яЁё]/g, '')
+		if (letters.length > 0 && letters === letters.toUpperCase()) {
+			return base
+		}
+		const chars = Array.from(base)
+		if (!chars.length) return 'Счёт'
+		return `${chars[0].toUpperCase()}${chars.slice(1).join('')}`
+	}
+
+	private normalizeAssetCurrency(value: string): string {
+		const raw = String(value ?? '').trim()
+		if (!raw) return ''
+		const upper = raw.toUpperCase()
+		const aliases: Record<string, string> = {
+			'$': 'USD',
+			ДОЛЛАР: 'USD',
+			ДОЛЛАРЫ: 'USD',
+			ДОЛЛАРОВ: 'USD',
+			'€': 'EUR',
+			ЕВРО: 'EUR',
+			'₴': 'UAH',
+			ГРН: 'UAH',
+			ГРИВНА: 'UAH',
+			ГРИВНЫ: 'UAH',
+			'₽': 'RUB',
+			РУБ: 'RUB',
+			РУБЛЬ: 'RUB',
+			РУБЛЯ: 'RUB',
+			РУБЛЕЙ: 'RUB',
+			'£': 'GBP',
+			ФУНТ: 'GBP',
+			BYP: 'BYN',
+			BYR: 'BYN',
+			БЕЛРУБ: 'BYN',
+			БЕЛОРУБЛЬ: 'BYN',
+			БЕЛОРУССКИЙРУБЛЬ: 'BYN'
+		}
+		return aliases[upper] ?? upper
+	}
+
 	private buildAccountNameFromRawText(
 		rawText: string | undefined,
 		assets: { currency: string; amount: number }[]
@@ -155,7 +198,7 @@ export class AccountsService {
 		).trim()
 		return {
 			emoji: draftEmoji,
-			baseName: baseName || 'Счёт'
+			baseName: this.normalizeAccountNameBase(baseName || 'Счёт')
 		}
 	}
 
@@ -169,10 +212,19 @@ export class AccountsService {
 		userId: string,
 		draft: { name: string; assets: { currency: string; amount: number }[] }
 	) {
-		await this.ensureCurrenciesSupported(draft.assets.map(a => a.currency))
+		const normalizedAssets = draft.assets
+			.map(a => ({
+				currency: this.normalizeAssetCurrency(a.currency),
+				amount: Number(a.amount ?? 0)
+			}))
+			.filter(a => !!a.currency && Number.isFinite(a.amount))
+		if (!normalizedAssets.length) {
+			throw new Error('Счёт должен содержать хотя бы один актив.')
+		}
+		await this.ensureCurrenciesSupported(normalizedAssets.map(a => a.currency))
 		await this.prisma.$transaction(async tx => {
 			await tx.accountAsset.deleteMany({ where: { accountId } })
-			for (const a of draft.assets) {
+			for (const a of normalizedAssets) {
 				await tx.accountAsset.create({
 					data: {
 						accountId,
@@ -194,7 +246,10 @@ export class AccountsService {
 		const input = String(requestedName ?? '').trim()
 		const currentEmoji = this.extractEmojiPrefix(account.name)
 		const newEmoji = this.extractEmojiPrefix(input) || currentEmoji || '💼'
-		const base = this.stripLeadingEmoji(input) || this.stripLeadingEmoji(account.name)
+		const base =
+			this.normalizeAccountNameBase(
+				this.stripLeadingEmoji(input) || this.stripLeadingEmoji(account.name)
+			) || 'Счёт'
 		if (!base) return null
 		let candidate = `${newEmoji} ${base}`.trim()
 		if (candidate === account.name) return account
@@ -394,17 +449,21 @@ export class AccountsService {
 		const type = accountTypeMap[draft.accountType ?? 'bank'] ?? 'bank'
 		const mergedAssets = new Map<string, number>()
 		for (const asset of draft.assets) {
-			const currency = (asset.currency ?? '').toUpperCase().trim()
+			const currency = this.normalizeAssetCurrency(asset.currency)
 			if (!currency) continue
+			const amount = Number(asset.amount ?? 0)
+			if (!Number.isFinite(amount)) continue
 			const prev = mergedAssets.get(currency) ?? 0
-			mergedAssets.set(currency, prev + Number(asset.amount ?? 0))
+			mergedAssets.set(currency, prev + amount)
 		}
 		const assets = Array.from(mergedAssets.entries()).map(([currency, amount]) => ({
 			currency,
 			amount
 		}))
 		if (!assets.length) {
-			assets.push({ currency: 'USD', amount: 0 })
+			throw new Error(
+				'Для создания счёта укажите хотя бы одну валюту (например: "USD" или "100 USD").'
+			)
 		}
 		await this.ensureCurrenciesSupported(assets.map(a => a.currency))
 

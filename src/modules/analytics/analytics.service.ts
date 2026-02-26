@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ExchangeService } from '../exchange/exchange.service'
 import { pickMoneyNumber } from '../../utils/money'
+import { parseTimezoneOffsetMinutes } from '../../utils/date'
 
 export type AnalyticsPeriod = '7d' | '30d' | '90d' | 'week' | 'month' | '3month'
 
@@ -38,7 +39,7 @@ export interface TransferSum {
 	sum: number
 	pct: number
 	descriptions: string[]
-	detailItems?: { label: string; amount: number; currency: string }[]
+	detailItems?: { label: string; amount: number; currency: string; tagName?: string }[]
 }
 
 export interface TagSum {
@@ -102,6 +103,17 @@ function prevDateRange(period: AnalyticsPeriod): { from: Date; to: Date } {
 		from: new Date(from.getTime() - span),
 		to: new Date(from.getTime() - 1)
 	}
+}
+
+function monthStartUtcFromOffset(timezone: string, now: Date = new Date()): Date {
+	const offsetMin = parseTimezoneOffsetMinutes(timezone)
+	// "Local" time = UTC + offset
+	const local = new Date(now.getTime() + offsetMin * 60_000)
+	const localMonthStart = new Date(
+		Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1, 0, 0, 0, 0)
+	)
+	// Convert local month start back to UTC instant
+	return new Date(localMonthStart.getTime() - offsetMin * 60_000)
 }
 
 @Injectable()
@@ -303,13 +315,99 @@ export class AnalyticsService {
 		userId: string,
 		period: AnalyticsPeriod,
 		mainCurrency: string,
-		accountId?: string
+		accountId?: string,
+		timezone: string = 'UTC+02:00'
 	): Promise<number> {
+		// For month: return balance snapshot at 1st day of current month (00:00) in user's timezone.
+		if (period === 'month') {
+			const at = monthStartUtcFromOffset(timezone)
+			return this.getBalanceAt(userId, at, mainCurrency, accountId)
+		}
+
 		const [summary, transferCf] = await Promise.all([
 			this.getSummary(userId, period, mainCurrency, accountId),
 			this.getTransferCashflow(userId, period, mainCurrency, accountId)
 		])
 		return summary.balance - (summary.income - summary.expenses) - transferCf
+	}
+
+	private async getBalanceAt(
+		userId: string,
+		at: Date,
+		mainCurrency: string,
+		accountId?: string
+	): Promise<number> {
+		// Current assets in main currency
+		const assets = accountId
+			? await this.prisma.accountAsset.findMany({
+					where: { accountId },
+					select: { currency: true, amount: true, amountDecimal: true }
+				})
+			: await this.prisma.accountAsset.findMany({
+					where: { account: { userId, isHidden: false } },
+					select: { currency: true, amount: true, amountDecimal: true }
+				})
+		let currentBalance = 0
+		for (const a of assets) {
+			currentBalance += await this.toMainCurrency(
+				pickMoneyNumber(a.amountDecimal, a.amount, 0),
+				a.currency,
+				mainCurrency
+			)
+		}
+
+		// Net effect of transactions in [at, now] in main currency
+		const now = new Date()
+		const accountFilter = accountId
+			? { accountId }
+			: { account: { userId, isHidden: false } }
+
+		const txs = await this.prisma.transaction.findMany({
+			where: {
+				userId,
+				transactionDate: { gte: at, lte: now },
+				...accountFilter
+			},
+			select: {
+				direction: true,
+				amount: true,
+				amountDecimal: true,
+				currency: true,
+				convertedAmount: true,
+				convertedAmountDecimal: true,
+				convertToCurrency: true,
+				transactionDate: true,
+				amountUsd: true,
+				amountUsdDecimal: true,
+				toAccountId: true,
+				account: { select: { isHidden: true } },
+				toAccount: { select: { isHidden: true } }
+			}
+		})
+
+		let delta = 0
+		for (const tx of txs) {
+			const { amount, currency } = this.pickTxAmount(tx)
+			const inMain = await this.toMainCurrency(
+				amount,
+				currency,
+				mainCurrency,
+				tx.transactionDate,
+				this.pickAmountUsd(tx)
+			)
+
+			if (tx.direction === 'income') delta += inMain
+			else if (tx.direction === 'expense') delta -= inMain
+			else if (tx.direction === 'transfer') {
+				// Only external transfers affect total wallet balance.
+				const toExternal = tx.toAccount?.isHidden === true
+				const fromExternal = tx.account?.isHidden === true
+				if (toExternal) delta -= inMain
+				else if (fromExternal) delta += inMain
+			}
+		}
+
+		return currentBalance - delta
 	}
 
 	async getTransfersTotal(
@@ -367,11 +465,11 @@ export class AnalyticsService {
 		const accountFilter = accountId
 			? { accountId }
 			: { account: { userId, isHidden: false } }
-		const txs = await this.prisma.transaction.findMany({
-			where: {
-				userId,
-				direction: 'transfer',
-				transactionDate: { gte: from, lte: to },
+			const txs = await this.prisma.transaction.findMany({
+				where: {
+					userId,
+					direction: 'transfer',
+					transactionDate: { gte: from, lte: to },
 				...accountFilter
 			},
 			select: {
@@ -381,35 +479,43 @@ export class AnalyticsService {
 				amountDecimal: true,
 				currency: true,
 				convertedAmount: true,
-				convertedAmountDecimal: true,
-				convertToCurrency: true,
-				description: true,
-				transactionDate: true,
-				amountUsd: true,
-				amountUsdDecimal: true
-			}
-		})
+					convertedAmountDecimal: true,
+					convertToCurrency: true,
+					description: true,
+					tag: { select: { name: true } },
+					transactionDate: true,
+					amountUsd: true,
+					amountUsdDecimal: true
+				}
+			})
 		const keyToRows = new Map<string, typeof txs>()
 		for (const t of txs) {
 			const key = `${t.fromAccountId ?? ''}\t${t.toAccountId ?? ''}`
 			if (!keyToRows.has(key)) keyToRows.set(key, [])
 			keyToRows.get(key)!.push(t)
 		}
-		const sums: {
-			key: string
-			sum: number
-			descriptions: string[]
-			detailItems: { label: string; amount: number; currency: string; inMain: number }[]
-		}[] = []
+			const sums: {
+				key: string
+				sum: number
+				descriptions: string[]
+				detailItems: {
+					label: string
+					amount: number
+					currency: string
+					tagName?: string
+					inMain: number
+				}[]
+			}[] = []
 		for (const [, rows] of keyToRows) {
 			let sum = 0
 			const descriptions: string[] = []
-			const detailItems: {
-				label: string
-				amount: number
-				currency: string
-				inMain: number
-			}[] = []
+				const detailItems: {
+					label: string
+					amount: number
+					currency: string
+					tagName?: string
+					inMain: number
+				}[] = []
 			for (const r of rows) {
 				const { amount, currency } = this.pickTxAmount(r)
 				const inMain = await this.toMainCurrency(
@@ -422,13 +528,14 @@ export class AnalyticsService {
 				sum += inMain
 				const label = r.description?.trim() || '—'
 				descriptions.push(label)
-				detailItems.push({
-					label,
-					amount: Math.abs(r.amount),
-					currency: r.currency,
-					inMain
-				})
-			}
+					detailItems.push({
+						label,
+						amount: Math.abs(r.amount),
+						currency: r.currency,
+						tagName: r.tag?.name ?? undefined,
+						inMain
+					})
+				}
 			sums.push({
 				key: rows[0] ? `${rows[0].fromAccountId}\t${rows[0].toAccountId}` : '',
 				sum,
@@ -453,10 +560,15 @@ export class AnalyticsService {
 			beginningBalance != null && beginningBalance > 0 ? beginningBalance : 1
 		return top.map(s => {
 			const [fromId, toId] = s.key.split('\t')
-			const detailItems = [...s.detailItems]
-				.sort((a, b) => b.inMain - a.inMain)
-				.slice(0, 3)
-				.map(({ label, amount, currency }) => ({ label, amount, currency }))
+				const detailItems = [...s.detailItems]
+					.sort((a, b) => b.inMain - a.inMain)
+					.slice(0, 3)
+					.map(({ label, amount, currency, tagName }) => ({
+						label,
+						amount,
+						currency,
+						tagName
+					}))
 			return {
 				fromAccountName: idToName.get(fromId) ?? (fromId ? '—' : 'Вне Wallet'),
 				toAccountName: idToName.get(toId) ?? (toId ? '—' : 'Вне Wallet'),

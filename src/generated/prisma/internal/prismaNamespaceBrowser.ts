@@ -108,7 +108,6 @@ export const UserScalarFieldEnum = {
   stripeCustomerId: 'stripeCustomerId',
   lastTipText: 'lastTipText',
   lastTipDate: 'lastTipDate',
-  timezone: 'timezone',
   lastDailyReminderAt: 'lastDailyReminderAt',
   createdAt: 'createdAt'
 } as const

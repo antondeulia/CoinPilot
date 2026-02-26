@@ -37,7 +37,6 @@ export type UserMinAggregateOutputType = {
   stripeCustomerId: string | null
   lastTipText: string | null
   lastTipDate: Date | null
-  timezone: string | null
   lastDailyReminderAt: Date | null
   createdAt: Date | null
 }
@@ -55,7 +54,6 @@ export type UserMaxAggregateOutputType = {
   stripeCustomerId: string | null
   lastTipText: string | null
   lastTipDate: Date | null
-  timezone: string | null
   lastDailyReminderAt: Date | null
   createdAt: Date | null
 }
@@ -73,7 +71,6 @@ export type UserCountAggregateOutputType = {
   stripeCustomerId: number
   lastTipText: number
   lastTipDate: number
-  timezone: number
   lastDailyReminderAt: number
   createdAt: number
   _all: number
@@ -93,7 +90,6 @@ export type UserMinAggregateInputType = {
   stripeCustomerId?: true
   lastTipText?: true
   lastTipDate?: true
-  timezone?: true
   lastDailyReminderAt?: true
   createdAt?: true
 }
@@ -111,7 +107,6 @@ export type UserMaxAggregateInputType = {
   stripeCustomerId?: true
   lastTipText?: true
   lastTipDate?: true
-  timezone?: true
   lastDailyReminderAt?: true
   createdAt?: true
 }
@@ -129,7 +124,6 @@ export type UserCountAggregateInputType = {
   stripeCustomerId?: true
   lastTipText?: true
   lastTipDate?: true
-  timezone?: true
   lastDailyReminderAt?: true
   createdAt?: true
   _all?: true
@@ -220,7 +214,6 @@ export type UserGroupByOutputType = {
   stripeCustomerId: string | null
   lastTipText: string | null
   lastTipDate: Date | null
-  timezone: string
   lastDailyReminderAt: Date | null
   createdAt: Date
   _count: UserCountAggregateOutputType | null
@@ -259,7 +252,6 @@ export type UserWhereInput = {
   stripeCustomerId?: Prisma.StringNullableFilter<"User"> | string | null
   lastTipText?: Prisma.StringNullableFilter<"User"> | string | null
   lastTipDate?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
-  timezone?: Prisma.StringFilter<"User"> | string
   lastDailyReminderAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   accounts?: Prisma.AccountListRelationFilter
@@ -286,7 +278,6 @@ export type UserOrderByWithRelationInput = {
   stripeCustomerId?: Prisma.SortOrderInput | Prisma.SortOrder
   lastTipText?: Prisma.SortOrderInput | Prisma.SortOrder
   lastTipDate?: Prisma.SortOrderInput | Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   accounts?: Prisma.AccountOrderByRelationAggregateInput
@@ -316,7 +307,6 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   stripeCustomerId?: Prisma.StringNullableFilter<"User"> | string | null
   lastTipText?: Prisma.StringNullableFilter<"User"> | string | null
   lastTipDate?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
-  timezone?: Prisma.StringFilter<"User"> | string
   lastDailyReminderAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   accounts?: Prisma.AccountListRelationFilter
@@ -343,7 +333,6 @@ export type UserOrderByWithAggregationInput = {
   stripeCustomerId?: Prisma.SortOrderInput | Prisma.SortOrder
   lastTipText?: Prisma.SortOrderInput | Prisma.SortOrder
   lastTipDate?: Prisma.SortOrderInput | Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
@@ -367,7 +356,6 @@ export type UserScalarWhereWithAggregatesInput = {
   stripeCustomerId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   lastTipText?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   lastTipDate?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
-  timezone?: Prisma.StringWithAggregatesFilter<"User"> | string
   lastDailyReminderAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
@@ -385,7 +373,6 @@ export type UserCreateInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -412,7 +399,6 @@ export type UserUncheckedCreateInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -439,7 +425,6 @@ export type UserUpdateInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -466,7 +451,6 @@ export type UserUncheckedUpdateInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -493,7 +477,6 @@ export type UserCreateManyInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
 }
@@ -511,7 +494,6 @@ export type UserUpdateManyMutationInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -529,7 +511,6 @@ export type UserUncheckedUpdateManyInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -547,7 +528,6 @@ export type UserCountOrderByAggregateInput = {
   stripeCustomerId?: Prisma.SortOrder
   lastTipText?: Prisma.SortOrder
   lastTipDate?: Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -565,7 +545,6 @@ export type UserMaxOrderByAggregateInput = {
   stripeCustomerId?: Prisma.SortOrder
   lastTipText?: Prisma.SortOrder
   lastTipDate?: Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -583,7 +562,6 @@ export type UserMinOrderByAggregateInput = {
   stripeCustomerId?: Prisma.SortOrder
   lastTipText?: Prisma.SortOrder
   lastTipDate?: Prisma.SortOrder
-  timezone?: Prisma.SortOrder
   lastDailyReminderAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -744,7 +722,6 @@ export type UserCreateWithoutAccountsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
@@ -770,7 +747,6 @@ export type UserUncheckedCreateWithoutAccountsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
@@ -812,7 +788,6 @@ export type UserUpdateWithoutAccountsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
@@ -838,7 +813,6 @@ export type UserUncheckedUpdateWithoutAccountsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
@@ -864,7 +838,6 @@ export type UserCreateWithoutTransactionsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -890,7 +863,6 @@ export type UserUncheckedCreateWithoutTransactionsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -932,7 +904,6 @@ export type UserUpdateWithoutTransactionsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -958,7 +929,6 @@ export type UserUncheckedUpdateWithoutTransactionsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -984,7 +954,6 @@ export type UserCreateWithoutCategoriesInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1010,7 +979,6 @@ export type UserUncheckedCreateWithoutCategoriesInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1052,7 +1020,6 @@ export type UserUpdateWithoutCategoriesInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1078,7 +1045,6 @@ export type UserUncheckedUpdateWithoutCategoriesInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1104,7 +1070,6 @@ export type UserCreateWithoutTagsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1130,7 +1095,6 @@ export type UserUncheckedCreateWithoutTagsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1172,7 +1136,6 @@ export type UserUpdateWithoutTagsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1198,7 +1161,6 @@ export type UserUncheckedUpdateWithoutTagsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1224,7 +1186,6 @@ export type UserCreateWithoutSavedAnalyticsViewsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1250,7 +1211,6 @@ export type UserUncheckedCreateWithoutSavedAnalyticsViewsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1292,7 +1252,6 @@ export type UserUpdateWithoutSavedAnalyticsViewsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1318,7 +1277,6 @@ export type UserUncheckedUpdateWithoutSavedAnalyticsViewsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1344,7 +1302,6 @@ export type UserCreateWithoutAlertConfigsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1370,7 +1327,6 @@ export type UserUncheckedCreateWithoutAlertConfigsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1412,7 +1368,6 @@ export type UserUpdateWithoutAlertConfigsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1438,7 +1393,6 @@ export type UserUncheckedUpdateWithoutAlertConfigsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1464,7 +1418,6 @@ export type UserCreateWithoutSubscriptionsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1490,7 +1443,6 @@ export type UserUncheckedCreateWithoutSubscriptionsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1532,7 +1484,6 @@ export type UserUpdateWithoutSubscriptionsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1558,7 +1509,6 @@ export type UserUncheckedUpdateWithoutSubscriptionsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1584,7 +1534,6 @@ export type UserCreateWithoutPremiumEventsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1610,7 +1559,6 @@ export type UserUncheckedCreateWithoutPremiumEventsInput = {
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1652,7 +1600,6 @@ export type UserUpdateWithoutPremiumEventsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1678,7 +1625,6 @@ export type UserUncheckedUpdateWithoutPremiumEventsInput = {
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1697,13 +1643,13 @@ export type UserCreateWithoutLlmMemoriesInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -1722,13 +1668,13 @@ export type UserUncheckedCreateWithoutLlmMemoriesInput = {
   activeAccountId?: string | null
   defaultAccountId?: string | null
   mainCurrency?: string
+  timezone?: string
   isPremium?: boolean
   premiumUntil?: Date | string | null
   trialUsed?: boolean
   stripeCustomerId?: string | null
   lastTipText?: string | null
   lastTipDate?: Date | string | null
-  timezone?: string
   lastDailyReminderAt?: Date | string | null
   createdAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -1763,13 +1709,13 @@ export type UserUpdateWithoutLlmMemoriesInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -1788,13 +1734,13 @@ export type UserUncheckedUpdateWithoutLlmMemoriesInput = {
   activeAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   defaultAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mainCurrency?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   isPremium?: Prisma.BoolFieldUpdateOperationsInput | boolean
   premiumUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   trialUsed?: Prisma.BoolFieldUpdateOperationsInput | boolean
   stripeCustomerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastTipDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  timezone?: Prisma.StringFieldUpdateOperationsInput | string
   lastDailyReminderAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -1923,7 +1869,6 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   stripeCustomerId?: boolean
   lastTipText?: boolean
   lastTipDate?: boolean
-  timezone?: boolean
   lastDailyReminderAt?: boolean
   createdAt?: boolean
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
@@ -1951,7 +1896,6 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   stripeCustomerId?: boolean
   lastTipText?: boolean
   lastTipDate?: boolean
-  timezone?: boolean
   lastDailyReminderAt?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -1969,7 +1913,6 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   stripeCustomerId?: boolean
   lastTipText?: boolean
   lastTipDate?: boolean
-  timezone?: boolean
   lastDailyReminderAt?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -1987,12 +1930,11 @@ export type UserSelectScalar = {
   stripeCustomerId?: boolean
   lastTipText?: boolean
   lastTipDate?: boolean
-  timezone?: boolean
   lastDailyReminderAt?: boolean
   createdAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "activeAccountId" | "defaultAccountId" | "mainCurrency" | "timezone" | "isPremium" | "premiumUntil" | "trialUsed" | "stripeCustomerId" | "lastTipText" | "lastTipDate" | "createdAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "telegramId" | "activeAccountId" | "defaultAccountId" | "mainCurrency" | "timezone" | "isPremium" | "premiumUntil" | "trialUsed" | "stripeCustomerId" | "lastTipText" | "lastTipDate" | "lastDailyReminderAt" | "createdAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   transactions?: boolean | Prisma.User$transactionsArgs<ExtArgs>
@@ -2034,7 +1976,6 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     stripeCustomerId: string | null
     lastTipText: string | null
     lastTipDate: Date | null
-    timezone: string
     lastDailyReminderAt: Date | null
     createdAt: Date
   }, ExtArgs["result"]["user"]>
@@ -2481,7 +2422,6 @@ export interface UserFieldRefs {
   readonly stripeCustomerId: Prisma.FieldRef<"User", 'String'>
   readonly lastTipText: Prisma.FieldRef<"User", 'String'>
   readonly lastTipDate: Prisma.FieldRef<"User", 'DateTime'>
-  readonly timezone: Prisma.FieldRef<"User", 'String'>
   readonly lastDailyReminderAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
 }

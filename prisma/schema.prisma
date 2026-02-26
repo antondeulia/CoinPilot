@@ -38,7 +38,6 @@ model User {
   subscriptions        Subscription[]
   premiumEvents        PremiumEvent[]
   llmMemories          LlmUserMemory[]
-  timezone             String   @default("UTC")
   lastDailyReminderAt  DateTime?
   createdAt            DateTime @default(now())
 

@@ -45,14 +45,41 @@ function fromParts(day: number, monthIndex: number, year: number): Date | null {
 	return d
 }
 
-function parseTimezoneOffsetMinutes(timezone: string): number {
-	const t = String(timezone || '').trim().toUpperCase()
-	const m = t.match(/^UTC([+-])(\d{1,2})(?::?(\d{2}))?$/)
-	if (!m) return 120
-	const sign = m[1] === '-' ? -1 : 1
-	const hours = Number(m[2] || 0)
-	const mins = Number(m[3] || 0)
-	return sign * (hours * 60 + mins)
+export function parseTimezoneOffsetMinutes(timezone: string): number {
+	const raw = String(timezone || '').trim().toUpperCase()
+	if (!raw) return 120
+
+	const parseSigned = (sign: string, hoursRaw: string, minsRaw?: string): number => {
+		const hours = Number(hoursRaw || 0)
+		const mins = Number(minsRaw || 0)
+		if (
+			!Number.isFinite(hours) ||
+			!Number.isFinite(mins) ||
+			hours > 14 ||
+			mins > 59
+		) {
+			return 120
+		}
+		const signed = sign === '-' ? -1 : 1
+		return signed * (hours * 60 + mins)
+	}
+
+	const compact = raw.replace(/\s+/g, '')
+	if (compact === '0' || compact === '+0' || compact === '-0') return 0
+
+	const utcFull = compact.match(/^UTC([+-])(\d{1,2})(?::?(\d{2}))?$/)
+	if (utcFull) return parseSigned(utcFull[1], utcFull[2], utcFull[3])
+
+	const plainFull = compact.match(/^([+-])(\d{1,2})(?::?(\d{2}))?$/)
+	if (plainFull) return parseSigned(plainFull[1], plainFull[2], plainFull[3])
+
+	const plainHours = compact.match(/^([+-]?)(\d{1,2})$/)
+	if (plainHours) {
+		const sign = plainHours[1] || '+'
+		return parseSigned(sign, plainHours[2], '0')
+	}
+
+	return 120
 }
 
 function shiftToTimezone(date: Date, offsetMinutes: number): Date {
@@ -90,6 +117,21 @@ export function extractExplicitDateFromText(
 		/\b([0-3]?\d)[./-]([01]?\d)(?:[./-](\d{2,4}))?\b/u
 	)
 	if (dmyMatch) {
+		const hasYear = Boolean(dmyMatch[3])
+		if (!hasYear && typeof dmyMatch.index === 'number') {
+			const matched = dmyMatch[0]
+			const tail = lowered
+				.slice(dmyMatch.index + matched.length)
+				.replace(/^\s+/, '')
+			// Prevent false date extraction from decimal amounts like "11.10 TON".
+			if (
+				/^(?:[a-z]{2,10}|usd|usdt|usdc|eur|uah|rub|btc|eth|ton|sol|bnb|xrp|ada|doge|link)\b/u.test(
+					tail
+				)
+			) {
+				return null
+			}
+		}
 		const day = Number(dmyMatch[1])
 		const month = Number(dmyMatch[2]) - 1
 		let year = yearNow

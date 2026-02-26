@@ -13,8 +13,20 @@ function clearBooleanModes(ctx: BotContext): void {
 	;(ctx.session as any).editingMainCurrency = false
 	ctx.session.awaitingInlineCategoryCreate = false
 	ctx.session.awaitingInlineTagCreate = false
+	ctx.session.awaitingMassAccountsInput = false
+	ctx.session.awaitingMassTransactionsInput = false
 	ctx.session.pendingTransactionDraft = undefined
 	ctx.session.pendingTransactionMissing = undefined
+	ctx.session.pendingAccountInputText = undefined
+	ctx.session.autoCreatedTxIdsForCurrentParse = undefined
+	ctx.session.newTagNamesInSession = undefined
+	ctx.session.repeatTxConfirmMessageId = undefined
+	ctx.session.massAccountsDraft = undefined
+	ctx.session.massAccountsSummaryMessageId = undefined
+	ctx.session.massAccountsBusy = false
+	ctx.session.massTransactionsDraft = undefined
+	ctx.session.massTransactionsSummaryMessageId = undefined
+	ctx.session.massTransactionsBusy = false
 }
 
 function clearEditingModes(ctx: BotContext): void {

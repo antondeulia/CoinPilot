@@ -17,6 +17,9 @@ const CRYPTO_SYMBOLS = new Set([
 	'USDT',
 	'USDC',
 	'BNB',
+	'TON',
+	'TRX',
+	'KGEN',
 	'SOL',
 	'XRP',
 	'ADA',
@@ -81,6 +84,23 @@ export function getCurrencyFractionDigits(
 		return 18
 	}
 	if (isCryptoCurrency(currency)) return 18
+	const fiatFallback = new Set([
+		'USD',
+		'EUR',
+		'UAH',
+		'RUB',
+		'GBP',
+		'PLN',
+		'SEK',
+		'BYN',
+		'CHF',
+		'CAD',
+		'AUD',
+		'JPY',
+		'CNY'
+	])
+	const code = String(currency ?? '').toUpperCase()
+	if (code && !fiatFallback.has(code)) return 18
 	return 2
 }
 
@@ -161,6 +181,7 @@ export function getCurrencySymbol(currency: string): string {
 		GBP: '£',
 		PLN: 'zł',
 		SEK: 'kr',
+		BYN: 'Br'
 	}
 	return map[currency] ?? currency
 }

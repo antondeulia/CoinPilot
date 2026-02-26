@@ -18,6 +18,8 @@ export type InputMode =
 	| 'transaction_edit'
 	| 'account_parse'
 	| 'account_jarvis_edit'
+	| 'accounts_mass_edit'
+	| 'transactions_mass_edit'
 	| 'account_rename'
 	| 'category_create'
 	| 'tag_create'
@@ -52,8 +54,9 @@ export type BotContext = Context & {
 		editMessageId?: number
 		accountsPage?: number
 		categoriesPage?: number
-		awaitingTagInput?: boolean
-		tagsPage?: number
+			awaitingTagInput?: boolean
+			newTagNamesInSession?: string[]
+			tagsPage?: number
 		tagsSettingsMessageId?: number
 		tagsSettingsHintMessageId?: number
 		awaitingTagsJarvisEdit?: boolean
@@ -62,11 +65,12 @@ export type BotContext = Context & {
 		awaitingAccountInput?: boolean
 		confirmingAccounts?: boolean
 		draftAccounts?: LlmAccount[]
-		currentAccountIndex?: number
-		accountsViewPage?: number
-		accountsViewSelectedId?: string | null
-			editingAccountField?: 'jarvis' | 'name'
-		editingAccountDetailsId?: string
+			currentAccountIndex?: number
+			accountsViewPage?: number
+			accountsViewSelectedId?: string | null
+			accountsViewExpanded?: boolean
+				editingAccountField?: 'jarvis' | 'name'
+			editingAccountDetailsId?: string
 		transactionsViewPage?: number
 		categoriesSelectedId?: string | null
 		awaitingCategoryName?: boolean
@@ -82,9 +86,10 @@ export type BotContext = Context & {
 			awaitingInlineCategoryCreate?: boolean
 			awaitingInlineTagCreate?: boolean
 				inlineCreateHintMessageId?: number
-				accountDetailsEditMode?: 'jarvis' | 'name'
-				pendingTransactionDraft?: LlmTransaction
-				pendingTransactionMissing?: string[]
+			accountDetailsEditMode?: 'jarvis' | 'name'
+			accountDetailsSourceMessageId?: number
+					pendingTransactionDraft?: LlmTransaction
+					pendingTransactionMissing?: string[]
 				accountDeltaPromptMessageId?: number
 				pendingAccountDeltaOps?: Array<{
 					accountId: string
@@ -92,11 +97,53 @@ export type BotContext = Context & {
 					amount: number
 					direction: 'in' | 'out'
 				}>
-			}
-	chat: {
-		id: string
+				repeatTxConfirmMessageId?: number
+				pendingAccountInputText?: string
+				autoCreatedTxIdsForCurrentParse?: string[]
+				aiAnalyticsBusy?: boolean
+				aiAnalyticsLastFingerprint?: string
+				aiAnalyticsProgressMessageId?: number
+				onboardingStartMessageId?: number
+				onboardingAccountsMessageId?: number
+				awaitingMassAccountsInput?: boolean
+				massAccountsDraft?: Array<{
+					accountId: string
+					accountName: string
+					beforeAssets: Array<{ currency: string; amount: number }>
+					afterAssets: Array<{ currency: string; amount: number }>
+				}>
+				massAccountsSummaryMessageId?: number
+				massAccountsBusy?: boolean
+				awaitingMassTransactionsInput?: boolean
+				massTransactionsDraft?: Array<{
+					transactionId: string
+					action: 'update' | 'delete'
+					before: {
+						amount: number
+						currency: string
+						direction: 'income' | 'expense' | 'transfer'
+						category: string | null
+						description: string | null
+						tagName: string | null
+						transactionDate: string
+					}
+						after?: {
+							direction?: 'income' | 'expense'
+							category?: string | null
+							categoryId?: string | null
+							description?: string | null
+							tagId?: string | null
+							tagName?: string | null
+							transactionDate?: string
+					}
+				}>
+				massTransactionsSummaryMessageId?: number
+				massTransactionsBusy?: boolean
+								}
+				chat: {
+					id: string
+				}
 	}
-}
 
 export const userContextMiddleware =
 	(
@@ -110,8 +157,8 @@ export const userContextMiddleware =
 		const user = await userService.getOrCreateByTelegramId(String(ctx.from.id))
 
 		const activeAccount = user.activeAccountId
-			? await prisma.account.findUnique({
-					where: { id: user.activeAccountId }
+			? await prisma.account.findFirst({
+					where: { id: user.activeAccountId, userId: user.id }
 				})
 			: null
 		const isPremium = subscriptionService.isPremium(user)

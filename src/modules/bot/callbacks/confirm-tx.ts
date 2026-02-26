@@ -18,9 +18,11 @@ export async function getShowConversion(
 	const account = await accountsService.getOneWithAssets(accountId, userId)
 	if (!account) return false
 	const codes = Array.from(
-		new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
+		new Set(
+			account.assets?.map(a => String(a.currency || account.currency).toUpperCase()) ?? []
+		)
 	)
-	return !codes.includes(draft.currency)
+	return !codes.includes(String(draft.currency ?? '').toUpperCase())
 }
 
 export const confirmTxCallback = (
@@ -53,15 +55,15 @@ export const confirmTxCallback = (
 			return
 		}
 
-		// Лимит транзакций для Free
+		// Лимит транзакций для Basic
 		const newCount = drafts.length
 		const txLimit = await subscriptionService.canCreateTransaction(user.id)
 		if (!txLimit.allowed || txLimit.current + newCount > txLimit.limit) {
 			await ctx.answerCallbackQuery({
-				text: '💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
+				text: '💠 30 транзакций в месяц — лимит Basic. Разблокируйте безлимит с тарифом Pro!'
 			})
 			await ctx.reply(
-				'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				'💠 30 транзакций в месяц — лимит Basic. Разблокируйте безлимит с тарифом Pro!',
 				{
 					reply_markup: new InlineKeyboard()
 						.text('💠 Pro-тариф', 'view_premium')
@@ -84,12 +86,12 @@ export const confirmTxCallback = (
 				await ctx.answerCallbackQuery({
 					text: ctx.state.isPremium
 						? 'Достигнут системный лимит тегов.'
-						: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
+						: '💠 3 кастомных тега — лимит Basic. Разблокируйте безлимит с Pro-тарифом!'
 				})
 				await ctx.reply(
 					ctx.state.isPremium
 						? 'Достигнут системный лимит тегов. Удалите лишние теги и попробуйте снова.'
-						: '💠 3 кастомных тега использовано. Разблокируйте безлимит с Premium!',
+						: '💠 3 кастомных тега использовано. Разблокируйте безлимит с Pro-тарифом!',
 					ctx.state.isPremium
 						? {
 								reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
@@ -281,10 +283,12 @@ export function confirmKeyboard(
 	} else if (total > 1) {
 		kb.row()
 			.text('🗑 Удалить всё', 'ask_cancel_tx')
-			.text('🔁 Повторить', 'repeat_parse')
+			.text('🔁 Повторить', 'repeat_tx_confirm_open')
 		kb.row().text('Закрыть', 'close_preview')
 	} else {
-		kb.row().text('🗑 Удалить', 'ask_cancel_tx').text('🔁 Повторить', 'repeat_parse')
+		kb.row()
+			.text('🗑 Удалить', 'ask_cancel_tx')
+			.text('🔁 Повторить', 'repeat_tx_confirm_open')
 		kb.row().text('Закрыть', 'close_preview')
 	}
 	return kb

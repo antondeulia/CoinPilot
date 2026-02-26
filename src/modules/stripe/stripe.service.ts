@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config'
 import Stripe from 'stripe'
 import { PrismaService } from '../prisma/prisma.service'
 import { SubscriptionPlan } from '../../generated/prisma/enums'
-import { addDays } from '../subscription/subscription.service'
 import { toDbMoney } from '../../utils/money'
 
 @Injectable()
@@ -29,15 +28,22 @@ export class StripeService {
 	 * Создать Checkout Session для подписки (monthly/yearly).
 	 * Возвращает URL, по которому нужно отправить пользователя.
 	 */
+	private getRequiredStripePriceId(plan: 'monthly' | 'yearly'): string {
+		const key = plan === 'monthly' ? 'STRIPE_PRICE_MONTHLY' : 'STRIPE_PRICE_YEARLY'
+		const raw = this.config.getOrThrow<string>(key)
+		const priceId = String(raw ?? '').trim()
+		if (!priceId || !priceId.startsWith('price_')) {
+			throw new Error(`${key} is missing or invalid`)
+		}
+		return priceId
+	}
+
 	async createCheckoutSession(params: {
 		userId: string
 		telegramId: string
 		plan: 'monthly' | 'yearly'
 	}): Promise<string> {
-		const priceId =
-			params.plan === 'monthly'
-				? this.config.getOrThrow<string>('STRIPE_PRICE_MONTHLY')
-				: this.config.getOrThrow<string>('STRIPE_PRICE_YEARLY')
+		const priceId = this.getRequiredStripePriceId(params.plan)
 
 		const successUrl =
 			this.config.get<string>('STRIPE_SUCCESS_URL') ??
@@ -45,25 +51,11 @@ export class StripeService {
 		const cancelUrl =
 			this.config.get<string>('STRIPE_CANCEL_URL') ?? successUrl
 
-		const user = await this.prisma.user.findUnique({
-			where: { id: params.userId },
-			select: { trialUsed: true, telegramId: true }
-		})
-		const trialLedger =
-			user?.telegramId != null
-				? await this.prisma.trialLedger.findUnique({
-						where: { telegramId: user.telegramId },
-						select: { id: true }
-					})
-				: null
-		const subscriptionData: { metadata: { user_id: string; plan: string }; trial_period_days?: number } = {
+		const subscriptionData: { metadata: { user_id: string; plan: string } } = {
 			metadata: {
 				user_id: params.userId,
 				plan: params.plan
 			}
-		}
-		if (user && !user.trialUsed && !trialLedger) {
-			subscriptionData.trial_period_days = 7
 		}
 		const session = await this.stripe.checkout.sessions.create({
 			mode: 'subscription',
@@ -178,13 +170,10 @@ export class StripeService {
 		}
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
-
-		 end = new Date(stripeSub.current_period_end * 1000)
+	
+			 end = new Date(stripeSub.current_period_end * 1000)
 }
-if (stripeSub.status === 'trialing') {
-	end = addDays(new Date(), 7)
-}
-		const plan =
+			const plan =
 			planMeta === 'monthly'
 				? SubscriptionPlan.monthly
 				: SubscriptionPlan.yearly

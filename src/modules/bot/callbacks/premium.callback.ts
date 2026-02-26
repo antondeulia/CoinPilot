@@ -6,7 +6,7 @@ import { StripeService } from '../../../modules/stripe/stripe.service'
 
 const STRIPE_PORTAL_FALLBACK_URL = 'https://billing.stripe.com/p/login/00w7sL0zi10vc3oa2y6EU00'
 
-const PREMIUM_PAGE_TEXT = `⭐️ Подписка
+const PREMIUM_PAGE_TEXT = `💠 Подписка
 
 Вы используете Basic-план.
 Некоторые возможности ограничены.
@@ -31,9 +31,9 @@ const PREMIUM_PAGE_TEXT = `⭐️ Подписка
 function premiumKeyboard(fromUpsell: boolean) {
 	const kb = new InlineKeyboard()
 	kb
-		.text('🚀 Ежемесячный доступ — 4,99 € (7 дней бесплатно)', 'premium_buy_monthly')
+		.text('🚀 Ежемесячный доступ — 3,99 €', 'premium_buy_monthly')
 		.row()
-		.text('🔥 Годовой доступ — 39,99 € (экономия 33%) + 7 дней бесплатно', 'premium_buy_yearly')
+		.text('🔥 Годовой доступ — 29,99 € (экономия 38%)', 'premium_buy_yearly')
 		.row()
 		.text(fromUpsell ? 'Закрыть' : '← Назад', fromUpsell ? 'hide_message' : 'go_home')
 	return kb
@@ -41,6 +41,7 @@ function premiumKeyboard(fromUpsell: boolean) {
 
 function formatSubscriptionMessage(d: {
 	active: boolean
+	plan: string
 	planName: string
 	endDate: Date | null
 	daysLeft: number | null
@@ -51,26 +52,32 @@ function formatSubscriptionMessage(d: {
 	autoRenew: boolean | null
 }): string {
 	if (!d.active) {
-		return `⭐️ Подписка
+		return `💠 Подписка
 
 Вы используете Basic-план.
 Некоторые возможности ограничены.`
 	}
 	const endStr = d.endDate
-		? d.endDate.toLocaleDateString('ru-RU', {
-				day: 'numeric',
-				month: 'long',
-				year: 'numeric'
-			})
+		? d.endDate.toLocaleDateString('ru-RU')
 		: '—'
-	const tariffLine = d.isTrial ? '🎁 Тариф: Trial' : '💼 Тариф: Pro'
-	const autoRenewLine =
-		d.autoRenew == null ? '' : `\n🔁 Автопродление: ${d.autoRenew ? 'Включено' : 'Выключено'}`
-	return `⭐️ Подписка
+	const typeLine =
+		d.plan === 'monthly'
+			? '📅 Тип: Месячная'
+			: d.plan === 'yearly'
+				? '🗓️ Тип: Годовая'
+				: d.plan === 'trial'
+					? '🎁 Тип: Trial'
+					: `💼 Тип: ${d.planName}`
+	const trialExpiryLine =
+		d.isTrial && d.endDate
+			? `\n⏳ Срок истекает: ${endStr} (${Math.max(d.daysLeft ?? 0, 0)} дн.)`
+			: ''
+	return `💠 Подписка
 
 🟢 Статус: Активна
-${tariffLine}`
-// 📅 Следующее списание: ${endStr}${autoRenewLine}
+💼 Тариф: Pro
+${typeLine}${trialExpiryLine}`
+// 📅 Следующее списание: ${endStr}
 }
 
 export const premiumCallback = (
@@ -135,11 +142,11 @@ export const premiumCallback = (
 				fromUpsell ? 'hide_message' : 'go_home'
 			)
 			try {
-				await ctx.editMessageText('💠 У вас уже активен Premium. Спасибо!', {
+				await ctx.editMessageText('💠 У вас уже активен Pro-тариф. Спасибо!', {
 					reply_markup: kb
 				})
 			} catch {
-				await ctx.reply('💠 У вас уже активен Premium. Спасибо!', {
+				await ctx.reply('💠 У вас уже активен Pro-тариф. Спасибо!', {
 					reply_markup: kb
 				})
 			}
@@ -148,17 +155,17 @@ export const premiumCallback = (
 		const fromSettings =
 			ctx.callbackQuery?.message?.message_id === ctx.session.homeMessageId
 		const text = PREMIUM_PAGE_TEXT
-		const kb = fromSettings
-			? new InlineKeyboard()
-					.text(
-						'🚀 Ежемесячный доступ — 4,99 € (7 дней бесплатно)',
-						'premium_buy_monthly'
-					)
-					.row()
-					.text(
-						'🔥 Годовой доступ — 39,99 € (экономия 33%) + 7 дней бесплатно',
-						'premium_buy_yearly'
-					)
+			const kb = fromSettings
+				? new InlineKeyboard()
+						.text(
+							'🚀 Ежемесячный доступ — 3,99 €',
+							'premium_buy_monthly'
+						)
+						.row()
+						.text(
+							'🔥 Годовой доступ — 29,99 € (экономия 38%)',
+							'premium_buy_yearly'
+						)
 					.row()
 					.text('← Назад', 'back_to_settings')
 			: premiumKeyboard(fromUpsell)
@@ -178,13 +185,13 @@ export const premiumCallback = (
 				telegramId,
 				plan: 'monthly'
 			})
-			await ctx.reply('Оплата Premium — 1 месяц (7 дней бесплатно):', {
-				reply_markup: new InlineKeyboard().url('Оплатить 4,99 €', url)
+			await ctx.reply('Оплата Pro — 1 месяц:', {
+				reply_markup: new InlineKeyboard().url('Оплатить 3,99 €', url)
 			})
 			await ctx.answerCallbackQuery()
 		} catch (e) {
 			await ctx.answerCallbackQuery({
-				text: 'Оплата временно недоступна, попробуйте позже.'
+				text: 'Оплата временно недоступна, свяжитесь с поддержкой @coinpilot_helper.'
 			})
 		}
 	})
@@ -198,13 +205,13 @@ export const premiumCallback = (
 				telegramId,
 				plan: 'yearly'
 			})
-			await ctx.reply('Оплата Premium — 1 год (7 дней бесплатно):', {
-				reply_markup: new InlineKeyboard().url('Оплатить 39,99 €', url)
+			await ctx.reply('Оплата Pro — 1 год:', {
+				reply_markup: new InlineKeyboard().url('Оплатить 29,99 €', url)
 			})
 			await ctx.answerCallbackQuery()
 		} catch (e) {
 			await ctx.answerCallbackQuery({
-				text: 'Оплата временно недоступна, попробуйте позже.'
+				text: 'Оплата временно недоступна, свяжитесь с поддержкой @coinpilot_helper.'
 			})
 		}
 	})

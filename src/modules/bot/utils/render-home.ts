@@ -26,17 +26,17 @@ export async function renderHome(
 		: []
 	const accountsCount = visibleAccounts.length
 	let totalBalance = 0
-	let monthlyChangePct = 0
+	let monthlyChangePct = Number.NaN
 	try {
 		const [summary, cashflow] = await Promise.all([
 			analyticsService.getSummary(user.id, '30d', mainCurrency),
 			analyticsService.getCashflow(user.id, '30d', mainCurrency)
 		])
-		totalBalance = summary.balance
-		const beginning = summary.balance - cashflow
-		if (beginning > 0) {
-			monthlyChangePct = (cashflow / beginning) * 100
-		}
+			totalBalance = summary.balance
+			const beginning = summary.balance - cashflow
+			if (beginning > 0) {
+				monthlyChangePct = (cashflow / beginning) * 100
+			}
 	} catch {}
 
 	let msg: any

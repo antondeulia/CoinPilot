@@ -415,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "exchangeRateSnapshot" | "category" | "trialLedger" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent"
+    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "exchangeRateSnapshot" | "category" | "trialLedger" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent" | "llmUserMemory"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1665,7 +1665,6 @@ export const UserScalarFieldEnum = {
   stripeCustomerId: 'stripeCustomerId',
   lastTipText: 'lastTipText',
   lastTipDate: 'lastTipDate',
-  timezone: 'timezone',
   lastDailyReminderAt: 'lastDailyReminderAt',
   createdAt: 'createdAt'
 } as const

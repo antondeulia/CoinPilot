@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { TransactionModel } from '../../generated/prisma/models'
 import { ExchangeService } from '../exchange/exchange.service'
 import { pickMoneyNumber, toDbMoney } from '../../utils/money'
+import { roundByCurrencyPolicy } from '../../utils/format'
 
 @Injectable()
 export class TransactionsService {
@@ -10,6 +11,15 @@ export class TransactionsService {
 		private prisma: PrismaService,
 		private readonly exchangeService: ExchangeService
 	) {}
+
+	private normalizeAmountByCurrency(amount: number, currency: string): number {
+		return roundByCurrencyPolicy(Math.abs(Number(amount ?? 0)), currency)
+	}
+
+	private roundSignedAmountByCurrency(amount: number, currency: string): number {
+		const sign = Number(amount) < 0 ? -1 : 1
+		return sign * roundByCurrencyPolicy(Math.abs(Number(amount ?? 0)), currency)
+	}
 
 	async create(params: {
 		userId: string
@@ -28,28 +38,37 @@ export class TransactionsService {
 		convertedAmount?: number
 		convertToCurrency?: string
 	}) {
+		const normalizedAmount = this.normalizeAmountByCurrency(
+			params.amount,
+			params.currency
+		)
+		const normalizedConverted =
+			params.convertedAmount != null && params.convertToCurrency
+				? this.normalizeAmountByCurrency(
+						params.convertedAmount,
+						params.convertToCurrency
+					)
+				: undefined
 		const amountUsd = await this.exchangeService.convert(
-			Math.abs(params.amount),
+			normalizedAmount,
 			params.currency,
 			'USD'
 		)
-			const tx = await this.prisma.transaction.create({
-				data: {
-					...params,
-					amount: Math.abs(params.amount),
-					amountDecimal: toDbMoney(Math.abs(params.amount)) ?? undefined,
-					convertedAmount:
-						params.convertedAmount != null
-							? Math.abs(params.convertedAmount)
-							: undefined,
-					convertedAmountDecimal:
-						params.convertedAmount != null
-							? toDbMoney(Math.abs(params.convertedAmount)) ?? undefined
-							: undefined,
-					amountUsd: amountUsd ?? undefined,
-					amountUsdDecimal: amountUsd != null ? toDbMoney(amountUsd) ?? undefined : undefined
-				}
-			})
+		const tx = await this.prisma.transaction.create({
+			data: {
+				...params,
+				amount: normalizedAmount,
+				amountDecimal: toDbMoney(normalizedAmount) ?? undefined,
+				convertedAmount: normalizedConverted,
+				convertedAmountDecimal:
+					normalizedConverted != null
+						? toDbMoney(normalizedConverted) ?? undefined
+						: undefined,
+				amountUsd: amountUsd ?? undefined,
+				amountUsdDecimal:
+					amountUsd != null ? toDbMoney(amountUsd) ?? undefined : undefined
+			}
+		})
 		await this.applyBalanceEffect(tx)
 		return tx
 	}
@@ -116,19 +135,38 @@ export class TransactionsService {
 		})
 		if (!existing) return null
 		await this.reverseBalanceEffect(existing as TransactionModel)
-		const amountRaw = params.amount != null ? Math.abs(params.amount) : existing.amount
+		const amountRaw =
+			params.amount != null
+				? this.normalizeAmountByCurrency(params.amount, params.currency ?? existing.currency)
+				: existing.amount
 		const currencyRaw = params.currency ?? existing.currency
 		const amountUsd = await this.exchangeService.convert(amountRaw, currencyRaw, 'USD')
+		const normalizedUpdateAmount =
+			params.amount != null
+				? this.normalizeAmountByCurrency(params.amount, currencyRaw)
+				: undefined
+		const normalizedConverted =
+			params.convertedAmount !== undefined && params.convertToCurrency
+				? params.convertedAmount != null
+					? this.normalizeAmountByCurrency(
+							params.convertedAmount,
+							params.convertToCurrency
+						)
+					: null
+				: params.convertedAmount
 		const updated = await this.prisma.transaction.update({
 			where: { id },
 			data: {
-					...(params.accountId != null && { accountId: params.accountId }),
-					...(params.amount != null && {
-						amount: Math.abs(params.amount),
-						amountDecimal: toDbMoney(Math.abs(params.amount))
-					}),
-					...(params.currency != null && { currency: params.currency }),
-					...(params.direction != null && { direction: params.direction }),
+				...(params.accountId != null && { accountId: params.accountId }),
+				...(params.amount != null && {
+					amount: normalizedUpdateAmount,
+					amountDecimal:
+						normalizedUpdateAmount != null
+							? toDbMoney(normalizedUpdateAmount)
+							: undefined
+				}),
+				...(params.currency != null && { currency: params.currency }),
+				...(params.direction != null && { direction: params.direction }),
 				...(params.categoryId !== undefined && { categoryId: params.categoryId }),
 				...(params.category != null && { category: params.category }),
 				...(params.description != null && { description: params.description }),
@@ -136,16 +174,12 @@ export class TransactionsService {
 					transactionDate: params.transactionDate
 				}),
 				...(params.tagId !== undefined && { tagId: params.tagId }),
-					...(params.convertedAmount !== undefined && {
-						convertedAmount:
-							params.convertedAmount != null
-								? Math.abs(params.convertedAmount)
-								: null,
-						convertedAmountDecimal:
-							params.convertedAmount != null
-								? toDbMoney(Math.abs(params.convertedAmount))
-								: null
-					}),
+				...(params.convertedAmount !== undefined && {
+					convertedAmount:
+						normalizedConverted !== undefined ? normalizedConverted : null,
+					convertedAmountDecimal:
+						normalizedConverted != null ? toDbMoney(normalizedConverted) : null
+				}),
 				...(params.convertToCurrency !== undefined && {
 					convertToCurrency: params.convertToCurrency
 				}),
@@ -179,18 +213,19 @@ export class TransactionsService {
 			select: { amount: true, amountDecimal: true }
 		})
 		if (!existing) {
+			const normalized = this.roundSignedAmountByCurrency(delta, currency)
 			await this.prisma.accountAsset.create({
 				data: {
 					accountId,
 					currency,
-					amount: delta,
-					amountDecimal: toDbMoney(delta) ?? undefined
+					amount: normalized,
+					amountDecimal: toDbMoney(normalized) ?? undefined
 				}
 			})
 			return
 		}
 		const current = pickMoneyNumber(existing.amountDecimal, existing.amount, 0)
-		const next = current + delta
+		const next = this.roundSignedAmountByCurrency(current + delta, currency)
 		await this.prisma.accountAsset.update({
 			where: { accountId_currency: { accountId, currency } },
 			data: {

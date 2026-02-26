@@ -3,7 +3,7 @@ import { BotContext } from '../core/bot.middleware'
 import { SubscriptionService } from '../../../modules/subscription/subscription.service'
 import { activateInputMode } from '../core/input-mode'
 
-async function buildAddAccountPrompt(
+export async function buildAddAccountPrompt(
 	ctx: BotContext,
 	subscriptionService: SubscriptionService
 ): Promise<string> {
@@ -12,7 +12,10 @@ async function buildAddAccountPrompt(
 
 Введите данные одним из способов:
 <blockquote>• текстом
-• голосовым сообщением</blockquote>
+• голосовым сообщением
+• фото/скриншотом</blockquote>
+
+<i>Если вы не укажете счёт, транзакция будет создана для основного счёта. Основной счёт может изменить в настройках. После создания транзакции счёт можно изменить.</i>
 
 <code>🧠 AI-распознавание активировано.</code>`
 	}
@@ -21,7 +24,8 @@ async function buildAddAccountPrompt(
 
 Введите данные одним из способов:
 <blockquote>• текстом
-• голосовым сообщением</blockquote>
+• голосовым сообщением
+• фото/скриншотом</blockquote>
 
 — — —
 
@@ -39,7 +43,7 @@ export const addAccountCallback = (
 		const limit = await subscriptionService.canCreateAccount(ctx.state.user.id)
 		if (!limit.allowed) {
 			await ctx.reply(
-				'💠 Вы достигли лимита — 2 счета в Free. Перейдите на Premium и управляйте финансами без ограничений!',
+				'💠 Вы достигли лимита — 2 счета в Basic. Перейдите на Pro-тариф и управляйте финансами без ограничений!',
 				{
 					reply_markup: new InlineKeyboard()
 						.text('💠 Pro-тариф', 'view_premium')
