@@ -2813,13 +2813,13 @@ export class BotService implements OnModuleInit {
 				const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 				const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
 				const frozenTagIds = frozen.customTagIdsOverLimit
-				const visibleCategories = userCategories.filter(
-					c => !frozenCategoryIds.has(c.id)
-				)
+			const visibleCategories = userCategories.filter(
+				c => !frozenCategoryIds.has(c.id)
+			)
 				const categoryNames = visibleCategories.map(c => c.name)
-				const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
-					excludeIds: frozenTagIds
-				})
+			const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+				excludeIds: frozenTagIds
+			})
 				const visibleAccounts = userAccounts.filter(
 					(a: any) => !frozenAccountIds.has(a.id)
 				)
@@ -2884,10 +2884,14 @@ export class BotService implements OnModuleInit {
 						[]) as number[]
 					accountInputMessageIds.push(ctx.message.message_id)
 					;(ctx.session as any).accountInputMessageIds = accountInputMessageIds
-					try {
-						const pendingInput = String(ctx.session.pendingAccountInputText ?? '').trim()
-						const parseSource = [pendingInput, text].filter(Boolean).join('\n')
-						const parsed = await this.llmService.parseAccount(parseSource)
+						try {
+							const pendingInput = String(ctx.session.pendingAccountInputText ?? '').trim()
+							const parseSource = [pendingInput, text].filter(Boolean).join('\n')
+							const supportedCurrencies = await this.getSupportedCurrencySet()
+							const parsed = await this.llmService.parseAccount(
+								parseSource,
+								supportedCurrencies
+							)
 
 						if (!parsed.length) {
 							ctx.session.pendingAccountInputText = parseSource.slice(-1000)
@@ -3157,25 +3161,25 @@ export class BotService implements OnModuleInit {
 					const frozenAccountIds = new Set(frozen.accountIdsOverLimit)
 					const frozenCategoryIds = new Set(frozen.customCategoryIdsOverLimit)
 					const frozenTagIds = frozen.customTagIdsOverLimit
-					const visibleCategories = userCategories.filter(
-						c => !frozenCategoryIds.has(c.id)
-					)
-					const categoryNames = visibleCategories.map(c => c.name)
-					const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
-						excludeIds: frozenTagIds
-					})
+			const visibleCategories = userCategories.filter(
+				c => !frozenCategoryIds.has(c.id)
+			)
+				const categoryNames = visibleCategories.map(c => c.name)
+			const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+				excludeIds: frozenTagIds
+			})
 					const visibleAccounts = userAccounts.filter(
 						(a: any) => !frozenAccountIds.has(a.id)
 					)
 					const accountNames = visibleAccounts
 						.map((a: any) => a.name)
 						.filter((n: string) => n !== 'Вне Wallet')
-					const parsed = await this.llmService.parseTransaction(
-						textFromVoice,
-						categoryNames,
-						existingTags,
-						accountNames,
-						user?.timezone ?? 'UTC+02:00'
+						const parsed = await this.llmService.parseTransaction(
+							textFromVoice,
+							categoryNames,
+							existingTags,
+							accountNames,
+							user?.timezone ?? 'UTC+02:00'
 					)
 					const normalized = parsed.map(tx => ({
 						...tx,
@@ -3188,12 +3192,16 @@ export class BotService implements OnModuleInit {
 					return
 				}
 					if (ctx.session.awaitingAccountInput) {
-						const pendingInput = String(ctx.session.pendingAccountInputText ?? '').trim()
-						const parseSource = [pendingInput, textFromVoice]
-							.filter(Boolean)
-							.join('\n')
-						try {
-							const parsed = await this.llmService.parseAccount(parseSource)
+							const pendingInput = String(ctx.session.pendingAccountInputText ?? '').trim()
+							const parseSource = [pendingInput, textFromVoice]
+								.filter(Boolean)
+								.join('\n')
+							try {
+								const supportedCurrencies = await this.getSupportedCurrencySet()
+								const parsed = await this.llmService.parseAccount(
+									parseSource,
+									supportedCurrencies
+								)
 							if (!parsed.length) {
 								ctx.session.pendingAccountInputText = parseSource.slice(-1000)
 								await ctx.reply(
@@ -5062,7 +5070,7 @@ ${lines.join('\n\n')}${hidden}
 				byKey.set(key, rows)
 			}
 		const buySignal =
-			/\b(?:buy|bought|покупк|купил|купила|приобр|исполнен|filled|swap|обмен)\b/iu
+			/\b(?:swap|обмен|exchange|конверт|ордер|order|filled|исполнен)\b/iu
 		for (const txs of byKey.values()) {
 			const sourceText = txs
 				.map(tx => `${tx.rawText ?? ''} ${tx.description ?? ''}`)
@@ -5099,15 +5107,15 @@ ${lines.join('\n\n')}${hidden}
 			if (!candidates.length) continue
 			const baseExpense = expenses.sort((a, b) => Number(b.amount) - Number(a.amount))[0]
 			const acquired = candidates[0]
-			expanded.push({
-				...baseExpense,
-				direction: 'income',
-				amount: acquired.amount,
-				currency: acquired.currency,
-				category: baseExpense.category ?? '📦Другое',
-				description: baseExpense.description || `Покупка ${acquired.currency}`,
-				tag_text: baseExpense.tag_text,
-				normalized_tag: baseExpense.normalized_tag,
+					expanded.push({
+						...baseExpense,
+						direction: 'income',
+						amount: acquired.amount,
+						currency: acquired.currency,
+						category: baseExpense.category ?? undefined,
+						description: baseExpense.description || `Покупка ${acquired.currency}`,
+						tag_text: baseExpense.tag_text,
+						normalized_tag: baseExpense.normalized_tag,
 				tag_confidence: baseExpense.tag_confidence
 			})
 		}
@@ -5169,10 +5177,10 @@ ${lines.join('\n\n')}${hidden}
 				.map(tx => `${tx.rawText ?? ''} ${tx.description ?? ''}`)
 				.join(' ')
 				.toLowerCase()
-			const hasExchangeSignal =
-				/\b(купил|купила|покупк|продал|продажа|обмен|обменял|swap|exchange|конверт|исполнен|ордер|order|filled|за)\b/iu.test(
-					sourceText
-				) || /\b[A-Z]{2,10}\s*\/\s*[A-Z]{2,10}\b/u.test(sourceText.toUpperCase())
+				const hasExchangeSignal =
+					/\b(валютообмен|обменял?|swap|exchange|конверт|исполнен|ордер|order|filled)\b/iu.test(
+						sourceText
+					) || /\b[A-Z]{2,10}\s*\/\s*[A-Z]{2,10}\b/u.test(sourceText.toUpperCase())
 
 			const feeTxs = txs.filter(tx => this.isFeeLikeTransaction(tx))
 			const coreTxs = txs.filter(tx => !this.isFeeLikeTransaction(tx))
@@ -5652,13 +5660,19 @@ ${lines.join('\n\n')}${hidden}
 		const visibleCategories = userCategories.filter(
 			c => !frozenCategoryIds.has(c.id)
 		)
-		const categoryNames = visibleCategories.map(c => c.name)
-		const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
-			excludeIds: frozenTagIds
-		})
-		const outsideWalletAccount = userAccounts.find(
-			(a: any) => a.name === 'Вне Wallet'
-		)
+			const categoryNames = visibleCategories.map(c => c.name)
+			const fallbackCategoryName =
+				visibleCategories.find(c =>
+					this.namesCloseEnough(c.name, '📦Другое')
+				)?.name ??
+				visibleCategories[0]?.name ??
+				null
+			const existingTags = await this.tagsService.getNamesAndAliases(user.id, {
+				excludeIds: frozenTagIds
+			})
+			const outsideWalletAccount = userAccounts.find(
+				(a: any) => a.name === 'Вне Wallet'
+			)
 		const outsideWalletId = outsideWalletAccount?.id ?? null
 		const defaultAccountId =
 			user.defaultAccountId || ctx.state.activeAccount?.id || null
@@ -5804,7 +5818,7 @@ ${lines.join('\n\n')}${hidden}
 				tx.transactionDate = chosenDate.toISOString()
 			const txDate = chosenDate.toISOString().slice(0, 10)
 			const account = normalizeAccountAlias(tx.account ?? tx.fromAccount ?? '')
-			const category = tx.category ?? '📦Другое'
+				const category = tx.category ?? ''
 			const currency = (tx.currency ?? '').toUpperCase()
 			const merchantKey = String(tx.description ?? '')
 				.toLowerCase()
@@ -5894,11 +5908,7 @@ ${lines.join('\n\n')}${hidden}
 				withFeeTransactions.push(feeTx)
 			}
 			const normalizedTransactions = this.dedupeParsedTransactions(withFeeTransactions)
-			const knownCurrencies = await this.exchangeService.getKnownCurrencies()
-		const supportedCurrencies = new Set<string>([
-			...Array.from(knownCurrencies.fiat),
-			...Array.from(knownCurrencies.crypto)
-		])
+			const supportedCurrencies = await this.getSupportedCurrencySet()
 
 		const recentTx = await this.prisma.transaction.findMany({
 			where: { userId: user.id, description: { not: null } },
@@ -5931,66 +5941,57 @@ ${lines.join('\n\n')}${hidden}
 					)
 					return
 				}
-			tx.account = normalizeAccountAlias(tx.account)
-			tx.fromAccount = normalizeAccountAlias(tx.fromAccount)
-			tx.toAccount = normalizeAccountAlias(tx.toAccount)
-			const sourceText = `${tx.rawText ?? ''} ${tx.description ?? ''}`.toLowerCase()
-			const transferHint =
-				/(перев[её]л|перевел|перевод|перекинул|вывел|send|sent|withdraw|withdrawal)/.test(
-					sourceText
+				tx.account = normalizeAccountAlias(tx.account)
+				tx.fromAccount = normalizeAccountAlias(tx.fromAccount)
+				tx.toAccount = normalizeAccountAlias(tx.toAccount)
+				const sourceText = `${tx.rawText ?? ''} ${tx.description ?? ''}`.toLowerCase()
+				const transferHint =
+					/(перев[её]л|перевел|перевод|перекинул|вывел|send|sent|withdraw|withdrawal)/.test(
+						sourceText
+					)
+				const uniqueCurrenciesInText = new Set(
+					this.extractAmountCurrencyPairs(sourceText).map(pair => pair.currency)
 				)
-			const exchangeHint =
-				/(валютообмен|обмен|конвертац|swap|exchange|buy|sell|купил|продал|покупк|продаж)/iu.test(
-					sourceText
-				) ||
-				/\b[a-z]{2,10}\s*\/\s*[a-z]{2,10}\b/iu.test(sourceText)
-			const descriptionText = String(tx.description ?? '').toLowerCase()
-			const cashOutHint =
-				/(снял[аи]?\s+налич|снятие\s+налич|cashout|cash out)/iu.test(
-					descriptionText
-				) || /\bобнал\b/iu.test(sourceText)
+				const hasCryptoContext =
+					/\b(?:btc|eth|usdt|usdc|bnb|sol|xrp|ada|doge|ton|крипт|токен|token|coin|монет)\b/iu.test(
+						sourceText
+					)
+				const hasTradeVerb = /\b(?:buy|sell|купил|купила|продал|продажа)\b/iu.test(sourceText)
+				const exchangeHint =
+					/(валютообмен|обмен|конвертац|swap|exchange)/iu.test(sourceText) ||
+					/\b[a-z]{2,10}\s*\/\s*[a-z]{2,10}\b/iu.test(sourceText) ||
+					(hasTradeVerb &&
+						(hasCryptoContext || uniqueCurrenciesInText.size >= 2))
+				const descriptionText = String(tx.description ?? '').toLowerCase()
+				const cashOutHint =
+					/(снял[аи]?\s+налич|снятие\s+налич|cashout|cash out)/iu.test(
+						descriptionText
+					) || /\bобнал\b/iu.test(sourceText)
 			if (transferHint) {
 				tx.direction = 'transfer'
 			}
 			if (exchangeHint && !this.isFeeLikeTransaction(tx)) {
 				tx.direction = 'transfer'
 			}
-			if (cashOutHint) {
-				tx.direction = 'transfer'
-				if (!tx.tag_text) {
-					tx.tag_text = 'обнал'
-					tx.normalized_tag = 'обнал'
-					tx.tag_confidence = Math.max(Number(tx.tag_confidence ?? 0), 0.95)
-				}
-			}
-			if (
-				/(telegram\s*stars|донат|подписк|subscription|apple\.com\/bill|google\*|patreon|payment)/.test(
-					sourceText
-				)
-			) {
-				const paymentCategory = categoryNames.find((name: string) =>
-					/платеж|платёж|оплат/i.test(name)
-				)
-				if (paymentCategory) {
-					tx.category = paymentCategory
-				}
-			}
-			if (
-				/(кофе|cafe|кафе|ресторан|обед|ужин|блюд)/.test(sourceText) &&
-				(!tx.category || tx.category === '📦Другое')
-			) {
-				const foodLike = categoryNames.find((name: string) =>
-					/еда|food|кафе|кофе|рестора|напит/i.test(name)
-				)
-				if (foodLike) tx.category = foodLike
-			}
-			if (!tx.category || tx.category === 'Не выбрано' || tx.category === '📦Другое' || !tx.tag_text) {
-				const similar = findSimilar(tx.description)
-				if (similar) {
-					if (!tx.category || tx.category === 'Не выбрано' || tx.category === '📦Другое') {
-						tx.category = similar.category ?? tx.category
+				if (cashOutHint) {
+					tx.direction = 'transfer'
+					if (!tx.tag_text) {
+						tx.tag_text = 'обнал'
+						tx.normalized_tag = 'обнал'
+						tx.tag_confidence = Math.max(Number(tx.tag_confidence ?? 0), 0.95)
 					}
-					if (!tx.tag_text && similar.tag?.name) {
+				}
+				const weakCategory =
+					!tx.category ||
+					tx.category === 'Не выбрано' ||
+					(fallbackCategoryName != null && tx.category === fallbackCategoryName)
+				if (weakCategory || !tx.tag_text) {
+					const similar = findSimilar(tx.description)
+					if (similar) {
+						if (weakCategory) {
+							tx.category = similar.category ?? tx.category
+						}
+						if (!tx.tag_text && similar.tag?.name) {
 						tx.tag_text = similar.tag.name
 						tx.normalized_tag = similar.tag.name.toLowerCase()
 						tx.tag_confidence = 0.95
@@ -6110,11 +6111,13 @@ ${lines.join('\n\n')}${hidden}
 					)
 					return
 				}
-			if (!tx.category || !categoryNames.includes(tx.category)) {
-				tx.category = '📦Другое'
-			}
-			const matchedCategory = visibleCategories.find(c => c.name === tx.category)
-			tx.categoryId = matchedCategory?.id
+				if (!tx.category || !categoryNames.includes(tx.category)) {
+					tx.category = fallbackCategoryName
+				}
+				const matchedCategory = tx.category
+					? visibleCategories.find(c => c.name === tx.category)
+					: undefined
+				tx.categoryId = matchedCategory?.id
 				if (tx.accountId && tx.currency && typeof tx.amount === 'number') {
 					const account = await this.accountsService.getOneWithAssets(
 						tx.accountId,
