@@ -40,20 +40,47 @@ export async function renderHome(
 	} catch {}
 
 	let msg: any
-	try {
-		msg = await ctx.reply(
-			homeText(totalBalance, mainCurrency, accountsCount, monthlyChangePct),
-			{
+	const nextHomeText = homeText(
+		totalBalance,
+		mainCurrency,
+		accountsCount,
+		monthlyChangePct
+	)
+	const existingHomeId = ctx.session.homeMessageId
+	if (existingHomeId != null) {
+		try {
+			await ctx.api.editMessageText(ctx.chat!.id, existingHomeId, nextHomeText, {
 				parse_mode: 'HTML',
 				disable_web_page_preview: true,
 				reply_markup: homeKeyboard()
-			} as any
-		)
-	} catch (error) {
-		console.log(error)
+			} as any)
+			msg = { message_id: existingHomeId }
+		} catch (error) {
+			const message = String((error as Error)?.message ?? '')
+			if (message.includes('message is not modified')) {
+				msg = { message_id: existingHomeId }
+			} else {
+				try {
+					await ctx.api.deleteMessage(ctx.chat!.id, existingHomeId)
+				} catch {}
+			}
+		}
+	}
+	if (!msg) {
+		try {
+			msg = await ctx.reply(nextHomeText, {
+				parse_mode: 'HTML',
+				disable_web_page_preview: true,
+				reply_markup: homeKeyboard()
+			} as any)
+		} catch (error) {
+			console.log(error)
+		}
 	}
 
-	ctx.session.homeMessageId = msg.message_id
+	if (msg?.message_id != null) {
+		ctx.session.homeMessageId = msg.message_id
+	}
 
 	try {
 		const quick = await ctx.reply('Быстрые действия 👇', {

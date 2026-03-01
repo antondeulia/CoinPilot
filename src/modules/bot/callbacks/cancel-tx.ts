@@ -6,6 +6,7 @@ import { resetToHome } from '../utils/reset-home'
 import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { homeKeyboard, homeText } from '../../../shared/keyboards/home'
 
 export const cancelTxCallback = (
 	bot: Bot<BotContext>,
@@ -116,6 +117,38 @@ async function deleteAllPreview(
 			await ctx.api.deleteMessage(ctx.chat.id, ctx.session.tempMessageId)
 		} catch {}
 		ctx.session.tempMessageId = undefined
+	}
+
+	const user = ctx.state.user as any
+	const homeMessageId = ctx.session.homeMessageId
+	if (user?.id && homeMessageId != null) {
+		const mainCurrency = user?.mainCurrency ?? 'USD'
+		const accounts = await accountsService.getAllByUserId(user.id)
+		const accountsCount = accounts.length
+		let totalBalance = 0
+		let monthlyChangePct = Number.NaN
+		try {
+			const [summary, cashflow] = await Promise.all([
+				analyticsService.getSummary(user.id, '30d', mainCurrency),
+				analyticsService.getCashflow(user.id, '30d', mainCurrency)
+			])
+			totalBalance = summary.balance
+			const beginning = summary.balance - cashflow
+			if (beginning > 0) monthlyChangePct = (cashflow / beginning) * 100
+		} catch {}
+		try {
+			await ctx.api.editMessageText(
+				ctx.chat!.id,
+				homeMessageId,
+				homeText(totalBalance, mainCurrency, accountsCount, monthlyChangePct),
+				{
+					parse_mode: 'HTML',
+					disable_web_page_preview: true,
+					reply_markup: homeKeyboard()
+				} as any
+			)
+			return
+		} catch {}
 	}
 
 	await resetToHome(ctx, accountsService, analyticsService)

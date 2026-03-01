@@ -262,8 +262,6 @@ export const saveDeleteCallback = (
 				ctx.session.tempMessageId = undefined
 			}
 
-			;(ctx.session as any).homeMessageId = undefined
-
 				const msg = await ctx.reply(
 					'✅ Транзакция успешно сохранена.\n\nВозвращаюсь на главный экран.',
 				{

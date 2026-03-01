@@ -216,8 +216,6 @@ export const confirmTxCallback = (
 			ctx.session.editMessageId = undefined
 		}
 
-		;(ctx.session as any).homeMessageId = undefined
-
 		// 🟢 success-сообщение
 			const msg = await ctx.reply(successText, {
 				parse_mode: 'HTML',
@@ -228,7 +226,7 @@ export const confirmTxCallback = (
 				msg.message_id
 			]
 
-		// показать домашний экран как после /start (новым сообщением)
+		// показать/обновить домашний экран как после /start
 		await renderHome(ctx as any, accountsService, analyticsService)
 	})
 }

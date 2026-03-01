@@ -151,7 +151,6 @@ export const saveDeleteAccountsCallback = (
 		;(ctx.state as any).activeAccount =
 			user.accounts.find(a => a.id === user.activeAccountId) ?? null
 		;(ctx.state as any).isPremium = subscriptionService.isPremium(user as any)
-		;(ctx.session as any).homeMessageId = undefined
 		await renderHome(ctx as any, accountsService, analyticsService)
 	}
 
