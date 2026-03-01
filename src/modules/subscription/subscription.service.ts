@@ -55,6 +55,18 @@ export class SubscriptionService {
 		)
 	}
 
+	private isSubscriptionWriteSchemaError(error: unknown): boolean {
+		const maybeAny = error as any
+		const code = String(maybeAny?.code ?? '')
+		const msg = String(maybeAny?.message ?? maybeAny ?? '').toLowerCase()
+		return (
+			code === 'P2022' ||
+			(msg.includes('column') && msg.includes('does not exist')) ||
+			msg.includes('amount_decimal') ||
+			msg.includes('autorenew')
+		)
+	}
+
 	private async withDbRetry<T>(task: string, fn: () => Promise<T>): Promise<T> {
 		const backoffMs = [1000, 3000]
 		let lastError: unknown
@@ -244,27 +256,16 @@ export class SubscriptionService {
 		})
 		if (!user) throw new Error('user_not_found')
 		const endDate = new Date(Date.now() + TRIAL_DAYS * DAY_MS)
-		await this.prisma.$transaction([
-			this.prisma.user.update({
+		await this.prisma.$transaction(async tx => {
+			await tx.user.update({
 				where: { id: userId },
 				data: {
 					isPremium: true,
 					premiumUntil: endDate,
 					trialUsed: true
 				}
-			}),
-				this.prisma.subscription.create({
-					data: {
-						userId,
-						plan: SubscriptionPlan.trial,
-						status: 'active',
-						endDate,
-						amount: 0,
-						amountDecimal: toDbMoney(0) ?? undefined,
-						currency: 'EUR'
-					}
-				}),
-			this.prisma.trialLedger.upsert({
+			})
+			await tx.trialLedger.upsert({
 				where: { telegramId: user.telegramId },
 				update: {
 					firstUserId: user.id,
@@ -276,7 +277,26 @@ export class SubscriptionService {
 					usedAt: new Date()
 				}
 			})
-		])
+			try {
+				await tx.subscription.create({
+					data: {
+						userId,
+						plan: SubscriptionPlan.trial,
+						status: 'active',
+						endDate,
+						amount: 0,
+						amountDecimal: toDbMoney(0) ?? undefined,
+						currency: 'EUR'
+					}
+				})
+			} catch (error: unknown) {
+				if (!this.isSubscriptionWriteSchemaError(error)) throw error
+				const message = String((error as any)?.message ?? error)
+				this.logger.warn(
+					`Trial granted without subscription row due schema mismatch: ${message}`
+				)
+			}
+		})
 		await this.trackEvent(userId, PremiumEventType.trial_start)
 		return endDate
 	}

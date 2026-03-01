@@ -122,6 +122,8 @@ type MassTransactionDraftRow = {
 		amount: number
 		currency: string
 		direction: 'income' | 'expense' | 'transfer'
+		accountName: string | null
+		toAccountName: string | null
 		category: string | null
 		description: string | null
 		tagName: string | null
@@ -1207,11 +1209,17 @@ export class BotService implements OnModuleInit {
 					ctx.session.massTransactionsDraft = undefined
 					ctx.session.awaitingMassTransactionsInput = false
 					const changesPreview = draft.slice(0, 12).map(row => {
+						const accountLabel =
+							row.before.direction === 'transfer'
+								? `${row.before.accountName || '—'} -> ${
+										row.before.toAccountName || '—'
+									}`
+								: row.before.accountName || '—'
 						const base = `${formatExactAmount(
 							row.before.amount,
 							row.before.currency,
 							{ maxFractionDigits: 18 }
-						)} · ${row.before.description || row.before.category || 'Без названия'}`
+						)} · ${row.before.description || row.before.category || 'Без названия'} · ${accountLabel}`
 						if (row.action === 'delete') return `🗑 ${base}`
 						const changedFields: string[] = []
 						if (row.after?.direction) changedFields.push('тип')
@@ -4376,7 +4384,51 @@ ${blocks.join('\n\n')}
 			.trim()
 	}
 
-	private namesCloseEnough(leftRaw: string, rightRaw: string): boolean {
+	private transliterateCyrillicToLatin(value: string): string {
+		const map: Record<string, string> = {
+			а: 'a',
+			б: 'b',
+			в: 'v',
+			г: 'g',
+			д: 'd',
+			е: 'e',
+			ж: 'zh',
+			з: 'z',
+			и: 'i',
+			й: 'y',
+			к: 'k',
+			л: 'l',
+			м: 'm',
+			н: 'n',
+			о: 'o',
+			п: 'p',
+			р: 'r',
+			с: 's',
+			т: 't',
+			у: 'u',
+			ф: 'f',
+			х: 'h',
+			ц: 'ts',
+			ч: 'ch',
+			ш: 'sh',
+			щ: 'sch',
+			ъ: '',
+			ы: 'y',
+			ь: '',
+			э: 'e',
+			ю: 'yu',
+			я: 'ya'
+		}
+		return Array.from(String(value ?? '').toLowerCase())
+			.map(ch => map[ch] ?? ch)
+			.join('')
+	}
+
+	private fuzzyTokenMatch(
+		leftRaw: string,
+		rightRaw: string,
+		maxDistance: number
+	): boolean {
 		const left = this.normalizeMassTxToken(leftRaw)
 		const right = this.normalizeMassTxToken(rightRaw)
 		if (!left || !right) return false
@@ -4385,8 +4437,45 @@ ${blocks.join('\n\n')}
 			if (left.includes(right) || right.includes(left)) return true
 		}
 		const distance = levenshtein(left, right)
-		const threshold = Math.max(1, Math.floor(Math.min(left.length, right.length) * 0.2))
-		return distance <= threshold
+		const adaptive = Math.max(
+			1,
+			Math.floor(Math.min(left.length, right.length) * 0.35) + 1
+		)
+		return distance <= Math.min(maxDistance, adaptive)
+	}
+
+	private namesCloseEnough(leftRaw: string, rightRaw: string): boolean {
+		return this.fuzzyTokenMatch(leftRaw, rightRaw, 2)
+	}
+
+	private accountNamesCloseEnough(leftRaw: string, rightRaw: string): boolean {
+		const leftVariants = this.getAccountNameAliases(leftRaw)
+		const rightVariants = this.getAccountNameAliases(rightRaw)
+		for (const left of leftVariants) {
+			for (const right of rightVariants) {
+				if (this.fuzzyTokenMatch(left, right, 3)) return true
+				const leftLatin = this.transliterateCyrillicToLatin(left)
+				const rightLatin = this.transliterateCyrillicToLatin(right)
+				if (this.fuzzyTokenMatch(leftLatin, rightLatin, 3)) return true
+			}
+		}
+		return false
+	}
+
+	private extractMentionedAccountIds(
+		instruction: string,
+		accounts: Array<{ id: string; name: string }>
+	): Set<string> {
+		const text = String(instruction ?? '').trim()
+		const out = new Set<string>()
+		if (!text) return out
+		for (const account of accounts) {
+			const aliases = this.getAccountNameAliases(account.name)
+			if (aliases.some(alias => this.accountNamesCloseEnough(text, alias))) {
+				out.add(account.id)
+			}
+		}
+		return out
 	}
 
 	private parseMassTxDate(value?: string): Date | null {
@@ -4544,7 +4633,7 @@ ${blocks.join('\n\n')}
 		}
 		if (
 			filter.account != null &&
-			!this.namesCloseEnough(
+			!this.accountNamesCloseEnough(
 				String(tx.account?.name ?? ''),
 				String(filter.account ?? '')
 			)
@@ -4553,7 +4642,7 @@ ${blocks.join('\n\n')}
 		}
 		if (
 			filter.toAccount != null &&
-			!this.namesCloseEnough(
+			!this.accountNamesCloseEnough(
 				String(tx.toAccount?.name ?? ''),
 				String(filter.toAccount ?? '')
 			)
@@ -4673,6 +4762,13 @@ ${blocks.join('\n\n')}
 				'Не найдено полей для обновления. Можно менять только категорию, тип, тег, описание и дату.'
 			)
 		}
+		const mentionedAccountIds =
+			parsed.action === 'delete'
+				? this.extractMentionedAccountIds(
+						instruction,
+						accounts.map(a => ({ id: a.id, name: a.name }))
+					)
+				: new Set<string>()
 		let matched = transactions.filter(tx => this.txMatchesMassFilter(tx, parsed.filter))
 		if (parsed.action === 'delete') {
 			const amountCurrencyPairs = this.extractAmountCurrencyPairs(instruction)
@@ -4694,8 +4790,17 @@ ${blocks.join('\n\n')}
 				}
 			}
 		}
-		if (parsed.deleteAll) {
+		const protectByMentionedAccounts =
+			parsed.action === 'delete' && mentionedAccountIds.size > 0
+		if (parsed.deleteAll && !protectByMentionedAccounts) {
 			matched = transactions
+		}
+		if (protectByMentionedAccounts) {
+			matched = matched.filter(tx => {
+				const fromId = String(tx.accountId ?? '')
+				const toId = String(tx.toAccountId ?? '')
+				return mentionedAccountIds.has(fromId) || (toId && mentionedAccountIds.has(toId))
+			})
 		}
 		if (parsed.exclude) {
 			matched = matched.filter(tx => !this.txMatchesMassFilter(tx, parsed.exclude))
@@ -4725,6 +4830,8 @@ ${blocks.join('\n\n')}
 						amount: Number(tx.amount ?? 0),
 						currency: tx.currency,
 						direction: tx.direction as 'income' | 'expense' | 'transfer',
+						accountName: tx.account?.name ?? null,
+						toAccountName: tx.toAccount?.name ?? null,
 						category: tx.category ?? null,
 						description: tx.description ?? null,
 						tagName: tx.tag?.name ?? null,
@@ -4790,6 +4897,8 @@ ${blocks.join('\n\n')}
 					amount: Number(tx.amount ?? 0),
 					currency: tx.currency,
 					direction: tx.direction as 'income' | 'expense' | 'transfer',
+					accountName: tx.account?.name ?? null,
+					toAccountName: tx.toAccount?.name ?? null,
 					category: tx.category ?? null,
 					description: tx.description ?? null,
 					tagName: tx.tag?.name ?? null,
@@ -4820,9 +4929,15 @@ ${blocks.join('\n\n')}
 			const dateStr = date
 				? date.toLocaleDateString('ru-RU')
 				: String(row.before.transactionDate).slice(0, 10)
+			const accountLabel =
+				row.before.direction === 'transfer'
+					? `${escapeHtml(row.before.accountName || '—')} → ${escapeHtml(
+							row.before.toAccountName || '—'
+						)}`
+					: escapeHtml(row.before.accountName || '—')
 			const title = `${amountStr} · ${escapeHtml(
 				row.before.description || row.before.category || 'Без названия'
-			)} · ${dateStr}`
+			)} · ${accountLabel} · ${dateStr}`
 			if (row.action === 'delete') {
 				lines.push(`🗑 ${title}`)
 				continue
@@ -4906,7 +5021,7 @@ ${lines.join('\n\n')}${hidden}
 				parse_mode: 'HTML',
 				reply_markup: new InlineKeyboard()
 					.text('Подтвердить', 'transactions_mass_edit_confirm')
-					.text('Закрыть', 'transactions_mass_edit_close')
+					.text('Отменить', 'transactions_mass_edit_close')
 					.row()
 					.text('Повторить', 'transactions_mass_edit_repeat')
 			})

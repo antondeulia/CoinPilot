@@ -194,9 +194,22 @@ export const saveDeleteAccountsCallback = (
 		return null
 	}
 
-	const tryStartTrial = async (ctx: BotContext): Promise<boolean> => {
-		const started = await subscriptionService.startTrialIfEligible(ctx.state.user.id)
-		return started.started
+	const tryStartTrial = async (
+		ctx: BotContext
+	): Promise<{ started: boolean; reason?: string }> => {
+		const result = await subscriptionService.startTrialIfEligible(ctx.state.user.id)
+		return { started: result.started, reason: result.reason }
+	}
+
+	const trialSkipMessage = (reason?: string): string | null => {
+		if (!reason) return null
+		if (reason === 'trial_used') {
+			return 'Пробный Pro уже был активирован ранее для этого Telegram-аккаунта.'
+		}
+		if (reason === 'already_premium') {
+			return 'Pro уже активен для этого аккаунта.'
+		}
+		return null
 	}
 
 	const accountCreateErrorText = (error: unknown): string => {
@@ -235,79 +248,86 @@ export const saveDeleteAccountsCallback = (
 					return
 				}
 				const limitAccount = await subscriptionService.canCreateAccount(ctx.state.user.id)
-			if (!limitAccount.allowed) {
-				await subscriptionService.trackEvent(
-					ctx.state.user.id,
-					PremiumEventType.limit_hit,
-					'accounts'
-				)
-				await ctx.answerCallbackQuery({ text: UPSELL_ACCOUNTS }).catch(() => {})
-				await ctx.reply(UPSELL_ACCOUNTS, {
-					reply_markup: new InlineKeyboard()
-						.text('💠 Pro-тариф', 'view_premium')
-						.row()
-						.text('Закрыть', 'hide_message')
-				})
-				return
-			}
-			if (
-				!ctx.state.isPremium &&
-				draft.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT
-			) {
-				await subscriptionService.trackEvent(
-					ctx.state.user.id,
-					PremiumEventType.limit_hit,
-					'assets'
-				)
-				await ctx.answerCallbackQuery({ text: UPSELL_ASSETS }).catch(() => {})
-				await ctx.reply(UPSELL_ASSETS, {
-					reply_markup: new InlineKeyboard()
-						.text('💠 Pro-тариф', 'view_premium')
-						.row()
-						.text('Закрыть', 'hide_message')
-				})
-				return
-			}
+				if (!limitAccount.allowed) {
+					await subscriptionService.trackEvent(
+						ctx.state.user.id,
+						PremiumEventType.limit_hit,
+						'accounts'
+					)
+					await ctx.answerCallbackQuery({ text: UPSELL_ACCOUNTS }).catch(() => {})
+					await ctx.reply(UPSELL_ACCOUNTS, {
+						reply_markup: new InlineKeyboard()
+							.text('💠 Pro-тариф', 'view_premium')
+							.row()
+							.text('Закрыть', 'hide_message')
+					})
+					return
+				}
+				if (
+					!ctx.state.isPremium &&
+					draft.assets.length > FREE_LIMITS.MAX_ASSETS_PER_ACCOUNT
+				) {
+					await subscriptionService.trackEvent(
+						ctx.state.user.id,
+						PremiumEventType.limit_hit,
+						'assets'
+					)
+					await ctx.answerCallbackQuery({ text: UPSELL_ASSETS }).catch(() => {})
+					await ctx.reply(UPSELL_ASSETS, {
+						reply_markup: new InlineKeyboard()
+							.text('💠 Pro-тариф', 'view_premium')
+							.row()
+							.text('Закрыть', 'hide_message')
+					})
+					return
+				}
 
-			try {
-				await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
-			} catch (error: unknown) {
-				await ctx.reply(accountCreateErrorText(error), {
-					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
-				})
-				return
-			}
+				try {
+					await accountsService.createAccountWithAssets(ctx.state.user.id, draft)
+				} catch (error: unknown) {
+					await ctx.reply(accountCreateErrorText(error), {
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					})
+					return
+				}
 
-			drafts.splice(index, 1)
-			if (drafts.length) {
-				ctx.session.currentAccountIndex =
-					index >= drafts.length ? drafts.length - 1 : index
-				await refreshAccountsPreview(ctx)
-				return
-			}
+				drafts.splice(index, 1)
+				if (drafts.length) {
+					ctx.session.currentAccountIndex =
+						index >= drafts.length ? drafts.length - 1 : index
+					await refreshAccountsPreview(ctx)
+					return
+				}
 
-			ctx.session.draftAccounts = undefined
-			ctx.session.currentAccountIndex = undefined
-			ctx.session.confirmingAccounts = false
-			ctx.session.awaitingAccountInput = false
-			await closePreviewMessage(ctx)
-			await closeAccountInputHints(ctx)
+				ctx.session.draftAccounts = undefined
+				ctx.session.currentAccountIndex = undefined
+				ctx.session.confirmingAccounts = false
+				ctx.session.awaitingAccountInput = false
+				await closePreviewMessage(ctx)
+				await closeAccountInputHints(ctx)
 
 				await ctx.reply(`✅ Счёт сохранён: ${draft.name}`, {
 					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
 				})
-				const trialStarted = await tryStartTrial(ctx)
+				const trialResult = await tryStartTrial(ctx)
 				await cleanupOnboardingMessagesAfterTwoAccounts(ctx)
 				await refreshStartPanel(ctx)
-				if (trialStarted) {
+				if (trialResult.started) {
 					await ctx.reply(TRIAL_DAY1_TEXT, {
 						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
 					})
+				} else {
+					const reasonText = trialSkipMessage(trialResult.reason)
+					if (reasonText) {
+						await ctx.reply(reasonText, {
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						})
+					}
 				}
 			} finally {
-			sessionAny.savingAccountLocks = (sessionAny.savingAccountLocks ?? []).filter(
-				(k: string) => k !== lockKey
-			)
+				sessionAny.savingAccountLocks = (sessionAny.savingAccountLocks ?? []).filter(
+					(k: string) => k !== lockKey
+				)
 		}
 	})
 
@@ -426,16 +446,19 @@ export const saveDeleteAccountsCallback = (
 			await closePreviewMessage(ctx)
 			await closeAccountInputHints(ctx)
 
-			await ctx.reply(
-				created > 0
-					? `✅ Счета сохранены: ${createdNames.join(', ')}`
-					: firstError ?? 'Не удалось сохранить счета.',
-				{
-					reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
-				}
-			)
+				await ctx.reply(
+					created > 0
+						? `✅ Счета сохранены: ${createdNames.join(', ')}`
+						: firstError ?? 'Не удалось сохранить счета.',
+					{
+						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+					}
+				)
 
-				const trialStarted = created > 0 ? await tryStartTrial(ctx) : false
+				const trialResult =
+					created > 0
+						? await tryStartTrial(ctx)
+						: { started: false as const, reason: undefined }
 				if (created > 0) {
 					await refreshStartPanel(ctx)
 				} else {
@@ -444,15 +467,22 @@ export const saveDeleteAccountsCallback = (
 				if (created > 0) {
 					await cleanupOnboardingMessagesAfterTwoAccounts(ctx)
 				}
-				if (trialStarted) {
+				if (trialResult.started) {
 					await ctx.reply(TRIAL_DAY1_TEXT, {
 						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
 					})
+				} else if (created > 0) {
+					const reasonText = trialSkipMessage(trialResult.reason)
+					if (reasonText) {
+						await ctx.reply(reasonText, {
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						})
+					}
 				}
 			} finally {
-			sessionAny.savingAllAccounts = false
-		}
-	})
+				sessionAny.savingAllAccounts = false
+			}
+		})
 
 	bot.callbackQuery('cancel_all_accounts', async ctx => {
 		await answerCallbackBestEffort(ctx)

@@ -597,40 +597,60 @@ export class LLMService {
 				.split(/\r?\n|;/g)
 				.map(line => line.trim())
 				.filter(Boolean)
-		const parseAssetsFromChunk = (chunk: string): Array<{ currency: string; amount: number }> => {
-			const source = String(chunk ?? '').trim()
-			if (!source) return []
-			const pairs = new Map<string, number>()
-			const add = (currencyRaw: string, amountRaw?: unknown) => {
-				const code = normalizeCurrency(currencyRaw)
-				if (!code) return
-				const amount = normalizeAmount(amountRaw)
-				const prev = pairs.get(code) ?? 0
-				pairs.set(code, prev + amount)
+			const parseAssetsFromChunk = (chunk: string): Array<{ currency: string; amount: number }> => {
+				const source = String(chunk ?? '').trim()
+				if (!source) return []
+				const pairs = new Map<string, number>()
+				const add = (currencyRaw: string, amountRaw?: unknown) => {
+					const code = normalizeCurrency(currencyRaw)
+					if (!code) return
+					const amount = normalizeAmount(amountRaw)
+					const prev = pairs.get(code) ?? 0
+					pairs.set(code, Number((prev + amount).toFixed(12)))
+				}
+				const numberRe = /^-?\d+(?:[.,]\d+)?$/u
+				type Token = { raw: string }
+				const tokens: Token[] = Array.from(
+					source.matchAll(/-?\d+(?:[.,]\d+)?|[A-Za-zА-Яа-яЁё$€₴£₽]{1,16}/gu)
+				).map(m => ({ raw: m[0] }))
+				const consumed = new Set<number>()
+				for (let i = 0; i < tokens.length; i++) {
+					if (consumed.has(i)) continue
+					const current = tokens[i]
+					const next = tokens[i + 1]
+					if (!next || consumed.has(i + 1)) continue
+					const currentIsNumber = numberRe.test(current.raw)
+					const nextIsNumber = numberRe.test(next.raw)
+					if (currentIsNumber && !nextIsNumber) {
+						const code = normalizeCurrency(next.raw)
+						if (!code) continue
+						add(code, current.raw)
+						consumed.add(i)
+						consumed.add(i + 1)
+						i += 1
+						continue
+					}
+					if (!currentIsNumber && nextIsNumber) {
+						const code = normalizeCurrency(current.raw)
+						if (!code) continue
+						add(code, next.raw)
+						consumed.add(i)
+						consumed.add(i + 1)
+						i += 1
+					}
+				}
+				for (let i = 0; i < tokens.length; i++) {
+					if (consumed.has(i)) continue
+					const token = tokens[i].raw
+					const code = normalizeCurrency(token)
+					if (!code) continue
+					if (!pairs.has(code)) pairs.set(code, 0)
+				}
+				return Array.from(pairs.entries()).map(([currency, amount]) => ({
+					currency,
+					amount
+				}))
 			}
-			for (const m of source.matchAll(
-				/(-?\d+(?:[.,]\d+)?)\s*([A-Za-zА-Яа-яЁё$€₴£₽]{1,16})/gu
-			)) {
-				add(m[2], m[1])
-			}
-			for (const m of source.matchAll(
-				/([A-Za-zА-Яа-яЁё$€₴£₽]{1,16})\s*(-?\d+(?:[.,]\d+)?)/gu
-			)) {
-				add(m[1], m[2])
-			}
-			const leftover = source
-				.replace(/-?\d+(?:[.,]\d+)?\s*[A-Za-zА-Яа-яЁё$€₴£₽]{1,16}/gu, ' ')
-				.replace(/[A-Za-zА-Яа-яЁё$€₴£₽]{1,16}\s*-?\d+(?:[.,]\d+)?/gu, ' ')
-			for (const token of leftover.split(/[,\s/|]+/g)) {
-				const code = normalizeCurrency(token)
-				if (!code) continue
-				if (!pairs.has(code)) pairs.set(code, 0)
-			}
-			return Array.from(pairs.entries()).map(([currency, amount]) => ({
-				currency,
-				amount
-			}))
-		}
 			const parseRuleBasedAccounts = (
 				input: string
 			): { accounts: ParsedAccount[]; missingCurrencyNames: string[] } => {
@@ -1157,6 +1177,8 @@ export class LLMService {
 								'Суммы нормализуй: запятая и точка эквивалентны, сравнение допускает округление до точности, указанной пользователем. ' +
 								'Поддерживай include/exclude (например "кроме ..."). ' +
 								'Поддерживай распознавание по дате, например: "удали все сегодняшние транзакции", или "удали все транзакции за число (дату) ..." и все подобные запросы. То же самое касается распознавания по категориям, тегам, названиям, суммам и т.д. Пользователь может не указывать точный год или правильное название категорий, тегов, названий, указывать приблизительные суммы – ты должен парсить ближайшую связанную транзакцию. ' +
+								'Если пользователь указывает счёт при удалении (например "удали по революту", "удали с наилчных"), заполняй filter.account или filter.toAccount и никогда не ставь deleteAll=true без явного запроса удалить вообще все транзакции. ' +
+								'Названия счетов могут быть с опечатками (1-3 символа) и в другой раскладке/кириллице-латинице: учитывай это при разборе filter.account/filter.toAccount. ' +
 								`Часовой пояс пользователя: ${timezone}. ` +
 								'Верни JSON строго по функции.'
 						},

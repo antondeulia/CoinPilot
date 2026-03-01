@@ -112,21 +112,23 @@ export type BotContext = Context & {
 					beforeAssets: Array<{ currency: string; amount: number }>
 					afterAssets: Array<{ currency: string; amount: number }>
 				}>
-				massAccountsSummaryMessageId?: number
-				massAccountsBusy?: boolean
-				awaitingMassTransactionsInput?: boolean
-				massTransactionsDraft?: Array<{
-					transactionId: string
-					action: 'update' | 'delete'
-					before: {
-						amount: number
-						currency: string
-						direction: 'income' | 'expense' | 'transfer'
-						category: string | null
-						description: string | null
-						tagName: string | null
-						transactionDate: string
-					}
+					massAccountsSummaryMessageId?: number
+					massAccountsBusy?: boolean
+					awaitingMassTransactionsInput?: boolean
+					massTransactionsDraft?: Array<{
+						transactionId: string
+						action: 'update' | 'delete'
+						before: {
+							amount: number
+							currency: string
+							direction: 'income' | 'expense' | 'transfer'
+							accountName: string | null
+							toAccountName: string | null
+							category: string | null
+							description: string | null
+							tagName: string | null
+							transactionDate: string
+						}
 						after?: {
 							direction?: 'income' | 'expense'
 							category?: string | null
@@ -135,14 +137,14 @@ export type BotContext = Context & {
 							tagId?: string | null
 							tagName?: string | null
 							transactionDate?: string
-					}
-				}>
-				massTransactionsSummaryMessageId?: number
-				massTransactionsBusy?: boolean
-								}
-				chat: {
-					id: string
+						}
+					}>
+					massTransactionsSummaryMessageId?: number
+					massTransactionsBusy?: boolean
 				}
+					chat: {
+						id: string
+					}
 	}
 
 export const userContextMiddleware =
