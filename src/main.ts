@@ -4,7 +4,8 @@ import { ConfigService } from '@nestjs/config'
 import * as express from 'express'
 
 async function bootstrap() {
-	const app = await NestFactory.create(AppModule)
+	const app = await NestFactory.create(AppModule, {bodyParser: false, // отключаем встроенный парсер
+	})
 
 	// Stripe webhook должен получать raw body
 	app.use(

@@ -43,10 +43,20 @@ export type AccountAsset = Prisma.AccountAssetModel
  */
 export type Transaction = Prisma.TransactionModel
 /**
+ * Model ExchangeRateSnapshot
+ * 
+ */
+export type ExchangeRateSnapshot = Prisma.ExchangeRateSnapshotModel
+/**
  * Model Category
  * 
  */
 export type Category = Prisma.CategoryModel
+/**
+ * Model TrialLedger
+ * 
+ */
+export type TrialLedger = Prisma.TrialLedgerModel
 /**
  * Model Tag
  * 
@@ -82,3 +92,8 @@ export type Subscription = Prisma.SubscriptionModel
  * 
  */
 export type PremiumEvent = Prisma.PremiumEventModel
+/**
+ * Model LlmUserMemory
+ * 
+ */
+export type LlmUserMemory = Prisma.LlmUserMemoryModel

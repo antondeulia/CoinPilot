@@ -22,7 +22,7 @@ export function categoriesListKb(
 		const row = slice.slice(i, i + 3)
 		for (const c of row) {
 			const label = frozenIds.has(c.id)
-				? `${c.name} (🔒Premium)`
+				? `${c.name} (🔒Pro)`
 				: selectedId === c.id
 					? `✅ ${c.name}`
 					: c.name
@@ -30,16 +30,17 @@ export function categoriesListKb(
 		}
 		kb.row()
 	}
-	kb.text('« Назад', SETTINGS_CAT_PAGE_PREFIX + 'prev')
-		.text(`${page + 1}/${totalPages}`, SETTINGS_CAT_PAGE_PREFIX + 'noop')
-		.text('Вперёд »', SETTINGS_CAT_PAGE_PREFIX + 'next')
-		.row()
+	if (totalPages > 1) {
+		kb.text('« Назад', SETTINGS_CAT_PAGE_PREFIX + 'prev')
+			.text(`${page + 1}/${totalPages}`, SETTINGS_CAT_PAGE_PREFIX + 'noop')
+			.text('Вперёд »', SETTINGS_CAT_PAGE_PREFIX + 'next')
+			.row()
+	}
 	if (selectedId) {
 		kb.text('🗑 Удалить', 'delete_category')
 			.text('✍️ Переименовать', 'rename_category')
 			.row()
-			.text('Снять выделение', 'deselect_category')
-			.row()
+			.text('← Назад', 'back_from_categories')
 	} else {
 		kb.text('+ Создать категорию', 'create_category').row()
 		kb.text('← Назад', 'back_from_categories')
@@ -50,8 +51,9 @@ export function categoriesListKb(
 export const viewCategoriesCallback = (
 	bot: Bot<BotContext>,
 	categoriesService: CategoriesService,
-	subscriptionService: { getFrozenItems: (userId: string) => Promise<{ customCategoryIdsOverLimit: string[] }> },
-	prisma: { alertConfig: { count: (args: { where: { userId: string; enabled: boolean } }) => Promise<number> } }
+	subscriptionService: {
+		getFrozenItems: (userId: string) => Promise<{ customCategoryIdsOverLimit: string[] }>
+	}
 ) => {
 	bot.callbackQuery('view_categories', async ctx => {
 		const userId = ctx.state.user.id
@@ -71,7 +73,7 @@ export const viewCategoriesCallback = (
 			null,
 			frozenSet
 		)
-		await ctx.api.editMessageText(ctx.chat!.id, msgId, '<b>Категории</b>', {
+		await ctx.api.editMessageText(ctx.chat!.id, msgId, '<b>Категории</b>\n\nВыделите категорию для удаления или переименования.', {
 			parse_mode: 'HTML',
 			reply_markup: kb
 		})
@@ -104,7 +106,7 @@ export const viewCategoriesCallback = (
 			await ctx.api.editMessageText(
 				ctx.chat!.id,
 				ctx.session.categoriesMessageId,
-				'<b>Категории</b>',
+				'<b>Категории</b>\n\nВыделите категорию для удаления или переименования.',
 				{ parse_mode: 'HTML', reply_markup: kb }
 			)
 		}
@@ -121,7 +123,7 @@ export const viewCategoriesCallback = (
 		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
 		if (frozenSet.has(id)) {
 			await ctx.reply(
-				'Категория доступна только по Premium. В Free — только дефолтные категории.',
+				'Категория доступна только по Pro-тарифу. В Basic — только дефолтные категории.',
 				{
 					reply_markup: new InlineKeyboard()
 						.text('💠 Pro-тариф', 'view_premium')
@@ -131,36 +133,14 @@ export const viewCategoriesCallback = (
 			)
 			return
 		}
-		ctx.session.categoriesSelectedId = id
+		ctx.session.categoriesSelectedId =
+			ctx.session.categoriesSelectedId === id ? null : id
+		const selectedId = ctx.session.categoriesSelectedId
 		const page = ctx.session.categoriesPage ?? 0
 		const kb = categoriesListKb(
 			categories.map(c => ({ id: c.id, name: c.name })),
 			page,
-			id,
-			frozenSet
-		)
-		await ctx.api.editMessageText(
-			ctx.chat!.id,
-			ctx.session.categoriesMessageId,
-			'<b>Категории</b>',
-			{ parse_mode: 'HTML', reply_markup: kb }
-		)
-	})
-
-	bot.callbackQuery('deselect_category', async ctx => {
-		if (ctx.session.categoriesMessageId == null) return
-		ctx.session.categoriesSelectedId = null
-		const userId = ctx.state.user.id
-		const [categories, frozen] = await Promise.all([
-			categoriesService.getSelectableByUserId(userId),
-			subscriptionService.getFrozenItems(userId)
-		])
-		const frozenSet = new Set(frozen.customCategoryIdsOverLimit)
-		const page = ctx.session.categoriesPage ?? 0
-		const kb = categoriesListKb(
-			categories.map(c => ({ id: c.id, name: c.name })),
-			page,
-			null,
+			selectedId,
 			frozenSet
 		)
 		await ctx.api.editMessageText(
@@ -300,10 +280,7 @@ export const viewCategoriesCallback = (
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
 		const user: any = ctx.state.user
-		const alertsEnabledCount = await prisma.alertConfig.count({
-			where: { userId: user.id, enabled: true }
-		})
-		const view = buildSettingsView(user, alertsEnabledCount)
+		const view = buildSettingsView(user)
 		await ctx.api.editMessageText(ctx.chat!.id, msgId, view.text, {
 			parse_mode: 'HTML',
 			reply_markup: view.keyboard

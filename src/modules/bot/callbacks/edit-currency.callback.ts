@@ -2,8 +2,10 @@ import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { ExchangeService } from '../../../modules/exchange/exchange.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 function buildCurrencyKeyboard(
 	codes: string[],
@@ -27,12 +29,13 @@ function buildCurrencyKeyboard(
 	}
 
 	const totalPages = Math.max(1, Math.ceil(codes.length / pageSize))
-
-	rows.push([
-		{ text: '« Назад', callback_data: 'tx_currency_page:prev' },
-		{ text: `${page + 1}/${totalPages}`, callback_data: 'tx_currency_page:noop' },
-		{ text: 'Вперёд »', callback_data: 'tx_currency_page:next' }
-	])
+	if (totalPages > 1) {
+		rows.push([
+			{ text: '« Назад', callback_data: 'tx_currency_page:prev' },
+			{ text: `${page + 1}/${totalPages}`, callback_data: 'tx_currency_page:noop' },
+			{ text: 'Вперёд »', callback_data: 'tx_currency_page:next' }
+		])
+	}
 
 	rows.push([{ text: 'Закрыть', callback_data: 'back_to_preview' }])
 
@@ -42,7 +45,8 @@ function buildCurrencyKeyboard(
 export const editCurrencyCallback = (
 	bot: Bot<BotContext>,
 	accountsService: AccountsService,
-	exchangeService: ExchangeService
+	exchangeService: ExchangeService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:currency', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -158,6 +162,7 @@ export const editCurrencyCallback = (
 				}
 			}
 		}
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

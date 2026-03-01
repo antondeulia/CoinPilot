@@ -6,7 +6,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Currency {
@@ -23,6 +22,7 @@ model User {
   activeAccountId      String?
   defaultAccountId     String?
   mainCurrency         String   @default("USD")
+  timezone             String   @default("UTC+02:00")
   isPremium            Boolean  @default(false)
   premiumUntil         DateTime?
   trialUsed            Boolean  @default(false)
@@ -37,6 +37,8 @@ model User {
   alertConfigs         AlertConfig[]
   subscriptions        Subscription[]
   premiumEvents        PremiumEvent[]
+  llmMemories          LlmUserMemory[]
+  lastDailyReminderAt  DateTime?
   createdAt            DateTime @default(now())
 
   @@map("users")
@@ -45,7 +47,7 @@ model User {
 model Account {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   type      AccountTypeEnum
   currency  String
@@ -66,6 +68,7 @@ model AccountAsset {
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
   currency  String
   amount    Float
+  amountDecimal Decimal? @map("amount_decimal") @db.Decimal(38, 18)
 
   @@unique([accountId, currency])
   @@map("account_assets")
@@ -76,8 +79,11 @@ model Transaction {
   accountId        String
   account          Account  @relation(fields: [accountId], references: [id])
   amount           Float
+  amountDecimal    Decimal? @map("amount_decimal") @db.Decimal(38, 18)
   currency         String
   direction        TransactionDirectionsEnum
+  categoryId       String?
+  categoryRef      Category? @relation("TransactionCategory", fields: [categoryId], references: [id], onDelete: SetNull)
   category         String?
   description      String?
   rawText          String
@@ -92,20 +98,48 @@ model Transaction {
   tagId            String?
   tag              Tag?     @relation(fields: [tagId], references: [id])
   convertedAmount  Float?
+  convertedAmountDecimal Decimal? @map("converted_amount_decimal") @db.Decimal(38, 18)
   convertToCurrency String?
+  amountUsd        Float?   @map("amount_usd")
+  amountUsdDecimal Decimal? @map("amount_usd_decimal") @db.Decimal(38, 18)
 
   @@map("transactions")
+}
+
+model ExchangeRateSnapshot {
+  id           String   @id @default(uuid())
+  date         DateTime
+  baseCurrency String   @default("USD") @map("base_currency")
+  rates        Json
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([date, baseCurrency])
+  @@map("exchange_rate_snapshots")
 }
 
 model Category {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
+  transactions Transaction[] @relation("TransactionCategory")
 
   @@map("categories")
+}
+
+model TrialLedger {
+  id               String   @id @default(uuid())
+  telegramId       String   @unique
+  firstUserId      String?
+  stripeCustomerId String?
+  usedAt           DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("trial_ledgers")
 }
 
 model Tag {
@@ -160,6 +194,7 @@ model AlertConfig {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   type       AlertTypeEnum
   threshold  Float
+  thresholdDecimal Decimal? @map("threshold_decimal") @db.Decimal(38, 18)
   categoryId String?
   enabled    Boolean  @default(true)
   createdAt  DateTime @default(now())
@@ -178,6 +213,7 @@ model Subscription {
   telegramPaymentChargeId String?            @unique
   providerPaymentChargeId String?
   amount                  Float
+  amountDecimal           Decimal? @map("amount_decimal") @db.Decimal(38, 18)
   currency                String             @default("EUR")
   createdAt               DateTime           @default(now())
   autoRenew               Boolean            @default(true)
@@ -194,6 +230,23 @@ model PremiumEvent {
   createdAt DateTime         @default(now())
 
   @@map("premium_events")
+}
+
+model LlmUserMemory {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // rule | correction
+  key         String
+  value       String
+  confidence  Float    @default(1)
+  hits        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, type, key])
+  @@index([userId, updatedAt])
+  @@map("llm_user_memories")
 }
 
 // Enums

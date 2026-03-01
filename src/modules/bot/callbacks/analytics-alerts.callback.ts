@@ -12,13 +12,14 @@ export const analyticsAlertsCallback = (
 				data: { enabled: boolean }
 			}) => Promise<unknown>
 			create: (args: {
-				data: {
-					userId: string
-					type: 'large_expense'
-					threshold: number
-					enabled: boolean
-				}
-			}) => Promise<unknown>
+					data: {
+						userId: string
+						type: 'large_expense'
+						threshold: number
+						thresholdDecimal?: string
+						enabled: boolean
+					}
+				}) => Promise<unknown>
 		}
 	}
 ) => {
@@ -43,14 +44,15 @@ export const analyticsAlertsCallback = (
 					data: { enabled: true }
 				})
 			} else {
-				await prisma.alertConfig.create({
-					data: {
-						userId: user.id,
-						type: 'large_expense',
-						threshold: 100,
-						enabled: true
-					}
-				})
+					await prisma.alertConfig.create({
+						data: {
+							userId: user.id,
+							type: 'large_expense',
+							threshold: 100,
+							thresholdDecimal: '100.000000000000000000',
+							enabled: true
+						}
+					})
 			}
 		}
 		const alertsEnabledCount = await prisma.alertConfig.count({

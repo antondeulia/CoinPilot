@@ -2,8 +2,11 @@ import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { CategoriesService } from '../../../modules/categories/categories.service'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { activateInputMode } from '../core/input-mode'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 const CATEGORY_PAGE_SIZE = 9
 
@@ -27,14 +30,17 @@ function buildCategoriesKeyboard(
 	}
 
 	const totalPages = Math.max(1, Math.ceil(categories.length / CATEGORY_PAGE_SIZE))
-	rows.push([
-		{ text: '« Назад', callback_data: 'categories_page:prev' },
-		{
-			text: `${page + 1}/${totalPages}`,
-			callback_data: 'categories_page:noop'
-		},
-		{ text: 'Вперёд »', callback_data: 'categories_page:next' }
-	])
+	if (totalPages > 1) {
+		rows.push([
+			{ text: '« Назад', callback_data: 'categories_page:prev' },
+			{
+				text: `${page + 1}/${totalPages}`,
+				callback_data: 'categories_page:noop'
+			},
+			{ text: 'Вперёд »', callback_data: 'categories_page:next' }
+		])
+	}
+	rows.push([{ text: 'Создать категорию', callback_data: 'create_category_from_preview' }])
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
 	return { inline_keyboard: rows }
@@ -43,7 +49,8 @@ function buildCategoriesKeyboard(
 export const editCategoryCallback = (
 	bot: Bot<BotContext>,
 	categoriesService: CategoriesService,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:category', async ctx => {
 		const userId = ctx.state.user.id
@@ -54,7 +61,7 @@ export const editCategoryCallback = (
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index]
 		const currentName =
-			current?.category && current.category !== 'Не выбрано'
+			current?.category && current.category !== '📦Другое'
 				? current.category
 				: null
 
@@ -94,7 +101,7 @@ export const editCategoryCallback = (
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index]
 		const currentName =
-			current?.category && current.category !== 'Не выбрано'
+			current?.category && current.category !== '📦Другое'
 				? current.category
 				: null
 
@@ -128,11 +135,13 @@ export const editCategoryCallback = (
 		const category = await categoriesService.findById(categoryId, ctx.state.user.id)
 		if (!category) return
 
-		if (current.category === category.name) {
-			current.category = 'Не выбрано'
-		} else {
-			current.category = category.name
-		}
+			if (current.category === category.name) {
+				current.category = '📦Другое'
+				current.categoryId = undefined
+			} else {
+				current.category = category.name
+				current.categoryId = category.id
+			}
 
 		const user = ctx.state.user as any
 		const accountId =
@@ -145,6 +154,7 @@ export const editCategoryCallback = (
 			ctx.state.user.id,
 			accountsService
 		)
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(
@@ -168,5 +178,16 @@ export const editCategoryCallback = (
 				}
 			)
 		} catch {}
+	})
+
+	bot.callbackQuery('create_category_from_preview', async ctx => {
+		activateInputMode(ctx, 'category_create', {
+			awaitingInlineCategoryCreate: true,
+			awaitingInlineTagCreate: false
+		})
+		const hint = await ctx.reply(
+			'Введите название новой категории (до 20 символов).'
+		)
+		ctx.session.inlineCreateHintMessageId = hint.message_id
 	})
 }

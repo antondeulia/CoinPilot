@@ -13,6 +13,7 @@ import { ExchangeModule } from '../exchange/exchange.module'
 import { AnalyticsModule } from '../analytics/analytics.module'
 import { SubscriptionModule } from '../subscription/subscription.module'
 import { StripeModule } from '../stripe/stripe.module'
+import { LlmMemoryModule } from '../llm-memory/llm-memory.module'
 
 @Module({
 	imports: [
@@ -26,8 +27,13 @@ import { StripeModule } from '../stripe/stripe.module'
 		ExchangeModule,
 		AnalyticsModule,
 		SubscriptionModule,
-		StripeModule
+		StripeModule,
+		LlmMemoryModule
 	],
-	providers: [BotService, PremiumCronService, DailyTipCronService]
+	providers: [
+		BotService,
+		PremiumCronService,
+		DailyTipCronService
+	]
 })
 export class BotModule {}

@@ -1,9 +1,11 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard } from './confirm-tx'
 import { formatAccountName } from '../../../utils/format'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 function buildTargetAccountsKeyboard(
 	accounts: { id: string; name: string }[],
@@ -47,7 +49,8 @@ function buildTargetAccountsKeyboard(
 
 export const editTargetAccountCallback = (
 	bot: Bot<BotContext>,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:target_account', async ctx => {
 		const userId = ctx.state.user.id
@@ -123,11 +126,28 @@ export const editTargetAccountCallback = (
 
 		current.toAccountId = accountId
 		current.toAccount = account.name
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+		const outsideWallet = allAccounts.find(a => a.name === 'Вне Wallet')
+		const visibleAccounts = allAccounts.filter(a => !a.isHidden)
+		const fallbackId =
+			user.defaultAccountId && visibleAccounts.some(a => a.id === user.defaultAccountId)
+				? user.defaultAccountId
+				: visibleAccounts[0]?.id
+		const fallbackAccount = (fallbackId && allAccounts.find(a => a.id === fallbackId)) || null
+		if (
+			outsideWallet &&
+			current.accountId === outsideWallet.id &&
+			current.toAccountId === outsideWallet.id
+		) {
+			current.accountId = fallbackAccount?.id
+			current.account = fallbackAccount?.name
+		}
 
 		const accountCurrencies = Array.from(
 			new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
 		)
 		const showConversion = !accountCurrencies.includes(current.currency)
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

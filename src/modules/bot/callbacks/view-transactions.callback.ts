@@ -8,6 +8,7 @@ import { transactionsListKeyboard } from '../../../shared/keyboards/transactions
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
 import { getCurrencySymbol } from '../../../utils/format'
+import { normalizeTxDate } from '../../../utils/date'
 
 const PAGE_SIZE = 9
 
@@ -34,7 +35,7 @@ async function renderTransactionsList(
 				orderBy: { transactionDate: 'desc' },
 				skip,
 				take: PAGE_SIZE,
-				include: { account: true, toAccount: true, tag: true }
+				include: { account: { include: { assets: true } }, toAccount: true, tag: true }
 			}),
 			prisma.transaction.count({ where: { userId } }),
 			prisma.transaction.count({ where: monthWhere }),
@@ -59,22 +60,26 @@ async function renderTransactionsList(
 	const monthLabel = isPremium
 		? `${monthCount}`
 		: `${monthCount}/30`
+	const formatSignedAmount = (value: number) => {
+		const sign = value > 0 ? '+' : value < 0 ? '-' : ''
+		return `${sign}${Math.abs(value).toLocaleString('ru-RU', {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		})}`
+	}
+	const signedBurnRate = burnRate === 0 ? 0 : -Math.abs(burnRate)
 	const header = `📄 <b>Операции</b>
 
 Всего: <b>${totalCount}</b>  
 Текущий месяц: <b>${monthLabel}</b>
 
+В текущем месяце (${monthName}):
 🔴 Расходы: ${monthExpense}  
 🟢 Доходы: ${monthIncome}  
 ⚪ Переводы: ${monthTransfer}
-Денежный поток (${monthName}): ${cashflow >= 0 ? '+' : ''}${Math.abs(cashflow).toLocaleString('ru-RU', {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2
-	})} ${symbol}
-Средний расход (${monthName}): ${burnRate.toLocaleString('ru-RU', {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2
-	})} ${symbol}`
+
+Денежный поток: ${formatSignedAmount(cashflow)} ${symbol}
+Средний расход в день: ${formatSignedAmount(signedBurnRate)} ${symbol}`
 	await ctx.api.editMessageText(ctx.chat!.id, msgId, header, {
 		parse_mode: 'HTML',
 		reply_markup: transactionsListKeyboard(txs, page, totalCount)
@@ -82,14 +87,21 @@ async function renderTransactionsList(
 }
 
 function txToDraft(tx: any) {
+	const accountCurrencies = new Set(
+		(tx.account?.assets ?? []).map((a: any) => (a.currency || '').toUpperCase())
+	)
+	const currencyDeleted =
+		tx.currency && accountCurrencies.size > 0 && !accountCurrencies.has(tx.currency.toUpperCase())
 	return {
+		id: tx.id,
 		action: 'create_transaction' as const,
 		accountId: tx.accountId,
 		account: tx.account?.name ?? null,
 		amount: tx.amount,
 		currency: tx.currency,
 		direction: tx.direction,
-		category: tx.category ?? 'Не выбрано',
+		categoryId: tx.categoryId ?? undefined,
+		category: tx.category ?? '📦Другое',
 		description: tx.description ?? null,
 		transactionDate: tx.transactionDate
 			? new Date(tx.transactionDate).toISOString()
@@ -100,7 +112,8 @@ function txToDraft(tx: any) {
 		convertToCurrency: tx.convertToCurrency ?? undefined,
 		convertedAmount: tx.convertedAmount ?? undefined,
 		toAccountId: tx.toAccountId ?? undefined,
-		toAccount: tx.toAccount?.name ?? undefined
+		toAccount: tx.toAccount?.name ?? undefined,
+		currencyDeleted
 	}
 }
 
@@ -144,13 +157,15 @@ export const viewTransactionsCallback = (
 		const txId = ctx.callbackQuery.data.split(':')[1]
 		const tx = await prisma.transaction.findUnique({
 			where: { id: txId, userId: ctx.state.user.id },
-			include: { account: true, tag: true, toAccount: true }
+			include: { account: { include: { assets: true } }, tag: true, toAccount: true }
 		})
 		if (!tx) return
 		const msgId = ctx.callbackQuery?.message?.message_id
 		if (msgId == null) return
-		const draft = txToDraft(tx)
-		ctx.session.draftTransactions = [draft]
+			const draft = txToDraft(tx)
+			;(draft as any).userTimezone =
+				(ctx.state.user as any)?.timezone ?? 'UTC+02:00'
+			ctx.session.draftTransactions = [draft]
 		ctx.session.currentTransactionIndex = 0
 		ctx.session.editingTransactionId = txId
 		ctx.session.tempMessageId = msgId
@@ -187,15 +202,16 @@ export const viewTransactionsCallback = (
 		const drafts = ctx.session.draftTransactions
 		if (!txId || !drafts?.length) return
 		const draft = drafts[0] as any
-		await transactionsService.update(txId, ctx.state.user.id, {
-			accountId: draft.accountId,
-			amount: draft.amount,
-			currency: draft.currency,
-			direction: draft.direction,
-			category: draft.category,
-			description: draft.description,
+			await transactionsService.update(txId, ctx.state.user.id, {
+				accountId: draft.accountId,
+				amount: draft.amount,
+				currency: draft.currency,
+				direction: draft.direction,
+				categoryId: draft.categoryId ?? null,
+				category: draft.category,
+				description: draft.description,
 			transactionDate: draft.transactionDate
-				? new Date(draft.transactionDate)
+				? (normalizeTxDate(draft.transactionDate) ?? undefined)
 				: undefined,
 			tagId: draft.tagId ?? null,
 			convertedAmount: draft.convertedAmount ?? null,

@@ -28,20 +28,30 @@ export type AggregateTransaction = {
 
 export type TransactionAvgAggregateOutputType = {
   amount: number | null
+  amountDecimal: runtime.Decimal | null
   convertedAmount: number | null
+  convertedAmountDecimal: runtime.Decimal | null
+  amountUsd: number | null
+  amountUsdDecimal: runtime.Decimal | null
 }
 
 export type TransactionSumAggregateOutputType = {
   amount: number | null
+  amountDecimal: runtime.Decimal | null
   convertedAmount: number | null
+  convertedAmountDecimal: runtime.Decimal | null
+  amountUsd: number | null
+  amountUsdDecimal: runtime.Decimal | null
 }
 
 export type TransactionMinAggregateOutputType = {
   id: string | null
   accountId: string | null
   amount: number | null
+  amountDecimal: runtime.Decimal | null
   currency: string | null
   direction: $Enums.TransactionDirectionsEnum | null
+  categoryId: string | null
   category: string | null
   description: string | null
   rawText: string | null
@@ -52,15 +62,20 @@ export type TransactionMinAggregateOutputType = {
   toAccountId: string | null
   tagId: string | null
   convertedAmount: number | null
+  convertedAmountDecimal: runtime.Decimal | null
   convertToCurrency: string | null
+  amountUsd: number | null
+  amountUsdDecimal: runtime.Decimal | null
 }
 
 export type TransactionMaxAggregateOutputType = {
   id: string | null
   accountId: string | null
   amount: number | null
+  amountDecimal: runtime.Decimal | null
   currency: string | null
   direction: $Enums.TransactionDirectionsEnum | null
+  categoryId: string | null
   category: string | null
   description: string | null
   rawText: string | null
@@ -71,15 +86,20 @@ export type TransactionMaxAggregateOutputType = {
   toAccountId: string | null
   tagId: string | null
   convertedAmount: number | null
+  convertedAmountDecimal: runtime.Decimal | null
   convertToCurrency: string | null
+  amountUsd: number | null
+  amountUsdDecimal: runtime.Decimal | null
 }
 
 export type TransactionCountAggregateOutputType = {
   id: number
   accountId: number
   amount: number
+  amountDecimal: number
   currency: number
   direction: number
+  categoryId: number
   category: number
   description: number
   rawText: number
@@ -90,27 +110,40 @@ export type TransactionCountAggregateOutputType = {
   toAccountId: number
   tagId: number
   convertedAmount: number
+  convertedAmountDecimal: number
   convertToCurrency: number
+  amountUsd: number
+  amountUsdDecimal: number
   _all: number
 }
 
 
 export type TransactionAvgAggregateInputType = {
   amount?: true
+  amountDecimal?: true
   convertedAmount?: true
+  convertedAmountDecimal?: true
+  amountUsd?: true
+  amountUsdDecimal?: true
 }
 
 export type TransactionSumAggregateInputType = {
   amount?: true
+  amountDecimal?: true
   convertedAmount?: true
+  convertedAmountDecimal?: true
+  amountUsd?: true
+  amountUsdDecimal?: true
 }
 
 export type TransactionMinAggregateInputType = {
   id?: true
   accountId?: true
   amount?: true
+  amountDecimal?: true
   currency?: true
   direction?: true
+  categoryId?: true
   category?: true
   description?: true
   rawText?: true
@@ -121,15 +154,20 @@ export type TransactionMinAggregateInputType = {
   toAccountId?: true
   tagId?: true
   convertedAmount?: true
+  convertedAmountDecimal?: true
   convertToCurrency?: true
+  amountUsd?: true
+  amountUsdDecimal?: true
 }
 
 export type TransactionMaxAggregateInputType = {
   id?: true
   accountId?: true
   amount?: true
+  amountDecimal?: true
   currency?: true
   direction?: true
+  categoryId?: true
   category?: true
   description?: true
   rawText?: true
@@ -140,15 +178,20 @@ export type TransactionMaxAggregateInputType = {
   toAccountId?: true
   tagId?: true
   convertedAmount?: true
+  convertedAmountDecimal?: true
   convertToCurrency?: true
+  amountUsd?: true
+  amountUsdDecimal?: true
 }
 
 export type TransactionCountAggregateInputType = {
   id?: true
   accountId?: true
   amount?: true
+  amountDecimal?: true
   currency?: true
   direction?: true
+  categoryId?: true
   category?: true
   description?: true
   rawText?: true
@@ -159,7 +202,10 @@ export type TransactionCountAggregateInputType = {
   toAccountId?: true
   tagId?: true
   convertedAmount?: true
+  convertedAmountDecimal?: true
   convertToCurrency?: true
+  amountUsd?: true
+  amountUsdDecimal?: true
   _all?: true
 }
 
@@ -253,8 +299,10 @@ export type TransactionGroupByOutputType = {
   id: string
   accountId: string
   amount: number
+  amountDecimal: runtime.Decimal | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId: string | null
   category: string | null
   description: string | null
   rawText: string
@@ -265,7 +313,10 @@ export type TransactionGroupByOutputType = {
   toAccountId: string | null
   tagId: string | null
   convertedAmount: number | null
+  convertedAmountDecimal: runtime.Decimal | null
   convertToCurrency: string | null
+  amountUsd: number | null
+  amountUsdDecimal: runtime.Decimal | null
   _count: TransactionCountAggregateOutputType | null
   _avg: TransactionAvgAggregateOutputType | null
   _sum: TransactionSumAggregateOutputType | null
@@ -295,8 +346,10 @@ export type TransactionWhereInput = {
   id?: Prisma.StringFilter<"Transaction"> | string
   accountId?: Prisma.StringFilter<"Transaction"> | string
   amount?: Prisma.FloatFilter<"Transaction"> | number
+  amountDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFilter<"Transaction"> | string
   direction?: Prisma.EnumTransactionDirectionsEnumFilter<"Transaction"> | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   category?: Prisma.StringNullableFilter<"Transaction"> | string | null
   description?: Prisma.StringNullableFilter<"Transaction"> | string | null
   rawText?: Prisma.StringFilter<"Transaction"> | string
@@ -307,8 +360,12 @@ export type TransactionWhereInput = {
   toAccountId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   tagId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   convertedAmount?: Prisma.FloatNullableFilter<"Transaction"> | number | null
+  convertedAmountDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.StringNullableFilter<"Transaction"> | string | null
+  amountUsd?: Prisma.FloatNullableFilter<"Transaction"> | number | null
+  amountUsdDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account?: Prisma.XOR<Prisma.AccountScalarRelationFilter, Prisma.AccountWhereInput>
+  categoryRef?: Prisma.XOR<Prisma.CategoryNullableScalarRelationFilter, Prisma.CategoryWhereInput> | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   fromAccount?: Prisma.XOR<Prisma.AccountNullableScalarRelationFilter, Prisma.AccountWhereInput> | null
   toAccount?: Prisma.XOR<Prisma.AccountNullableScalarRelationFilter, Prisma.AccountWhereInput> | null
@@ -319,8 +376,10 @@ export type TransactionOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  amountDecimal?: Prisma.SortOrderInput | Prisma.SortOrder
   currency?: Prisma.SortOrder
   direction?: Prisma.SortOrder
+  categoryId?: Prisma.SortOrderInput | Prisma.SortOrder
   category?: Prisma.SortOrderInput | Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   rawText?: Prisma.SortOrder
@@ -331,8 +390,12 @@ export type TransactionOrderByWithRelationInput = {
   toAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   tagId?: Prisma.SortOrderInput | Prisma.SortOrder
   convertedAmount?: Prisma.SortOrderInput | Prisma.SortOrder
+  convertedAmountDecimal?: Prisma.SortOrderInput | Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrderInput | Prisma.SortOrder
+  amountUsd?: Prisma.SortOrderInput | Prisma.SortOrder
+  amountUsdDecimal?: Prisma.SortOrderInput | Prisma.SortOrder
   account?: Prisma.AccountOrderByWithRelationInput
+  categoryRef?: Prisma.CategoryOrderByWithRelationInput
   user?: Prisma.UserOrderByWithRelationInput
   fromAccount?: Prisma.AccountOrderByWithRelationInput
   toAccount?: Prisma.AccountOrderByWithRelationInput
@@ -346,8 +409,10 @@ export type TransactionWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.TransactionWhereInput | Prisma.TransactionWhereInput[]
   accountId?: Prisma.StringFilter<"Transaction"> | string
   amount?: Prisma.FloatFilter<"Transaction"> | number
+  amountDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFilter<"Transaction"> | string
   direction?: Prisma.EnumTransactionDirectionsEnumFilter<"Transaction"> | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   category?: Prisma.StringNullableFilter<"Transaction"> | string | null
   description?: Prisma.StringNullableFilter<"Transaction"> | string | null
   rawText?: Prisma.StringFilter<"Transaction"> | string
@@ -358,8 +423,12 @@ export type TransactionWhereUniqueInput = Prisma.AtLeast<{
   toAccountId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   tagId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   convertedAmount?: Prisma.FloatNullableFilter<"Transaction"> | number | null
+  convertedAmountDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.StringNullableFilter<"Transaction"> | string | null
+  amountUsd?: Prisma.FloatNullableFilter<"Transaction"> | number | null
+  amountUsdDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account?: Prisma.XOR<Prisma.AccountScalarRelationFilter, Prisma.AccountWhereInput>
+  categoryRef?: Prisma.XOR<Prisma.CategoryNullableScalarRelationFilter, Prisma.CategoryWhereInput> | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   fromAccount?: Prisma.XOR<Prisma.AccountNullableScalarRelationFilter, Prisma.AccountWhereInput> | null
   toAccount?: Prisma.XOR<Prisma.AccountNullableScalarRelationFilter, Prisma.AccountWhereInput> | null
@@ -370,8 +439,10 @@ export type TransactionOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  amountDecimal?: Prisma.SortOrderInput | Prisma.SortOrder
   currency?: Prisma.SortOrder
   direction?: Prisma.SortOrder
+  categoryId?: Prisma.SortOrderInput | Prisma.SortOrder
   category?: Prisma.SortOrderInput | Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   rawText?: Prisma.SortOrder
@@ -382,7 +453,10 @@ export type TransactionOrderByWithAggregationInput = {
   toAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   tagId?: Prisma.SortOrderInput | Prisma.SortOrder
   convertedAmount?: Prisma.SortOrderInput | Prisma.SortOrder
+  convertedAmountDecimal?: Prisma.SortOrderInput | Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrderInput | Prisma.SortOrder
+  amountUsd?: Prisma.SortOrderInput | Prisma.SortOrder
+  amountUsdDecimal?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.TransactionCountOrderByAggregateInput
   _avg?: Prisma.TransactionAvgOrderByAggregateInput
   _max?: Prisma.TransactionMaxOrderByAggregateInput
@@ -397,8 +471,10 @@ export type TransactionScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"Transaction"> | string
   accountId?: Prisma.StringWithAggregatesFilter<"Transaction"> | string
   amount?: Prisma.FloatWithAggregatesFilter<"Transaction"> | number
+  amountDecimal?: Prisma.DecimalNullableWithAggregatesFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringWithAggregatesFilter<"Transaction"> | string
   direction?: Prisma.EnumTransactionDirectionsEnumWithAggregatesFilter<"Transaction"> | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
   category?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
   description?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
   rawText?: Prisma.StringWithAggregatesFilter<"Transaction"> | string
@@ -409,12 +485,16 @@ export type TransactionScalarWhereWithAggregatesInput = {
   toAccountId?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
   tagId?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
   convertedAmount?: Prisma.FloatNullableWithAggregatesFilter<"Transaction"> | number | null
+  convertedAmountDecimal?: Prisma.DecimalNullableWithAggregatesFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
+  amountUsd?: Prisma.FloatNullableWithAggregatesFilter<"Transaction"> | number | null
+  amountUsdDecimal?: Prisma.DecimalNullableWithAggregatesFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateInput = {
   id?: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
   category?: string | null
@@ -423,8 +503,12 @@ export type TransactionCreateInput = {
   transactionDate?: Date | string
   createdAt?: Date | string
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
+  categoryRef?: Prisma.CategoryCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
   toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
@@ -435,8 +519,10 @@ export type TransactionUncheckedCreateInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -447,12 +533,16 @@ export type TransactionUncheckedCreateInput = {
   toAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -461,8 +551,12 @@ export type TransactionUpdateInput = {
   transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
+  categoryRef?: Prisma.CategoryUpdateOneWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
   toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
@@ -473,8 +567,10 @@ export type TransactionUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -485,15 +581,20 @@ export type TransactionUncheckedUpdateInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateManyInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -504,12 +605,16 @@ export type TransactionCreateManyInput = {
   toAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -518,15 +623,20 @@ export type TransactionUpdateManyMutationInput = {
   transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -537,7 +647,10 @@ export type TransactionUncheckedUpdateManyInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionListRelationFilter = {
@@ -554,8 +667,10 @@ export type TransactionCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  amountDecimal?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   direction?: Prisma.SortOrder
+  categoryId?: Prisma.SortOrder
   category?: Prisma.SortOrder
   description?: Prisma.SortOrder
   rawText?: Prisma.SortOrder
@@ -566,20 +681,29 @@ export type TransactionCountOrderByAggregateInput = {
   toAccountId?: Prisma.SortOrder
   tagId?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
+  convertedAmountDecimal?: Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
+  amountUsdDecimal?: Prisma.SortOrder
 }
 
 export type TransactionAvgOrderByAggregateInput = {
   amount?: Prisma.SortOrder
+  amountDecimal?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
+  convertedAmountDecimal?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
+  amountUsdDecimal?: Prisma.SortOrder
 }
 
 export type TransactionMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  amountDecimal?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   direction?: Prisma.SortOrder
+  categoryId?: Prisma.SortOrder
   category?: Prisma.SortOrder
   description?: Prisma.SortOrder
   rawText?: Prisma.SortOrder
@@ -590,15 +714,20 @@ export type TransactionMaxOrderByAggregateInput = {
   toAccountId?: Prisma.SortOrder
   tagId?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
+  convertedAmountDecimal?: Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
+  amountUsdDecimal?: Prisma.SortOrder
 }
 
 export type TransactionMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   accountId?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  amountDecimal?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   direction?: Prisma.SortOrder
+  categoryId?: Prisma.SortOrder
   category?: Prisma.SortOrder
   description?: Prisma.SortOrder
   rawText?: Prisma.SortOrder
@@ -609,12 +738,19 @@ export type TransactionMinOrderByAggregateInput = {
   toAccountId?: Prisma.SortOrder
   tagId?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
+  convertedAmountDecimal?: Prisma.SortOrder
   convertToCurrency?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
+  amountUsdDecimal?: Prisma.SortOrder
 }
 
 export type TransactionSumOrderByAggregateInput = {
   amount?: Prisma.SortOrder
+  amountDecimal?: Prisma.SortOrder
   convertedAmount?: Prisma.SortOrder
+  convertedAmountDecimal?: Prisma.SortOrder
+  amountUsd?: Prisma.SortOrder
+  amountUsdDecimal?: Prisma.SortOrder
 }
 
 export type TransactionCreateNestedManyWithoutUserInput = {
@@ -797,6 +933,48 @@ export type NullableFloatFieldUpdateOperationsInput = {
   divide?: number
 }
 
+export type TransactionCreateNestedManyWithoutCategoryRefInput = {
+  create?: Prisma.XOR<Prisma.TransactionCreateWithoutCategoryRefInput, Prisma.TransactionUncheckedCreateWithoutCategoryRefInput> | Prisma.TransactionCreateWithoutCategoryRefInput[] | Prisma.TransactionUncheckedCreateWithoutCategoryRefInput[]
+  connectOrCreate?: Prisma.TransactionCreateOrConnectWithoutCategoryRefInput | Prisma.TransactionCreateOrConnectWithoutCategoryRefInput[]
+  createMany?: Prisma.TransactionCreateManyCategoryRefInputEnvelope
+  connect?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+}
+
+export type TransactionUncheckedCreateNestedManyWithoutCategoryRefInput = {
+  create?: Prisma.XOR<Prisma.TransactionCreateWithoutCategoryRefInput, Prisma.TransactionUncheckedCreateWithoutCategoryRefInput> | Prisma.TransactionCreateWithoutCategoryRefInput[] | Prisma.TransactionUncheckedCreateWithoutCategoryRefInput[]
+  connectOrCreate?: Prisma.TransactionCreateOrConnectWithoutCategoryRefInput | Prisma.TransactionCreateOrConnectWithoutCategoryRefInput[]
+  createMany?: Prisma.TransactionCreateManyCategoryRefInputEnvelope
+  connect?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+}
+
+export type TransactionUpdateManyWithoutCategoryRefNestedInput = {
+  create?: Prisma.XOR<Prisma.TransactionCreateWithoutCategoryRefInput, Prisma.TransactionUncheckedCreateWithoutCategoryRefInput> | Prisma.TransactionCreateWithoutCategoryRefInput[] | Prisma.TransactionUncheckedCreateWithoutCategoryRefInput[]
+  connectOrCreate?: Prisma.TransactionCreateOrConnectWithoutCategoryRefInput | Prisma.TransactionCreateOrConnectWithoutCategoryRefInput[]
+  upsert?: Prisma.TransactionUpsertWithWhereUniqueWithoutCategoryRefInput | Prisma.TransactionUpsertWithWhereUniqueWithoutCategoryRefInput[]
+  createMany?: Prisma.TransactionCreateManyCategoryRefInputEnvelope
+  set?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+  disconnect?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+  delete?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+  connect?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+  update?: Prisma.TransactionUpdateWithWhereUniqueWithoutCategoryRefInput | Prisma.TransactionUpdateWithWhereUniqueWithoutCategoryRefInput[]
+  updateMany?: Prisma.TransactionUpdateManyWithWhereWithoutCategoryRefInput | Prisma.TransactionUpdateManyWithWhereWithoutCategoryRefInput[]
+  deleteMany?: Prisma.TransactionScalarWhereInput | Prisma.TransactionScalarWhereInput[]
+}
+
+export type TransactionUncheckedUpdateManyWithoutCategoryRefNestedInput = {
+  create?: Prisma.XOR<Prisma.TransactionCreateWithoutCategoryRefInput, Prisma.TransactionUncheckedCreateWithoutCategoryRefInput> | Prisma.TransactionCreateWithoutCategoryRefInput[] | Prisma.TransactionUncheckedCreateWithoutCategoryRefInput[]
+  connectOrCreate?: Prisma.TransactionCreateOrConnectWithoutCategoryRefInput | Prisma.TransactionCreateOrConnectWithoutCategoryRefInput[]
+  upsert?: Prisma.TransactionUpsertWithWhereUniqueWithoutCategoryRefInput | Prisma.TransactionUpsertWithWhereUniqueWithoutCategoryRefInput[]
+  createMany?: Prisma.TransactionCreateManyCategoryRefInputEnvelope
+  set?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+  disconnect?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+  delete?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+  connect?: Prisma.TransactionWhereUniqueInput | Prisma.TransactionWhereUniqueInput[]
+  update?: Prisma.TransactionUpdateWithWhereUniqueWithoutCategoryRefInput | Prisma.TransactionUpdateWithWhereUniqueWithoutCategoryRefInput[]
+  updateMany?: Prisma.TransactionUpdateManyWithWhereWithoutCategoryRefInput | Prisma.TransactionUpdateManyWithWhereWithoutCategoryRefInput[]
+  deleteMany?: Prisma.TransactionScalarWhereInput | Prisma.TransactionScalarWhereInput[]
+}
+
 export type TransactionCreateNestedManyWithoutTagInput = {
   create?: Prisma.XOR<Prisma.TransactionCreateWithoutTagInput, Prisma.TransactionUncheckedCreateWithoutTagInput> | Prisma.TransactionCreateWithoutTagInput[] | Prisma.TransactionUncheckedCreateWithoutTagInput[]
   connectOrCreate?: Prisma.TransactionCreateOrConnectWithoutTagInput | Prisma.TransactionCreateOrConnectWithoutTagInput[]
@@ -842,6 +1020,7 @@ export type TransactionUncheckedUpdateManyWithoutTagNestedInput = {
 export type TransactionCreateWithoutUserInput = {
   id?: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
   category?: string | null
@@ -850,8 +1029,12 @@ export type TransactionCreateWithoutUserInput = {
   transactionDate?: Date | string
   createdAt?: Date | string
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
+  categoryRef?: Prisma.CategoryCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
   toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
   tag?: Prisma.TagCreateNestedOneWithoutTransactionsInput
@@ -861,8 +1044,10 @@ export type TransactionUncheckedCreateWithoutUserInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -872,7 +1057,10 @@ export type TransactionUncheckedCreateWithoutUserInput = {
   toAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateOrConnectWithoutUserInput = {
@@ -908,8 +1096,10 @@ export type TransactionScalarWhereInput = {
   id?: Prisma.StringFilter<"Transaction"> | string
   accountId?: Prisma.StringFilter<"Transaction"> | string
   amount?: Prisma.FloatFilter<"Transaction"> | number
+  amountDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFilter<"Transaction"> | string
   direction?: Prisma.EnumTransactionDirectionsEnumFilter<"Transaction"> | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   category?: Prisma.StringNullableFilter<"Transaction"> | string | null
   description?: Prisma.StringNullableFilter<"Transaction"> | string | null
   rawText?: Prisma.StringFilter<"Transaction"> | string
@@ -920,12 +1110,16 @@ export type TransactionScalarWhereInput = {
   toAccountId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   tagId?: Prisma.StringNullableFilter<"Transaction"> | string | null
   convertedAmount?: Prisma.FloatNullableFilter<"Transaction"> | number | null
+  convertedAmountDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.StringNullableFilter<"Transaction"> | string | null
+  amountUsd?: Prisma.FloatNullableFilter<"Transaction"> | number | null
+  amountUsdDecimal?: Prisma.DecimalNullableFilter<"Transaction"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateWithoutAccountInput = {
   id?: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
   category?: string | null
@@ -934,7 +1128,11 @@ export type TransactionCreateWithoutAccountInput = {
   transactionDate?: Date | string
   createdAt?: Date | string
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  categoryRef?: Prisma.CategoryCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
   toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
@@ -944,8 +1142,10 @@ export type TransactionCreateWithoutAccountInput = {
 export type TransactionUncheckedCreateWithoutAccountInput = {
   id?: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -956,7 +1156,10 @@ export type TransactionUncheckedCreateWithoutAccountInput = {
   toAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateOrConnectWithoutAccountInput = {
@@ -972,6 +1175,7 @@ export type TransactionCreateManyAccountInputEnvelope = {
 export type TransactionCreateWithoutFromAccountInput = {
   id?: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
   category?: string | null
@@ -980,8 +1184,12 @@ export type TransactionCreateWithoutFromAccountInput = {
   transactionDate?: Date | string
   createdAt?: Date | string
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
+  categoryRef?: Prisma.CategoryCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
   tag?: Prisma.TagCreateNestedOneWithoutTransactionsInput
@@ -991,8 +1199,10 @@ export type TransactionUncheckedCreateWithoutFromAccountInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -1002,7 +1212,10 @@ export type TransactionUncheckedCreateWithoutFromAccountInput = {
   toAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateOrConnectWithoutFromAccountInput = {
@@ -1018,6 +1231,7 @@ export type TransactionCreateManyFromAccountInputEnvelope = {
 export type TransactionCreateWithoutToAccountInput = {
   id?: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
   category?: string | null
@@ -1026,8 +1240,12 @@ export type TransactionCreateWithoutToAccountInput = {
   transactionDate?: Date | string
   createdAt?: Date | string
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
+  categoryRef?: Prisma.CategoryCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
   tag?: Prisma.TagCreateNestedOneWithoutTransactionsInput
@@ -1037,8 +1255,10 @@ export type TransactionUncheckedCreateWithoutToAccountInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -1048,7 +1268,10 @@ export type TransactionUncheckedCreateWithoutToAccountInput = {
   fromAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateOrConnectWithoutToAccountInput = {
@@ -1109,9 +1332,10 @@ export type TransactionUpdateManyWithWhereWithoutToAccountInput = {
   data: Prisma.XOR<Prisma.TransactionUpdateManyMutationInput, Prisma.TransactionUncheckedUpdateManyWithoutToAccountInput>
 }
 
-export type TransactionCreateWithoutTagInput = {
+export type TransactionCreateWithoutCategoryRefInput = {
   id?: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
   category?: string | null
@@ -1120,17 +1344,22 @@ export type TransactionCreateWithoutTagInput = {
   transactionDate?: Date | string
   createdAt?: Date | string
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
   user: Prisma.UserCreateNestedOneWithoutTransactionsInput
   fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
   toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
+  tag?: Prisma.TagCreateNestedOneWithoutTransactionsInput
 }
 
-export type TransactionUncheckedCreateWithoutTagInput = {
+export type TransactionUncheckedCreateWithoutCategoryRefInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
   category?: string | null
@@ -1141,8 +1370,84 @@ export type TransactionUncheckedCreateWithoutTagInput = {
   userId: string
   fromAccountId?: string | null
   toAccountId?: string | null
+  tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+}
+
+export type TransactionCreateOrConnectWithoutCategoryRefInput = {
+  where: Prisma.TransactionWhereUniqueInput
+  create: Prisma.XOR<Prisma.TransactionCreateWithoutCategoryRefInput, Prisma.TransactionUncheckedCreateWithoutCategoryRefInput>
+}
+
+export type TransactionCreateManyCategoryRefInputEnvelope = {
+  data: Prisma.TransactionCreateManyCategoryRefInput | Prisma.TransactionCreateManyCategoryRefInput[]
+  skipDuplicates?: boolean
+}
+
+export type TransactionUpsertWithWhereUniqueWithoutCategoryRefInput = {
+  where: Prisma.TransactionWhereUniqueInput
+  update: Prisma.XOR<Prisma.TransactionUpdateWithoutCategoryRefInput, Prisma.TransactionUncheckedUpdateWithoutCategoryRefInput>
+  create: Prisma.XOR<Prisma.TransactionCreateWithoutCategoryRefInput, Prisma.TransactionUncheckedCreateWithoutCategoryRefInput>
+}
+
+export type TransactionUpdateWithWhereUniqueWithoutCategoryRefInput = {
+  where: Prisma.TransactionWhereUniqueInput
+  data: Prisma.XOR<Prisma.TransactionUpdateWithoutCategoryRefInput, Prisma.TransactionUncheckedUpdateWithoutCategoryRefInput>
+}
+
+export type TransactionUpdateManyWithWhereWithoutCategoryRefInput = {
+  where: Prisma.TransactionScalarWhereInput
+  data: Prisma.XOR<Prisma.TransactionUpdateManyMutationInput, Prisma.TransactionUncheckedUpdateManyWithoutCategoryRefInput>
+}
+
+export type TransactionCreateWithoutTagInput = {
+  id?: string
+  amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  currency: string
+  direction: $Enums.TransactionDirectionsEnum
+  category?: string | null
+  description?: string | null
+  rawText: string
+  transactionDate?: Date | string
+  createdAt?: Date | string
+  convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  account: Prisma.AccountCreateNestedOneWithoutTransactionsInput
+  categoryRef?: Prisma.CategoryCreateNestedOneWithoutTransactionsInput
+  user: Prisma.UserCreateNestedOneWithoutTransactionsInput
+  fromAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsFromInput
+  toAccount?: Prisma.AccountCreateNestedOneWithoutTransactionsToInput
+}
+
+export type TransactionUncheckedCreateWithoutTagInput = {
+  id?: string
+  accountId: string
+  amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  currency: string
+  direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
+  category?: string | null
+  description?: string | null
+  rawText: string
+  transactionDate?: Date | string
+  createdAt?: Date | string
+  userId: string
+  fromAccountId?: string | null
+  toAccountId?: string | null
+  convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateOrConnectWithoutTagInput = {
@@ -1175,8 +1480,10 @@ export type TransactionCreateManyUserInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -1186,12 +1493,16 @@ export type TransactionCreateManyUserInput = {
   toAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1200,8 +1511,12 @@ export type TransactionUpdateWithoutUserInput = {
   transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
+  categoryRef?: Prisma.CategoryUpdateOneWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
   toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
   tag?: Prisma.TagUpdateOneWithoutTransactionsNestedInput
@@ -1211,8 +1526,10 @@ export type TransactionUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1222,15 +1539,20 @@ export type TransactionUncheckedUpdateWithoutUserInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1240,14 +1562,19 @@ export type TransactionUncheckedUpdateManyWithoutUserInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateManyAccountInput = {
   id?: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -1258,15 +1585,20 @@ export type TransactionCreateManyAccountInput = {
   toAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateManyFromAccountInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -1276,15 +1608,20 @@ export type TransactionCreateManyFromAccountInput = {
   toAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionCreateManyToAccountInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
   category?: string | null
   description?: string | null
   rawText: string
@@ -1294,12 +1631,16 @@ export type TransactionCreateManyToAccountInput = {
   fromAccountId?: string | null
   tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUpdateWithoutAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1308,7 +1649,11 @@ export type TransactionUpdateWithoutAccountInput = {
   transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  categoryRef?: Prisma.CategoryUpdateOneWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
   toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
@@ -1318,8 +1663,10 @@ export type TransactionUpdateWithoutAccountInput = {
 export type TransactionUncheckedUpdateWithoutAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1330,14 +1677,19 @@ export type TransactionUncheckedUpdateWithoutAccountInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1348,12 +1700,16 @@ export type TransactionUncheckedUpdateManyWithoutAccountInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUpdateWithoutFromAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1362,8 +1718,12 @@ export type TransactionUpdateWithoutFromAccountInput = {
   transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
+  categoryRef?: Prisma.CategoryUpdateOneWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
   tag?: Prisma.TagUpdateOneWithoutTransactionsNestedInput
@@ -1373,8 +1733,10 @@ export type TransactionUncheckedUpdateWithoutFromAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1384,15 +1746,20 @@ export type TransactionUncheckedUpdateWithoutFromAccountInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutFromAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1402,12 +1769,16 @@ export type TransactionUncheckedUpdateManyWithoutFromAccountInput = {
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUpdateWithoutToAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1416,8 +1787,12 @@ export type TransactionUpdateWithoutToAccountInput = {
   transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
+  categoryRef?: Prisma.CategoryUpdateOneWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
   tag?: Prisma.TagUpdateOneWithoutTransactionsNestedInput
@@ -1427,8 +1802,10 @@ export type TransactionUncheckedUpdateWithoutToAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1438,15 +1815,20 @@ export type TransactionUncheckedUpdateWithoutToAccountInput = {
   fromAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutToAccountInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1456,13 +1838,17 @@ export type TransactionUncheckedUpdateManyWithoutToAccountInput = {
   fromAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
-export type TransactionCreateManyTagInput = {
+export type TransactionCreateManyCategoryRefInput = {
   id?: string
   accountId: string
   amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency: string
   direction: $Enums.TransactionDirectionsEnum
   category?: string | null
@@ -1473,13 +1859,18 @@ export type TransactionCreateManyTagInput = {
   userId: string
   fromAccountId?: string | null
   toAccountId?: string | null
+  tagId?: string | null
   convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
-export type TransactionUpdateWithoutTagInput = {
+export type TransactionUpdateWithoutCategoryRefInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1488,8 +1879,104 @@ export type TransactionUpdateWithoutTagInput = {
   transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
+  user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
+  fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
+  toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
+  tag?: Prisma.TagUpdateOneWithoutTransactionsNestedInput
+}
+
+export type TransactionUncheckedUpdateWithoutCategoryRefInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  currency?: Prisma.StringFieldUpdateOperationsInput | string
+  direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rawText?: Prisma.StringFieldUpdateOperationsInput | string
+  transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  fromAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+}
+
+export type TransactionUncheckedUpdateManyWithoutCategoryRefInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  currency?: Prisma.StringFieldUpdateOperationsInput | string
+  direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rawText?: Prisma.StringFieldUpdateOperationsInput | string
+  transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  fromAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+}
+
+export type TransactionCreateManyTagInput = {
+  id?: string
+  accountId: string
+  amount: number
+  amountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  currency: string
+  direction: $Enums.TransactionDirectionsEnum
+  categoryId?: string | null
+  category?: string | null
+  description?: string | null
+  rawText: string
+  transactionDate?: Date | string
+  createdAt?: Date | string
+  userId: string
+  fromAccountId?: string | null
+  toAccountId?: string | null
+  convertedAmount?: number | null
+  convertedAmountDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  convertToCurrency?: string | null
+  amountUsd?: number | null
+  amountUsdDecimal?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+}
+
+export type TransactionUpdateWithoutTagInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  currency?: Prisma.StringFieldUpdateOperationsInput | string
+  direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rawText?: Prisma.StringFieldUpdateOperationsInput | string
+  transactionDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  account?: Prisma.AccountUpdateOneRequiredWithoutTransactionsNestedInput
+  categoryRef?: Prisma.CategoryUpdateOneWithoutTransactionsNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutTransactionsNestedInput
   fromAccount?: Prisma.AccountUpdateOneWithoutTransactionsFromNestedInput
   toAccount?: Prisma.AccountUpdateOneWithoutTransactionsToNestedInput
@@ -1499,8 +1986,10 @@ export type TransactionUncheckedUpdateWithoutTagInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1510,15 +1999,20 @@ export type TransactionUncheckedUpdateWithoutTagInput = {
   fromAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 export type TransactionUncheckedUpdateManyWithoutTagInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   accountId?: Prisma.StringFieldUpdateOperationsInput | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  amountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   direction?: Prisma.EnumTransactionDirectionsEnumFieldUpdateOperationsInput | $Enums.TransactionDirectionsEnum
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawText?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1528,7 +2022,10 @@ export type TransactionUncheckedUpdateManyWithoutTagInput = {
   fromAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   toAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   convertedAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  convertedAmountDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   convertToCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amountUsd?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  amountUsdDecimal?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
 }
 
 
@@ -1537,8 +2034,10 @@ export type TransactionSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   id?: boolean
   accountId?: boolean
   amount?: boolean
+  amountDecimal?: boolean
   currency?: boolean
   direction?: boolean
+  categoryId?: boolean
   category?: boolean
   description?: boolean
   rawText?: boolean
@@ -1549,8 +2048,12 @@ export type TransactionSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   toAccountId?: boolean
   tagId?: boolean
   convertedAmount?: boolean
+  convertedAmountDecimal?: boolean
   convertToCurrency?: boolean
+  amountUsd?: boolean
+  amountUsdDecimal?: boolean
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
+  categoryRef?: boolean | Prisma.Transaction$categoryRefArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
   toAccount?: boolean | Prisma.Transaction$toAccountArgs<ExtArgs>
@@ -1561,8 +2064,10 @@ export type TransactionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   id?: boolean
   accountId?: boolean
   amount?: boolean
+  amountDecimal?: boolean
   currency?: boolean
   direction?: boolean
+  categoryId?: boolean
   category?: boolean
   description?: boolean
   rawText?: boolean
@@ -1573,8 +2078,12 @@ export type TransactionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   toAccountId?: boolean
   tagId?: boolean
   convertedAmount?: boolean
+  convertedAmountDecimal?: boolean
   convertToCurrency?: boolean
+  amountUsd?: boolean
+  amountUsdDecimal?: boolean
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
+  categoryRef?: boolean | Prisma.Transaction$categoryRefArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
   toAccount?: boolean | Prisma.Transaction$toAccountArgs<ExtArgs>
@@ -1585,8 +2094,10 @@ export type TransactionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   id?: boolean
   accountId?: boolean
   amount?: boolean
+  amountDecimal?: boolean
   currency?: boolean
   direction?: boolean
+  categoryId?: boolean
   category?: boolean
   description?: boolean
   rawText?: boolean
@@ -1597,8 +2108,12 @@ export type TransactionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   toAccountId?: boolean
   tagId?: boolean
   convertedAmount?: boolean
+  convertedAmountDecimal?: boolean
   convertToCurrency?: boolean
+  amountUsd?: boolean
+  amountUsdDecimal?: boolean
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
+  categoryRef?: boolean | Prisma.Transaction$categoryRefArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
   toAccount?: boolean | Prisma.Transaction$toAccountArgs<ExtArgs>
@@ -1609,8 +2124,10 @@ export type TransactionSelectScalar = {
   id?: boolean
   accountId?: boolean
   amount?: boolean
+  amountDecimal?: boolean
   currency?: boolean
   direction?: boolean
+  categoryId?: boolean
   category?: boolean
   description?: boolean
   rawText?: boolean
@@ -1621,12 +2138,16 @@ export type TransactionSelectScalar = {
   toAccountId?: boolean
   tagId?: boolean
   convertedAmount?: boolean
+  convertedAmountDecimal?: boolean
   convertToCurrency?: boolean
+  amountUsd?: boolean
+  amountUsdDecimal?: boolean
 }
 
-export type TransactionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "accountId" | "amount" | "currency" | "direction" | "category" | "description" | "rawText" | "transactionDate" | "createdAt" | "userId" | "fromAccountId" | "toAccountId" | "tagId" | "convertedAmount" | "convertToCurrency", ExtArgs["result"]["transaction"]>
+export type TransactionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "accountId" | "amount" | "amountDecimal" | "currency" | "direction" | "categoryId" | "category" | "description" | "rawText" | "transactionDate" | "createdAt" | "userId" | "fromAccountId" | "toAccountId" | "tagId" | "convertedAmount" | "convertedAmountDecimal" | "convertToCurrency" | "amountUsd" | "amountUsdDecimal", ExtArgs["result"]["transaction"]>
 export type TransactionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
+  categoryRef?: boolean | Prisma.Transaction$categoryRefArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
   toAccount?: boolean | Prisma.Transaction$toAccountArgs<ExtArgs>
@@ -1634,6 +2155,7 @@ export type TransactionInclude<ExtArgs extends runtime.Types.Extensions.Internal
 }
 export type TransactionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
+  categoryRef?: boolean | Prisma.Transaction$categoryRefArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
   toAccount?: boolean | Prisma.Transaction$toAccountArgs<ExtArgs>
@@ -1641,6 +2163,7 @@ export type TransactionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.
 }
 export type TransactionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   account?: boolean | Prisma.AccountDefaultArgs<ExtArgs>
+  categoryRef?: boolean | Prisma.Transaction$categoryRefArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   fromAccount?: boolean | Prisma.Transaction$fromAccountArgs<ExtArgs>
   toAccount?: boolean | Prisma.Transaction$toAccountArgs<ExtArgs>
@@ -1651,6 +2174,7 @@ export type $TransactionPayload<ExtArgs extends runtime.Types.Extensions.Interna
   name: "Transaction"
   objects: {
     account: Prisma.$AccountPayload<ExtArgs>
+    categoryRef: Prisma.$CategoryPayload<ExtArgs> | null
     user: Prisma.$UserPayload<ExtArgs>
     fromAccount: Prisma.$AccountPayload<ExtArgs> | null
     toAccount: Prisma.$AccountPayload<ExtArgs> | null
@@ -1660,8 +2184,10 @@ export type $TransactionPayload<ExtArgs extends runtime.Types.Extensions.Interna
     id: string
     accountId: string
     amount: number
+    amountDecimal: runtime.Decimal | null
     currency: string
     direction: $Enums.TransactionDirectionsEnum
+    categoryId: string | null
     category: string | null
     description: string | null
     rawText: string
@@ -1672,7 +2198,10 @@ export type $TransactionPayload<ExtArgs extends runtime.Types.Extensions.Interna
     toAccountId: string | null
     tagId: string | null
     convertedAmount: number | null
+    convertedAmountDecimal: runtime.Decimal | null
     convertToCurrency: string | null
+    amountUsd: number | null
+    amountUsdDecimal: runtime.Decimal | null
   }, ExtArgs["result"]["transaction"]>
   composites: {}
 }
@@ -2068,6 +2597,7 @@ readonly fields: TransactionFieldRefs;
 export interface Prisma__TransactionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   account<T extends Prisma.AccountDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AccountDefaultArgs<ExtArgs>>): Prisma.Prisma__AccountClient<runtime.Types.Result.GetResult<Prisma.$AccountPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  categoryRef<T extends Prisma.Transaction$categoryRefArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Transaction$categoryRefArgs<ExtArgs>>): Prisma.Prisma__CategoryClient<runtime.Types.Result.GetResult<Prisma.$CategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   fromAccount<T extends Prisma.Transaction$fromAccountArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Transaction$fromAccountArgs<ExtArgs>>): Prisma.Prisma__AccountClient<runtime.Types.Result.GetResult<Prisma.$AccountPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   toAccount<T extends Prisma.Transaction$toAccountArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Transaction$toAccountArgs<ExtArgs>>): Prisma.Prisma__AccountClient<runtime.Types.Result.GetResult<Prisma.$AccountPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -2104,8 +2634,10 @@ export interface TransactionFieldRefs {
   readonly id: Prisma.FieldRef<"Transaction", 'String'>
   readonly accountId: Prisma.FieldRef<"Transaction", 'String'>
   readonly amount: Prisma.FieldRef<"Transaction", 'Float'>
+  readonly amountDecimal: Prisma.FieldRef<"Transaction", 'Decimal'>
   readonly currency: Prisma.FieldRef<"Transaction", 'String'>
   readonly direction: Prisma.FieldRef<"Transaction", 'TransactionDirectionsEnum'>
+  readonly categoryId: Prisma.FieldRef<"Transaction", 'String'>
   readonly category: Prisma.FieldRef<"Transaction", 'String'>
   readonly description: Prisma.FieldRef<"Transaction", 'String'>
   readonly rawText: Prisma.FieldRef<"Transaction", 'String'>
@@ -2116,7 +2648,10 @@ export interface TransactionFieldRefs {
   readonly toAccountId: Prisma.FieldRef<"Transaction", 'String'>
   readonly tagId: Prisma.FieldRef<"Transaction", 'String'>
   readonly convertedAmount: Prisma.FieldRef<"Transaction", 'Float'>
+  readonly convertedAmountDecimal: Prisma.FieldRef<"Transaction", 'Decimal'>
   readonly convertToCurrency: Prisma.FieldRef<"Transaction", 'String'>
+  readonly amountUsd: Prisma.FieldRef<"Transaction", 'Float'>
+  readonly amountUsdDecimal: Prisma.FieldRef<"Transaction", 'Decimal'>
 }
     
 
@@ -2510,6 +3045,25 @@ export type TransactionDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Limit how many Transactions to delete.
    */
   limit?: number
+}
+
+/**
+ * Transaction.categoryRef
+ */
+export type Transaction$categoryRefArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Category
+   */
+  select?: Prisma.CategorySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Category
+   */
+  omit?: Prisma.CategoryOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CategoryInclude<ExtArgs> | null
+  where?: Prisma.CategoryWhereInput
 }
 
 /**

@@ -2,8 +2,10 @@ import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { ExchangeService } from '../../../modules/exchange/exchange.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 function buildConversionKeyboard(
 	codes: string[],
@@ -15,6 +17,12 @@ function buildConversionKeyboard(
 	const slice = codes.slice(start, start + pageSize)
 
 	const rows: any[] = []
+	rows.push([
+		{
+			text: !currentCode ? '✅ Не выбрано' : 'Не выбрано',
+			callback_data: 'set_conversion:none'
+		}
+	])
 
 	for (let i = 0; i < slice.length; i += 3) {
 		const chunk = slice.slice(i, i + 3)
@@ -27,12 +35,13 @@ function buildConversionKeyboard(
 	}
 
 	const totalPages = Math.max(1, Math.ceil(codes.length / pageSize))
-
-	rows.push([
-		{ text: '« Назад', callback_data: 'conversion_page:prev' },
-		{ text: `${page + 1}/${totalPages}`, callback_data: 'conversion_page:noop' },
-		{ text: 'Вперёд »', callback_data: 'conversion_page:next' }
-	])
+	if (totalPages > 1) {
+		rows.push([
+			{ text: '« Назад', callback_data: 'conversion_page:prev' },
+			{ text: `${page + 1}/${totalPages}`, callback_data: 'conversion_page:noop' },
+			{ text: 'Вперёд »', callback_data: 'conversion_page:next' }
+		])
+	}
 
 	rows.push([{ text: '← Назад', callback_data: 'back_to_preview' }])
 
@@ -42,7 +51,8 @@ function buildConversionKeyboard(
 export const editConversionCallback = (
 	bot: Bot<BotContext>,
 	accountsService: AccountsService,
-	exchangeService: ExchangeService
+	exchangeService: ExchangeService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:conversion', async ctx => {
 		const drafts = ctx.session.draftTransactions
@@ -74,19 +84,11 @@ export const editConversionCallback = (
 		if (!account) return
 
 		const codes = Array.from(
-			new Set(account.assets.map(a => a.currency || account.currency))
-		).filter(code => code !== current.currency)
+			new Set(account.assets.map(a => String(a.currency || account.currency).toUpperCase()))
+		).filter(code => code !== String(current.currency ?? '').toUpperCase())
 		if (!codes.length) return
 
 		ctx.session.accountsPage = 0
-		if (!current.convertToCurrency) {
-			current.convertToCurrency = codes[0]
-			current.convertedAmount = await exchangeService.convert(
-				current.amount,
-				current.currency,
-				current.convertToCurrency
-			)
-		}
 
 		const kb = buildConversionKeyboard(codes, 0, current.convertToCurrency ?? null)
 
@@ -117,8 +119,8 @@ export const editConversionCallback = (
 		if (!account) return
 
 		const codes = Array.from(
-			new Set(account.assets.map(a => a.currency || account.currency))
-		).filter(code => code !== current.currency)
+			new Set(account.assets.map(a => String(a.currency || account.currency).toUpperCase()))
+		).filter(code => code !== String(current.currency ?? '').toUpperCase())
 		if (!codes.length) return
 
 		const totalPages = Math.max(1, Math.ceil(codes.length / 9))
@@ -150,12 +152,17 @@ export const editConversionCallback = (
 		if (!current.currency || typeof current.amount !== 'number') return
 
 		const code = ctx.callbackQuery.data.split(':')[1]
-		current.convertToCurrency = code
-		current.convertedAmount = await exchangeService.convert(
-			current.amount,
-			current.currency,
-			current.convertToCurrency
-		)
+		if (code === 'none') {
+			current.convertToCurrency = undefined
+			current.convertedAmount = undefined
+		} else {
+			current.convertToCurrency = code
+			current.convertedAmount = await exchangeService.convert(
+				current.amount,
+				current.currency,
+				current.convertToCurrency
+			)
+		}
 
 		const user = ctx.state.user as any
 		const accountId =
@@ -166,6 +173,7 @@ export const editConversionCallback = (
 			ctx.state.user.id,
 			accountsService
 		)
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

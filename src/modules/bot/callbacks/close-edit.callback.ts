@@ -3,6 +3,7 @@ import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard, getShowConversion } from './confirm-tx'
+import { resetInputModes } from '../core/input-mode'
 
 export const closeEditCallback = (
 	bot: Bot<BotContext>,
@@ -23,6 +24,7 @@ export const closeEditCallback = (
 		ctx.session.accountsPage = undefined
 		ctx.session.categoriesPage = undefined
 		ctx.session.pendingTransferSide = undefined
+		ctx.session.inputMode = 'idle'
 	})
 
 	bot.callbackQuery('close_add_account', async ctx => {
@@ -35,7 +37,8 @@ export const closeEditCallback = (
 			} catch {}
 		}
 
-		ctx.session.awaitingAccountInput = undefined
+		resetInputModes(ctx, { awaitingAccountInput: false })
+		;(ctx.session as any).accountInputHintMessageId = undefined
 	})
 
 	bot.callbackQuery('close_edit_account', async ctx => {
@@ -48,7 +51,10 @@ export const closeEditCallback = (
 			} catch {}
 		}
 
-		ctx.session.editingAccountField = undefined
+		resetInputModes(ctx, {
+			draftAccounts: ctx.session.draftAccounts,
+			currentAccountIndex: ctx.session.currentAccountIndex
+		})
 		ctx.session.editMessageId = undefined
 	})
 
@@ -61,14 +67,20 @@ export const closeEditCallback = (
 				)
 			} catch {}
 		}
-		ctx.session.editingAccountDetailsId = undefined
+		resetInputModes(ctx, {
+			homeMessageId: ctx.session.homeMessageId
+		})
 		ctx.session.editMessageId = undefined
 	})
 
 	bot.callbackQuery('back_to_preview', async ctx => {
-		;(ctx.session as any).editingCurrency = false
-		ctx.session.editingField = undefined
-		ctx.session.awaitingTagInput = false
+		resetInputModes(ctx, {
+			draftTransactions: ctx.session.draftTransactions,
+			currentTransactionIndex: ctx.session.currentTransactionIndex,
+			confirmingTransaction: ctx.session.confirmingTransaction,
+			tempMessageId: ctx.session.tempMessageId,
+			homeMessageId: ctx.session.homeMessageId
+		})
 		ctx.session.tagsPage = undefined
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0

@@ -56,14 +56,17 @@ export const ModelName = {
   Account: 'Account',
   AccountAsset: 'AccountAsset',
   Transaction: 'Transaction',
+  ExchangeRateSnapshot: 'ExchangeRateSnapshot',
   Category: 'Category',
+  TrialLedger: 'TrialLedger',
   Tag: 'Tag',
   TagAlias: 'TagAlias',
   TagAuditLog: 'TagAuditLog',
   SavedAnalyticsView: 'SavedAnalyticsView',
   AlertConfig: 'AlertConfig',
   Subscription: 'Subscription',
-  PremiumEvent: 'PremiumEvent'
+  PremiumEvent: 'PremiumEvent',
+  LlmUserMemory: 'LlmUserMemory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -98,12 +101,14 @@ export const UserScalarFieldEnum = {
   activeAccountId: 'activeAccountId',
   defaultAccountId: 'defaultAccountId',
   mainCurrency: 'mainCurrency',
+  timezone: 'timezone',
   isPremium: 'isPremium',
   premiumUntil: 'premiumUntil',
   trialUsed: 'trialUsed',
   stripeCustomerId: 'stripeCustomerId',
   lastTipText: 'lastTipText',
   lastTipDate: 'lastTipDate',
+  lastDailyReminderAt: 'lastDailyReminderAt',
   createdAt: 'createdAt'
 } as const
 
@@ -127,7 +132,8 @@ export const AccountAssetScalarFieldEnum = {
   id: 'id',
   accountId: 'accountId',
   currency: 'currency',
-  amount: 'amount'
+  amount: 'amount',
+  amountDecimal: 'amountDecimal'
 } as const
 
 export type AccountAssetScalarFieldEnum = (typeof AccountAssetScalarFieldEnum)[keyof typeof AccountAssetScalarFieldEnum]
@@ -137,8 +143,10 @@ export const TransactionScalarFieldEnum = {
   id: 'id',
   accountId: 'accountId',
   amount: 'amount',
+  amountDecimal: 'amountDecimal',
   currency: 'currency',
   direction: 'direction',
+  categoryId: 'categoryId',
   category: 'category',
   description: 'description',
   rawText: 'rawText',
@@ -149,10 +157,25 @@ export const TransactionScalarFieldEnum = {
   toAccountId: 'toAccountId',
   tagId: 'tagId',
   convertedAmount: 'convertedAmount',
-  convertToCurrency: 'convertToCurrency'
+  convertedAmountDecimal: 'convertedAmountDecimal',
+  convertToCurrency: 'convertToCurrency',
+  amountUsd: 'amountUsd',
+  amountUsdDecimal: 'amountUsdDecimal'
 } as const
 
 export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
+
+
+export const ExchangeRateSnapshotScalarFieldEnum = {
+  id: 'id',
+  date: 'date',
+  baseCurrency: 'baseCurrency',
+  rates: 'rates',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ExchangeRateSnapshotScalarFieldEnum = (typeof ExchangeRateSnapshotScalarFieldEnum)[keyof typeof ExchangeRateSnapshotScalarFieldEnum]
 
 
 export const CategoryScalarFieldEnum = {
@@ -164,6 +187,19 @@ export const CategoryScalarFieldEnum = {
 } as const
 
 export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
+
+
+export const TrialLedgerScalarFieldEnum = {
+  id: 'id',
+  telegramId: 'telegramId',
+  firstUserId: 'firstUserId',
+  stripeCustomerId: 'stripeCustomerId',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrialLedgerScalarFieldEnum = (typeof TrialLedgerScalarFieldEnum)[keyof typeof TrialLedgerScalarFieldEnum]
 
 
 export const TagScalarFieldEnum = {
@@ -215,6 +251,7 @@ export const AlertConfigScalarFieldEnum = {
   userId: 'userId',
   type: 'type',
   threshold: 'threshold',
+  thresholdDecimal: 'thresholdDecimal',
   categoryId: 'categoryId',
   enabled: 'enabled',
   createdAt: 'createdAt'
@@ -233,6 +270,7 @@ export const SubscriptionScalarFieldEnum = {
   telegramPaymentChargeId: 'telegramPaymentChargeId',
   providerPaymentChargeId: 'providerPaymentChargeId',
   amount: 'amount',
+  amountDecimal: 'amountDecimal',
   currency: 'currency',
   createdAt: 'createdAt',
   autoRenew: 'autoRenew'
@@ -250,6 +288,21 @@ export const PremiumEventScalarFieldEnum = {
 } as const
 
 export type PremiumEventScalarFieldEnum = (typeof PremiumEventScalarFieldEnum)[keyof typeof PremiumEventScalarFieldEnum]
+
+
+export const LlmUserMemoryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  key: 'key',
+  value: 'value',
+  confidence: 'confidence',
+  hits: 'hits',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LlmUserMemoryScalarFieldEnum = (typeof LlmUserMemoryScalarFieldEnum)[keyof typeof LlmUserMemoryScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -389,14 +389,17 @@ export const ModelName = {
   Account: 'Account',
   AccountAsset: 'AccountAsset',
   Transaction: 'Transaction',
+  ExchangeRateSnapshot: 'ExchangeRateSnapshot',
   Category: 'Category',
+  TrialLedger: 'TrialLedger',
   Tag: 'Tag',
   TagAlias: 'TagAlias',
   TagAuditLog: 'TagAuditLog',
   SavedAnalyticsView: 'SavedAnalyticsView',
   AlertConfig: 'AlertConfig',
   Subscription: 'Subscription',
-  PremiumEvent: 'PremiumEvent'
+  PremiumEvent: 'PremiumEvent',
+  LlmUserMemory: 'LlmUserMemory'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -412,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "category" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent"
+    modelProps: "currency" | "user" | "account" | "accountAsset" | "transaction" | "exchangeRateSnapshot" | "category" | "trialLedger" | "tag" | "tagAlias" | "tagAuditLog" | "savedAnalyticsView" | "alertConfig" | "subscription" | "premiumEvent" | "llmUserMemory"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -786,6 +789,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ExchangeRateSnapshot: {
+      payload: Prisma.$ExchangeRateSnapshotPayload<ExtArgs>
+      fields: Prisma.ExchangeRateSnapshotFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ExchangeRateSnapshotFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ExchangeRateSnapshotFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        findFirst: {
+          args: Prisma.ExchangeRateSnapshotFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ExchangeRateSnapshotFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        findMany: {
+          args: Prisma.ExchangeRateSnapshotFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>[]
+        }
+        create: {
+          args: Prisma.ExchangeRateSnapshotCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        createMany: {
+          args: Prisma.ExchangeRateSnapshotCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ExchangeRateSnapshotCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>[]
+        }
+        delete: {
+          args: Prisma.ExchangeRateSnapshotDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        update: {
+          args: Prisma.ExchangeRateSnapshotUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        deleteMany: {
+          args: Prisma.ExchangeRateSnapshotDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ExchangeRateSnapshotUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ExchangeRateSnapshotUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>[]
+        }
+        upsert: {
+          args: Prisma.ExchangeRateSnapshotUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExchangeRateSnapshotPayload>
+        }
+        aggregate: {
+          args: Prisma.ExchangeRateSnapshotAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateExchangeRateSnapshot>
+        }
+        groupBy: {
+          args: Prisma.ExchangeRateSnapshotGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExchangeRateSnapshotGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ExchangeRateSnapshotCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExchangeRateSnapshotCountAggregateOutputType> | number
+        }
+      }
+    }
     Category: {
       payload: Prisma.$CategoryPayload<ExtArgs>
       fields: Prisma.CategoryFieldRefs
@@ -857,6 +934,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.CategoryCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CategoryCountAggregateOutputType> | number
+        }
+      }
+    }
+    TrialLedger: {
+      payload: Prisma.$TrialLedgerPayload<ExtArgs>
+      fields: Prisma.TrialLedgerFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TrialLedgerFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TrialLedgerFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        findFirst: {
+          args: Prisma.TrialLedgerFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TrialLedgerFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        findMany: {
+          args: Prisma.TrialLedgerFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>[]
+        }
+        create: {
+          args: Prisma.TrialLedgerCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        createMany: {
+          args: Prisma.TrialLedgerCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TrialLedgerCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>[]
+        }
+        delete: {
+          args: Prisma.TrialLedgerDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        update: {
+          args: Prisma.TrialLedgerUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        deleteMany: {
+          args: Prisma.TrialLedgerDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TrialLedgerUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TrialLedgerUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>[]
+        }
+        upsert: {
+          args: Prisma.TrialLedgerUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrialLedgerPayload>
+        }
+        aggregate: {
+          args: Prisma.TrialLedgerAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTrialLedger>
+        }
+        groupBy: {
+          args: Prisma.TrialLedgerGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrialLedgerGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TrialLedgerCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrialLedgerCountAggregateOutputType> | number
         }
       }
     }
@@ -1378,6 +1529,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    LlmUserMemory: {
+      payload: Prisma.$LlmUserMemoryPayload<ExtArgs>
+      fields: Prisma.LlmUserMemoryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.LlmUserMemoryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.LlmUserMemoryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        findFirst: {
+          args: Prisma.LlmUserMemoryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.LlmUserMemoryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        findMany: {
+          args: Prisma.LlmUserMemoryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>[]
+        }
+        create: {
+          args: Prisma.LlmUserMemoryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        createMany: {
+          args: Prisma.LlmUserMemoryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.LlmUserMemoryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>[]
+        }
+        delete: {
+          args: Prisma.LlmUserMemoryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        update: {
+          args: Prisma.LlmUserMemoryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        deleteMany: {
+          args: Prisma.LlmUserMemoryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.LlmUserMemoryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.LlmUserMemoryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>[]
+        }
+        upsert: {
+          args: Prisma.LlmUserMemoryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LlmUserMemoryPayload>
+        }
+        aggregate: {
+          args: Prisma.LlmUserMemoryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLlmUserMemory>
+        }
+        groupBy: {
+          args: Prisma.LlmUserMemoryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LlmUserMemoryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.LlmUserMemoryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LlmUserMemoryCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1433,12 +1658,14 @@ export const UserScalarFieldEnum = {
   activeAccountId: 'activeAccountId',
   defaultAccountId: 'defaultAccountId',
   mainCurrency: 'mainCurrency',
+  timezone: 'timezone',
   isPremium: 'isPremium',
   premiumUntil: 'premiumUntil',
   trialUsed: 'trialUsed',
   stripeCustomerId: 'stripeCustomerId',
   lastTipText: 'lastTipText',
   lastTipDate: 'lastTipDate',
+  lastDailyReminderAt: 'lastDailyReminderAt',
   createdAt: 'createdAt'
 } as const
 
@@ -1462,7 +1689,8 @@ export const AccountAssetScalarFieldEnum = {
   id: 'id',
   accountId: 'accountId',
   currency: 'currency',
-  amount: 'amount'
+  amount: 'amount',
+  amountDecimal: 'amountDecimal'
 } as const
 
 export type AccountAssetScalarFieldEnum = (typeof AccountAssetScalarFieldEnum)[keyof typeof AccountAssetScalarFieldEnum]
@@ -1472,8 +1700,10 @@ export const TransactionScalarFieldEnum = {
   id: 'id',
   accountId: 'accountId',
   amount: 'amount',
+  amountDecimal: 'amountDecimal',
   currency: 'currency',
   direction: 'direction',
+  categoryId: 'categoryId',
   category: 'category',
   description: 'description',
   rawText: 'rawText',
@@ -1484,10 +1714,25 @@ export const TransactionScalarFieldEnum = {
   toAccountId: 'toAccountId',
   tagId: 'tagId',
   convertedAmount: 'convertedAmount',
-  convertToCurrency: 'convertToCurrency'
+  convertedAmountDecimal: 'convertedAmountDecimal',
+  convertToCurrency: 'convertToCurrency',
+  amountUsd: 'amountUsd',
+  amountUsdDecimal: 'amountUsdDecimal'
 } as const
 
 export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
+
+
+export const ExchangeRateSnapshotScalarFieldEnum = {
+  id: 'id',
+  date: 'date',
+  baseCurrency: 'baseCurrency',
+  rates: 'rates',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ExchangeRateSnapshotScalarFieldEnum = (typeof ExchangeRateSnapshotScalarFieldEnum)[keyof typeof ExchangeRateSnapshotScalarFieldEnum]
 
 
 export const CategoryScalarFieldEnum = {
@@ -1499,6 +1744,19 @@ export const CategoryScalarFieldEnum = {
 } as const
 
 export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
+
+
+export const TrialLedgerScalarFieldEnum = {
+  id: 'id',
+  telegramId: 'telegramId',
+  firstUserId: 'firstUserId',
+  stripeCustomerId: 'stripeCustomerId',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrialLedgerScalarFieldEnum = (typeof TrialLedgerScalarFieldEnum)[keyof typeof TrialLedgerScalarFieldEnum]
 
 
 export const TagScalarFieldEnum = {
@@ -1550,6 +1808,7 @@ export const AlertConfigScalarFieldEnum = {
   userId: 'userId',
   type: 'type',
   threshold: 'threshold',
+  thresholdDecimal: 'thresholdDecimal',
   categoryId: 'categoryId',
   enabled: 'enabled',
   createdAt: 'createdAt'
@@ -1568,6 +1827,7 @@ export const SubscriptionScalarFieldEnum = {
   telegramPaymentChargeId: 'telegramPaymentChargeId',
   providerPaymentChargeId: 'providerPaymentChargeId',
   amount: 'amount',
+  amountDecimal: 'amountDecimal',
   currency: 'currency',
   createdAt: 'createdAt',
   autoRenew: 'autoRenew'
@@ -1585,6 +1845,21 @@ export const PremiumEventScalarFieldEnum = {
 } as const
 
 export type PremiumEventScalarFieldEnum = (typeof PremiumEventScalarFieldEnum)[keyof typeof PremiumEventScalarFieldEnum]
+
+
+export const LlmUserMemoryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  key: 'key',
+  value: 'value',
+  confidence: 'confidence',
+  hits: 'hits',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LlmUserMemoryScalarFieldEnum = (typeof LlmUserMemoryScalarFieldEnum)[keyof typeof LlmUserMemoryScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1707,6 +1982,20 @@ export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, '
  * Reference to a field of type 'Float[]'
  */
 export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Decimal'
+ */
+export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+/**
+ * Reference to a field of type 'Decimal[]'
+ */
+export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
     
 
 
@@ -1893,7 +2182,9 @@ export type GlobalOmitConfig = {
   account?: Prisma.AccountOmit
   accountAsset?: Prisma.AccountAssetOmit
   transaction?: Prisma.TransactionOmit
+  exchangeRateSnapshot?: Prisma.ExchangeRateSnapshotOmit
   category?: Prisma.CategoryOmit
+  trialLedger?: Prisma.TrialLedgerOmit
   tag?: Prisma.TagOmit
   tagAlias?: Prisma.TagAliasOmit
   tagAuditLog?: Prisma.TagAuditLogOmit
@@ -1901,6 +2192,7 @@ export type GlobalOmitConfig = {
   alertConfig?: Prisma.AlertConfigOmit
   subscription?: Prisma.SubscriptionOmit
   premiumEvent?: Prisma.PremiumEventOmit
+  llmUserMemory?: Prisma.LlmUserMemoryOmit
 }
 
 /* Types for Logging */

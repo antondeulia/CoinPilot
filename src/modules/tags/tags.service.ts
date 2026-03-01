@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { normalizeTag, tagSimilarity } from '../../utils/normalize'
 
+export const MAX_TAG_NAME_LENGTH = 20
+export const SYSTEM_MAX_CUSTOM_TAGS = 1000
+
 const DEFAULT_TAG_NAMES = [
 	'кофе',
 	'завтрак',
@@ -19,7 +22,7 @@ const DEFAULT_TAG_NAMES = [
 	'пиво',
 	'сладости',
 	'мороженое',
-	'снэки',
+	'праздник',
 	'здоровое питание',
 	'молочные продукты',
 	'бады',
@@ -60,8 +63,13 @@ const DEFAULT_TAG_NAMES = [
 	'косметика',
 	'подписка',
 	'онлайн-покупка',
-	'спот трейдинг',
-	'трейдинг',
+	'спот',
+	'фьючерсы',
+	'стейкинг',
+	'мемкоины',
+	'копитрейдинг',
+	'криптовалюта',
+	'Forex',
 	'инвестиции',
 	'зарплата',
 	'фриланс',
@@ -157,8 +165,16 @@ export class TagsService {
 	}
 
 	async create(userId: string, name: string) {
-		const normalized = this.normalizeTag(name).slice(0, 15)
+		const normalized = this.normalizeTag(name).slice(0, MAX_TAG_NAME_LENGTH)
 		if (!normalized) throw new Error('Название тега не может быть пустым')
+		const currentCustomCount = await this.prisma.tag.count({
+			where: { userId, isDefault: false }
+		})
+		if (currentCustomCount >= SYSTEM_MAX_CUSTOM_TAGS) {
+			throw new Error(
+				`Достигнут системный лимит: максимум ${SYSTEM_MAX_CUSTOM_TAGS} пользовательских тегов.`
+			)
+		}
 		const existing = await this.prisma.tag.findFirst({
 			where: { userId, name: normalized }
 		})
@@ -180,7 +196,7 @@ export class TagsService {
 	async rename(id: string, userId: string, newName: string) {
 		const tag = await this.findById(id, userId)
 		if (!tag) throw new Error('Тег не найден')
-		const normalized = this.normalizeTag(newName).slice(0, 15)
+		const normalized = this.normalizeTag(newName).slice(0, MAX_TAG_NAME_LENGTH)
 		if (!normalized) throw new Error('Название тега не может быть пустым')
 		const existing = await this.prisma.tag.findFirst({
 			where: { userId, name: normalized, id: { not: id } }
@@ -243,7 +259,7 @@ export class TagsService {
 		const similar = await this.findSimilar(userId, normalized)
 		const best = similar[0]
 
-		if (best && (best.similarity >= 0.85 || confidence >= 0.8)) {
+		if (best && (best.similarity >= 0.75 || confidence >= 0.8)) {
 			return {
 				tagId: best.tag.id,
 				tagName: best.tag.name,
@@ -251,7 +267,7 @@ export class TagsService {
 				isSuggestion: false
 			}
 		}
-		if (best && (best.similarity >= 0.6 || (confidence >= 0.5 && confidence < 0.8))) {
+		if (best && (best.similarity >= 0.6 || confidence >= 0.5)) {
 			return {
 				tagId: best.tag.id,
 				tagName: best.tag.name,
@@ -259,9 +275,9 @@ export class TagsService {
 				isSuggestion: true
 			}
 		}
-		if (confidence >= 0.6) {
+		if (confidence >= 0.9) {
 			return {
-				tagName: normalized.slice(0, 15),
+				tagName: normalized.slice(0, MAX_TAG_NAME_LENGTH),
 				isNew: true,
 				isSuggestion: false
 			}
@@ -270,7 +286,7 @@ export class TagsService {
 	}
 
 	async addAlias(tagId: string, alias: string) {
-		const normalized = this.normalizeTag(alias).slice(0, 15)
+		const normalized = this.normalizeTag(alias).slice(0, MAX_TAG_NAME_LENGTH)
 		if (!normalized) throw new Error('Алиас не может быть пустым')
 		const tag = await this.prisma.tag.findUnique({ where: { id: tagId } })
 		if (!tag) throw new Error('Тег не найден')

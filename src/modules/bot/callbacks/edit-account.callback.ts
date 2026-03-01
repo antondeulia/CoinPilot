@@ -1,9 +1,11 @@
 import { Bot } from 'grammy'
 import { BotContext } from '../core/bot.middleware'
 import { AccountsService } from '../../../modules/accounts/accounts.service'
+import { TransactionsService } from '../../../modules/transactions/transactions.service'
 import { renderConfirmMessage } from '../elements/tx-confirm-msg'
 import { confirmKeyboard } from './confirm-tx'
 import { formatAccountName } from '../../../utils/format'
+import { persistPreviewTransactionIfNeeded } from '../utils/persist-preview-transaction'
 
 function buildAccountsKeyboard(
 	accounts: { id: string; name: string }[],
@@ -50,16 +52,20 @@ function buildAccountsKeyboard(
 
 export const editAccountCallback = (
 	bot: Bot<BotContext>,
-	accountsService: AccountsService
+	accountsService: AccountsService,
+	transactionsService: TransactionsService
 ) => {
 	bot.callbackQuery('edit:account', async ctx => {
 		const userId = ctx.state.user.id
-		const accounts = await accountsService.getAllByUserIdIncludingHidden(userId)
-		if (!accounts.length) return
-
+		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(userId)
 		const drafts = ctx.session.draftTransactions
 		const index = ctx.session.currentTransactionIndex ?? 0
 		const current = drafts?.[index] as any
+		const isTransfer = current?.direction === 'transfer'
+		const accounts = isTransfer
+			? allAccounts
+			: allAccounts.filter(a => !a.isHidden)
+		if (!accounts.length) return
 
 		ctx.session.accountsPage = 0
 
@@ -129,14 +135,40 @@ export const editAccountCallback = (
 		const user = ctx.state.user as any
 		const account = await accountsService.getOneWithAssets(accountId, user.id)
 		if (!account) return
+		const isTransfer = current.direction === 'transfer'
+		if (!isTransfer && account.isHidden) return
 
 		current.accountId = accountId
 		current.account = account.name
+		if (isTransfer) {
+			const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+			const outsideWallet = allAccounts.find(a => a.name === 'Вне Wallet')
+			const visibleAccounts = allAccounts.filter(a => !a.isHidden)
+			const fallbackId =
+				user.defaultAccountId && visibleAccounts.some(a => a.id === user.defaultAccountId)
+					? user.defaultAccountId
+					: visibleAccounts[0]?.id
+			const fallbackAccount =
+				(fallbackId && allAccounts.find(a => a.id === fallbackId)) || null
+			if (
+				outsideWallet &&
+				current.accountId === outsideWallet.id &&
+				current.toAccountId === outsideWallet.id
+			) {
+				current.toAccountId = fallbackAccount?.id
+				current.toAccount = fallbackAccount?.name
+			}
+		}
 
 		const accountCurrencies = Array.from(
 			new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
 		)
 		const showConversion = !accountCurrencies.includes(current.currency)
+		if (!showConversion) {
+			current.convertToCurrency = undefined
+			current.convertedAmount = undefined
+		}
+		await persistPreviewTransactionIfNeeded(ctx, current, transactionsService)
 
 		try {
 			await ctx.api.editMessageText(

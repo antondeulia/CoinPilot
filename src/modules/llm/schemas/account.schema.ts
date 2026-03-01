@@ -2,7 +2,12 @@ import { z } from 'zod'
 
 export const LlmAccountAssetSchema = z.object({
 	currency: z.string(),
-	amount: z.number()
+	amount: z.preprocess(value => {
+		if (value == null || value === '') return 0
+		if (typeof value === 'number') return value
+		const normalized = Number(String(value).replace(',', '.'))
+		return Number.isFinite(normalized) ? normalized : 0
+	}, z.number())
 })
 
 export const LlmAccountSchema = z.object({
