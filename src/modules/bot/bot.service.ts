@@ -98,6 +98,11 @@ import {
 	resolveTransactionCurrency,
 	type CurrencyResolutionResult
 } from './currency-resolution.util'
+import {
+	extractExchangeIntentFromText,
+	pickSourceAccountId,
+	pickTargetAccountId
+} from './exchange-intent.util'
 
 const ONBOARDING_ACCOUNTS_FIRST_OPEN_TEXT = `Добавь <b>два счёта</b>, которыми ты пользуешься в повседневной жизни. Формат свободный — можно писать через запятую, пробелы или с новой строки.
 
@@ -1576,12 +1581,18 @@ export class BotService implements OnModuleInit {
 					await openAddTransactionFlow(ctx, this.subscriptionService)
 					return
 				}
-				if (text === '🏠 На главное меню') {
-					await this.closeTemp(ctx)
-					resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
-					await renderHome(ctx, this.accountsService, this.analyticsService)
-					return
-				}
+					if (
+						text === '🏠 На главное меню' ||
+						text === 'На главное меню' ||
+						text === 'На главную'
+					) {
+						resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
+						await renderHome(ctx, this.accountsService, this.analyticsService, {
+							forceNewMessage: true,
+							preservePreviousMessages: true
+						})
+						return
+					}
 
 				if ((ctx.session as any).awaitingDeleteConfirm) {
 				if (text === 'delete-confirm') {
@@ -5296,10 +5307,10 @@ ${lines.join('\n\n')}${hidden}
 				.map(tx => `${tx.rawText ?? ''} ${tx.description ?? ''}`)
 				.join(' ')
 				.toLowerCase()
-				const hasExchangeSignal =
-					/\b(валютообмен|обменял?|swap|exchange|конверт|исполнен|ордер|order|filled)\b/iu.test(
-						sourceText
-					) || /\b[A-Z]{2,10}\s*\/\s*[A-Z]{2,10}\b/u.test(sourceText.toUpperCase())
+			const hasExchangeSignal =
+				/\b(валютообмен|обменял?|swap|exchange|конверт|исполнен|ордер|order|filled)\b/iu.test(
+					sourceText
+				) || /\b[A-Z]{2,10}\s*\/\s*[A-Z]{2,10}\b/u.test(sourceText.toUpperCase())
 
 			const feeTxs = txs.filter(tx => this.isFeeLikeTransaction(tx))
 			const coreTxs = txs.filter(tx => !this.isFeeLikeTransaction(tx))
@@ -5332,6 +5343,11 @@ ${lines.join('\n\n')}${hidden}
 				out.push(...txs)
 				continue
 			}
+
+			const textIntent = extractExchangeIntentFromText(
+				sourceText,
+				this.extractAmountCurrencyPairs(sourceText)
+			)
 
 			const spent = expenseCandidates[0]
 			if (!spent) {
@@ -5389,31 +5405,51 @@ ${lines.join('\n\n')}${hidden}
 				continue
 			}
 
-			const targetAccount =
-				String(spent.account ?? spent.fromAccount ?? received.account ?? '').trim() ||
-				String(received.toAccount ?? '').trim()
-
-			const outTransfer = {
+			const sourceCurrency = String(
+				textIntent?.sourceCurrency ?? spent.currency ?? ''
+			).toUpperCase()
+			const targetCurrency = String(
+				textIntent?.targetCurrency ?? received.currency ?? ''
+			).toUpperCase()
+			const sourceAmount = Number(textIntent?.sourceAmount ?? spent.amount ?? 0)
+			const targetAmount = Number(textIntent?.targetAmount ?? received.amount ?? 0)
+			if (
+				!sourceCurrency ||
+				!targetCurrency ||
+				sourceCurrency === targetCurrency ||
+				!Number.isFinite(sourceAmount) ||
+				sourceAmount <= 0
+			) {
+				out.push(...txs)
+				continue
+			}
+			const exchangeTransfer = {
 				...spent,
 				direction: 'transfer',
-				account: targetAccount,
-				fromAccount: targetAccount,
-				toAccount: 'Вне Wallet',
+				amount: Math.abs(sourceAmount),
+				currency: sourceCurrency,
+				convertToCurrency: targetCurrency,
+				convertedAmount:
+					Number.isFinite(targetAmount) && targetAmount > 0
+						? Math.abs(targetAmount)
+						: undefined,
+				account:
+					String(spent.account ?? spent.fromAccount ?? '').trim() || undefined,
+				fromAccount:
+					String(spent.fromAccount ?? spent.account ?? '').trim() || undefined,
+				toAccount:
+					String(received.toAccount ?? received.account ?? '').trim() || undefined,
 				category: undefined,
-				categoryId: undefined
+				categoryId: undefined,
+				__exchangeLike: true,
+				__conversionSource:
+					Number.isFinite(targetAmount) && targetAmount > 0
+						? 'explicit'
+						: 'unknown'
 			}
-			const inTransfer = {
-				...received,
-				direction: 'transfer',
-				account: 'Вне Wallet',
-				fromAccount: 'Вне Wallet',
-				toAccount: targetAccount,
-				category: undefined,
-				categoryId: undefined
-			}
-			out.push(outTransfer, inTransfer, ...feeTxs)
+			out.push(exchangeTransfer, ...feeTxs)
 			this.logger.debug(
-				`exchange-normalizer: converted group to transfers (currencies=${Array.from(
+				`exchange-normalizer: collapsed to single transfer+conversion (currencies=${Array.from(
 					distinctCurrencies
 				).join(',')}, fee=${feeTxs.length})`
 			)
@@ -5433,6 +5469,10 @@ ${lines.join('\n\n')}${hidden}
 				String(tx.direction ?? ''),
 				normalizedDate,
 				String(tx.currency ?? '').toUpperCase(),
+				String(tx.convertToCurrency ?? '').toUpperCase(),
+				Number.isFinite(Number(tx.convertedAmount ?? NaN))
+					? Number(tx.convertedAmount).toFixed(12)
+					: '0',
 				String(tx.accountId ?? tx.account ?? '').toLowerCase(),
 				String(tx.toAccountId ?? tx.toAccount ?? '').toLowerCase(),
 				Number.isFinite(amount) ? amount.toFixed(12) : '0',
@@ -5467,6 +5507,7 @@ ${lines.join('\n\n')}${hidden}
 		outsideWalletId: string | null
 	): string[] {
 		const missing: string[] = []
+		const isExchangeLike = Boolean(tx?.__exchangeLike)
 		if (!(typeof tx.amount === 'number') || !Number.isFinite(tx.amount) || tx.amount <= 0) {
 			missing.push('сумма (> 0)')
 		}
@@ -5482,6 +5523,27 @@ ${lines.join('\n\n')}${hidden}
 				tx.toAccountId === outsideWalletId
 			) {
 				missing.push('одна сторона перевода должна быть обычным счётом')
+			}
+			if (isExchangeLike) {
+				if (!tx.convertToCurrency || String(tx.convertToCurrency).trim().length === 0) {
+					missing.push('целевая валюта обмена')
+				}
+				if (
+					!(
+						typeof tx.convertedAmount === 'number' &&
+						Number.isFinite(tx.convertedAmount) &&
+						tx.convertedAmount > 0
+					)
+				) {
+					missing.push('сумма зачисления')
+				}
+				if (
+					tx.convertToCurrency &&
+					String(tx.convertToCurrency).toUpperCase() ===
+						String(tx.currency ?? '').toUpperCase()
+				) {
+					missing.push('целевая валюта должна отличаться от валюты списания')
+				}
 			}
 		} else {
 			if (!tx.accountId) missing.push('счёт')
@@ -6018,12 +6080,51 @@ ${lines.join('\n\n')}${hidden}
 			const normalizedTransactions = this.dedupeParsedTransactions(withFeeTransactions)
 			const supportedCurrencies = await this.getSupportedCurrencySet()
 
-		const recentTx = await this.prisma.transaction.findMany({
-			where: { userId: user.id, description: { not: null } },
-			orderBy: { transactionDate: 'desc' },
-			take: 200,
-			include: { tag: true, account: true }
-		})
+		const [recentTx, accountUsageRows] = await Promise.all([
+			this.prisma.transaction.findMany({
+				where: { userId: user.id, description: { not: null } },
+				orderBy: { transactionDate: 'desc' },
+				take: 200,
+				include: { tag: true, account: true }
+			}),
+			this.prisma.transaction.findMany({
+				where: { userId: user.id },
+				select: { accountId: true, toAccountId: true, transactionDate: true },
+				orderBy: { transactionDate: 'desc' },
+				take: 500
+			})
+		])
+		const accountStatsById = new Map<
+			string,
+			{ usageCount: number; lastUsedAtMs: number }
+		>()
+		for (const row of accountUsageRows) {
+			const ts = new Date(row.transactionDate).getTime()
+			const touch = (id?: string | null) => {
+				if (!id || id === outsideWalletId) return
+				const prev = accountStatsById.get(id)
+				if (!prev) {
+					accountStatsById.set(id, { usageCount: 1, lastUsedAtMs: ts })
+					return
+				}
+				prev.usageCount += 1
+				if (ts > prev.lastUsedAtMs) prev.lastUsedAtMs = ts
+			}
+			touch(row.accountId)
+			touch(row.toAccountId)
+		}
+		const visibleAccountById = new Map(
+			visibleAccountsWithAssets.map((account: any) => [account.id, account])
+		)
+		const exchangeAccounts = visibleAccountsWithAssets
+			.filter((account: any) => account.id !== outsideWalletId)
+			.map((account: any) => ({
+				id: account.id,
+				assets: (account.assets ?? []).map((asset: any) => ({
+					currency: String(asset.currency ?? account.currency ?? '').toUpperCase(),
+					amount: Number(asset.amount ?? 0)
+				}))
+			}))
 		const findSimilar = (description?: string | null) => {
 			const target = String(description ?? '').trim().toLowerCase()
 			if (!target) return null
@@ -6036,7 +6137,7 @@ ${lines.join('\n\n')}${hidden}
 			)
 		}
 
-			for (const tx of normalizedTransactions) {
+		for (const tx of normalizedTransactions) {
 			if (tx.currency) {
 				tx.currency = String(tx.currency).toUpperCase().trim()
 			}
@@ -6070,6 +6171,19 @@ ${lines.join('\n\n')}${hidden}
 					/\b[a-z]{2,10}\s*\/\s*[a-z]{2,10}\b/iu.test(sourceText) ||
 					(hasTradeVerb &&
 						(hasCryptoContext || uniqueCurrenciesInText.size >= 2))
+				const exchangeIntent = extractExchangeIntentFromText(
+					sourceText,
+					this.extractAmountCurrencyPairs(sourceText)
+				)
+				if (exchangeHint && exchangeIntent) {
+					this.logger.debug(
+						`exchange-resolver: intent source=${exchangeIntent.sourceAmount ?? '?'} ${
+							exchangeIntent.sourceCurrency ?? '?'
+						} target=${exchangeIntent.targetAmount ?? '?'} ${
+							exchangeIntent.targetCurrency ?? '?'
+						} explicit=${exchangeIntent.explicitPair}`
+					)
+				}
 				const descriptionText = String(tx.description ?? '').toLowerCase()
 				const cashOutHint =
 					/(снял[аи]?\s+налич|снятие\s+налич|cashout|cash out)/iu.test(
@@ -6080,6 +6194,30 @@ ${lines.join('\n\n')}${hidden}
 			}
 			if (exchangeHint && !this.isFeeLikeTransaction(tx)) {
 				tx.direction = 'transfer'
+				;(tx as any).__exchangeLike = true
+				if (!tx.currency && exchangeIntent?.sourceCurrency) {
+					tx.currency = exchangeIntent.sourceCurrency
+				}
+				if (
+					!(typeof tx.amount === 'number' && Number.isFinite(tx.amount) && tx.amount > 0) &&
+					exchangeIntent?.sourceAmount
+				) {
+					tx.amount = exchangeIntent.sourceAmount
+				}
+				if (!tx.convertToCurrency && exchangeIntent?.targetCurrency) {
+					tx.convertToCurrency = exchangeIntent.targetCurrency
+				}
+				if (
+					!(
+						typeof tx.convertedAmount === 'number' &&
+						Number.isFinite(tx.convertedAmount) &&
+						tx.convertedAmount > 0
+					) &&
+					exchangeIntent?.targetAmount
+				) {
+					tx.convertedAmount = exchangeIntent.targetAmount
+					;(tx as any).__conversionSource = 'explicit'
+				}
 			}
 				if (cashOutHint) {
 					tx.direction = 'transfer'
@@ -6117,12 +6255,13 @@ ${lines.join('\n\n')}${hidden}
 			tx.description = this.normalizeDescription(tx.description, tx.direction)
 		}
 
-			for (const tx of normalizedTransactions) {
+		for (const tx of normalizedTransactions) {
 			tx.userTimezone = user.timezone ?? 'UTC+02:00'
 			if (typeof tx.amount === 'number' && Number.isFinite(tx.amount)) {
 				tx.amount = Math.abs(tx.amount)
 			}
 			const isTransfer = tx.direction === 'transfer'
+			const isExchangeLike = isTransfer && Boolean((tx as any).__exchangeLike)
 				const parsedAccountStr = isTransfer
 					? (tx.fromAccount && String(tx.fromAccount).trim()) || (tx.account && String(tx.account).trim()) || ''
 					: (tx.account && String(tx.account).trim()) || ''
@@ -6153,6 +6292,25 @@ ${lines.join('\n\n')}${hidden}
 				acc = defaultAccount
 			}
 			if (isTransfer) {
+				const sourceCurrency = String(tx.currency ?? '').toUpperCase()
+				const exchangeSourceId =
+					isExchangeLike && !isExplicitOutsideFrom
+						? matchedAccountId ??
+								pickSourceAccountId({
+									accounts: exchangeAccounts,
+									statsByAccountId: accountStatsById,
+									sourceCurrency,
+									requiredAmount: Number(tx.amount ?? 0),
+									defaultAccountId
+								})
+							: null
+				if (exchangeSourceId) {
+					tx.accountId = exchangeSourceId
+					tx.account = visibleAccountById.get(exchangeSourceId)?.name ?? tx.account
+					this.logger.debug(
+						`exchange-resolver: source account selected accountId=${exchangeSourceId} currency=${sourceCurrency}`
+					)
+				}
 				let toStr = tx.toAccount && String(tx.toAccount).trim()
 				if (!toStr) {
 					const source = `${tx.rawText ?? ''} ${tx.description ?? ''}`.trim()
@@ -6169,18 +6327,52 @@ ${lines.join('\n\n')}${hidden}
 						tx.toAccountId = toMatched.id
 						tx.toAccount = toMatched.name
 					} else {
+						if (isExchangeLike) {
+							const targetCurrency = String(tx.convertToCurrency ?? '').toUpperCase()
+								const targetId =
+									pickTargetAccountId({
+										accounts: exchangeAccounts,
+										statsByAccountId: accountStatsById,
+										targetCurrency,
+										defaultAccountId
+									}) ?? tx.accountId
+								tx.toAccountId = targetId
+								tx.toAccount = visibleAccountById.get(targetId ?? '')?.name ?? tx.account
+						} else {
+							tx.toAccountId = outsideWalletId
+							tx.toAccount = 'Вне Wallet'
+						}
+					}
+				} else {
+					if (isExchangeLike) {
+						const targetCurrency = String(tx.convertToCurrency ?? '').toUpperCase()
+							const targetId =
+								pickTargetAccountId({
+									accounts: exchangeAccounts,
+									statsByAccountId: accountStatsById,
+									targetCurrency,
+									defaultAccountId
+								}) ?? tx.accountId
+							tx.toAccountId = targetId
+							tx.toAccount = visibleAccountById.get(targetId ?? '')?.name ?? tx.account
+					} else {
 						tx.toAccountId = outsideWalletId
 						tx.toAccount = 'Вне Wallet'
 					}
-				} else {
-					tx.toAccountId = outsideWalletId
-					tx.toAccount = 'Вне Wallet'
 				}
 				if (!tx.accountId) {
-					tx.accountId = outsideWalletId ?? defaultAccountId
-					tx.account = tx.accountId === outsideWalletId ? 'Вне Wallet' : defaultAccount?.name
+					tx.accountId = isExchangeLike
+						? defaultAccountId
+						: outsideWalletId ?? defaultAccountId
+					tx.account =
+						tx.accountId === outsideWalletId ? 'Вне Wallet' : defaultAccount?.name
+				}
+				if (isExchangeLike && outsideWalletId && tx.accountId === outsideWalletId) {
+					tx.accountId = defaultAccountId
+					tx.account = defaultAccount?.name ?? tx.account
 				}
 				if (
+					!isExchangeLike &&
 					outsideWalletId &&
 					tx.accountId === outsideWalletId &&
 					tx.toAccountId === outsideWalletId &&
@@ -6189,6 +6381,18 @@ ${lines.join('\n\n')}${hidden}
 				) {
 					tx.accountId = defaultAccountId
 					tx.account = defaultAccount?.name ?? tx.account
+				}
+				if (
+					isExchangeLike &&
+					tx.toAccountId &&
+					tx.toAccount &&
+					tx.convertToCurrency
+				) {
+					this.logger.debug(
+						`exchange-resolver: target account selected toAccountId=${tx.toAccountId} convertToCurrency=${String(
+							tx.convertToCurrency
+						).toUpperCase()}`
+					)
 				}
 			}
 				const accountForTx =
@@ -6220,6 +6424,78 @@ ${lines.join('\n\n')}${hidden}
 					tx.currency = currencyResolution.currency
 				}
 				;(tx as any).currencyResolution = currencyResolution
+				const normalizeText = `${tx.rawText ?? ''} ${tx.description ?? ''}`.toLowerCase()
+				const textExchangeIntent = extractExchangeIntentFromText(
+					normalizeText,
+					this.extractAmountCurrencyPairs(normalizeText)
+				)
+				if (
+					isTransfer &&
+					(Boolean((tx as any).__exchangeLike) ||
+						(Boolean(tx.convertToCurrency) && tx.convertToCurrency !== tx.currency))
+				) {
+					;(tx as any).__exchangeLike = true
+					if (!tx.convertToCurrency && textExchangeIntent?.targetCurrency) {
+						tx.convertToCurrency = textExchangeIntent.targetCurrency
+					}
+					if (
+						!(
+							typeof tx.convertedAmount === 'number' &&
+							Number.isFinite(tx.convertedAmount) &&
+							tx.convertedAmount > 0
+						) &&
+						textExchangeIntent?.targetAmount
+					) {
+						tx.convertedAmount = Math.abs(Number(textExchangeIntent.targetAmount))
+						;(tx as any).__conversionSource = 'explicit'
+					}
+					if (tx.convertToCurrency) {
+						tx.convertToCurrency = String(tx.convertToCurrency).toUpperCase().trim()
+						if (!supportedCurrencies.has(tx.convertToCurrency)) {
+							await this.preserveTransactionDraftOnError(
+								ctx,
+								tx,
+								['поддерживаемая валюта конвертации'],
+								`Валюта ${tx.convertToCurrency} не поддерживается.`
+							)
+							return
+						}
+						if (
+							!(
+								typeof tx.convertedAmount === 'number' &&
+								Number.isFinite(tx.convertedAmount) &&
+								tx.convertedAmount > 0
+							) &&
+							typeof tx.amount === 'number' &&
+							Number.isFinite(tx.amount) &&
+							tx.amount > 0 &&
+							tx.currency &&
+							tx.currency !== tx.convertToCurrency
+						) {
+							const converted = await this.exchangeService.convert(
+								Math.abs(tx.amount),
+								tx.currency,
+								tx.convertToCurrency
+							)
+							if (converted == null) {
+								await this.preserveTransactionDraftOnError(
+									ctx,
+									tx,
+									['конвертация по курсу'],
+									`Не удалось получить курс для обмена ${tx.currency} → ${tx.convertToCurrency}.`
+								)
+								return
+							}
+							tx.convertedAmount = Math.abs(converted)
+							;(tx as any).__conversionSource = 'rate'
+						}
+						this.logger.debug(
+							`exchange-resolver: conversion source=${String(
+								(tx as any).__conversionSource ?? 'unknown'
+							)} ${tx.currency}->${tx.convertToCurrency}`
+						)
+					}
+				}
 				if (tx.currency && !supportedCurrencies.has(String(tx.currency).toUpperCase())) {
 					await this.preserveTransactionDraftOnError(
 						ctx,
@@ -6280,8 +6556,10 @@ ${lines.join('\n\n')}${hidden}
 								return
 							}
 						if (!hasCurrencyOnAccount) {
-							tx.convertToCurrency = undefined
-							tx.convertedAmount = undefined
+							if (!Boolean((tx as any).__exchangeLike)) {
+								tx.convertToCurrency = undefined
+								tx.convertedAmount = undefined
+							}
 					}
 				}
 			}
@@ -6349,7 +6627,10 @@ ${lines.join('\n\n')}${hidden}
 					}
 					const isTransfer = draft.direction === 'transfer'
 					const toAccountId = isTransfer
-						? draft.toAccountId ?? outsideWalletId ?? undefined
+						? draft.toAccountId ??
+							((draft as any).__exchangeLike
+								? accountId
+								: outsideWalletId ?? undefined)
 						: undefined
 					const createdTx = await this.transactionsService.create({
 						accountId,
@@ -6458,7 +6739,10 @@ ${lines.join('\n\n')}${hidden}
 				...((ctx.session.resultMessageIds ?? []) as number[]),
 				msg.message_id
 			]
-			await renderHome(ctx as any, this.accountsService, this.analyticsService)
+				await renderHome(ctx as any, this.accountsService, this.analyticsService, {
+					forceNewMessage: true,
+					preservePreviousMessages: true
+				})
+			}
 		}
-	}
 

@@ -28,20 +28,16 @@ export const startCommand = (
 	prisma: PrismaService,
 	subscriptionService: SubscriptionService
 ) => {
-			bot.command('start', async ctx => {
-				const keep = new Set<number>((ctx.session.resultMessageIds ?? []) as number[])
-			if (
-				ctx.session.tempMessageId != null &&
-				!keep.has(ctx.session.tempMessageId) &&
-				ctx.session.tempMessageId !== ctx.session.previewMessageId
-			) {
-				try {
-					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
-				} catch {}
-			}
-				resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
-			;(ctx.session as any).editingCurrency = false
-		;(ctx.session as any).editingMainCurrency = false
+				bot.command('start', async ctx => {
+					const preserveTxPreviewState = Boolean(
+						ctx.session.confirmingTransaction &&
+							Array.isArray(ctx.session.draftTransactions) &&
+							ctx.session.draftTransactions.length > 0 &&
+							ctx.session.tempMessageId != null
+					)
+					resetInputModes(ctx, { homeMessageId: ctx.session.homeMessageId })
+				;(ctx.session as any).editingCurrency = false
+			;(ctx.session as any).editingMainCurrency = false
 		;(ctx.session as any).editingTimezone = false
 		ctx.session.editingField = undefined
 		ctx.session.editMessageId = undefined
@@ -57,14 +53,16 @@ export const startCommand = (
 		;(ctx.session as any).awaitingTagsJarvisEdit = false
 		ctx.session.awaitingAccountInput = false
 		;(ctx.session as any).awaitingCategoryName = false
-		ctx.session.confirmingTransaction = false
-		;(ctx.session as any).confirmingAccounts = false
-		ctx.session.draftTransactions = undefined
-		;(ctx.session as any).draftAccounts = undefined
-		ctx.session.currentTransactionIndex = undefined
-		;(ctx.session as any).currentAccountIndex = undefined
-		ctx.session.tempMessageId = undefined
-		ctx.session.navigationStack = undefined
+			if (!preserveTxPreviewState) {
+				ctx.session.confirmingTransaction = false
+				ctx.session.draftTransactions = undefined
+				ctx.session.currentTransactionIndex = undefined
+				ctx.session.tempMessageId = undefined
+			}
+			;(ctx.session as any).confirmingAccounts = false
+			;(ctx.session as any).draftAccounts = undefined
+			;(ctx.session as any).currentAccountIndex = undefined
+			ctx.session.navigationStack = undefined
 		ctx.session.tagsPage = undefined
 		;(ctx.session as any).editingCategory = undefined
 		;(ctx.session as any).tagsSettingsMessageId = undefined
@@ -96,7 +94,10 @@ export const startCommand = (
 				}
 			}
 
-				await renderHome(ctx, accountsService, analyticsService)
+				await renderHome(ctx, accountsService, analyticsService, {
+					forceNewMessage: true,
+					preservePreviousMessages: true
+				})
 
 				if (shouldSendOnboardingStart) {
 					await deleteMessageBestEffort(

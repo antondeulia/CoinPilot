@@ -41,19 +41,23 @@ export const confirmTxCallback = (
 			ctx.session.awaitingTransaction = true
 			return
 		}
-		if ((drafts as any[]).every((d: any) => !!d.id)) {
-			ctx.session.confirmingTransaction = false
-			ctx.session.draftTransactions = undefined
-			ctx.session.currentTransactionIndex = undefined
-			ctx.session.editingField = undefined
+			if ((drafts as any[]).every((d: any) => !!d.id)) {
+				ctx.session.confirmingTransaction = false
+				ctx.session.draftTransactions = undefined
+				ctx.session.currentTransactionIndex = undefined
+				ctx.session.editingField = undefined
 			if (ctx.session.tempMessageId) {
 				try {
 					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
 				} catch {}
 				ctx.session.tempMessageId = undefined
 			}
-			return
-		}
+			await renderHome(ctx as any, accountsService, analyticsService, {
+				forceNewMessage: true,
+				preservePreviousMessages: true
+			})
+				return
+			}
 
 		// Лимит транзакций для Basic
 		const newCount = drafts.length
@@ -226,10 +230,13 @@ export const confirmTxCallback = (
 				msg.message_id
 			]
 
-		// показать/обновить домашний экран как после /start
-		await renderHome(ctx as any, accountsService, analyticsService)
-	})
-}
+			// показать/обновить домашний экран как после /start
+			await renderHome(ctx as any, accountsService, analyticsService, {
+				forceNewMessage: true,
+				preservePreviousMessages: true
+			})
+		})
+	}
 
 const successKeyboard = {
 	inline_keyboard: [[{ text: '🙈 Закрыть', callback_data: 'hide_message' }]]

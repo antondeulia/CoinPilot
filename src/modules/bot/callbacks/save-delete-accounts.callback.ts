@@ -151,7 +151,10 @@ export const saveDeleteAccountsCallback = (
 		;(ctx.state as any).activeAccount =
 			user.accounts.find(a => a.id === user.activeAccountId) ?? null
 		;(ctx.state as any).isPremium = subscriptionService.isPremium(user as any)
-		await renderHome(ctx as any, accountsService, analyticsService)
+		await renderHome(ctx as any, accountsService, analyticsService, {
+			forceNewMessage: true,
+			preservePreviousMessages: true
+		})
 	}
 
 	const normalizeCurrencyCode = (raw: string): string => {
@@ -198,17 +201,6 @@ export const saveDeleteAccountsCallback = (
 	): Promise<{ started: boolean; reason?: string }> => {
 		const result = await subscriptionService.startTrialIfEligible(ctx.state.user.id)
 		return { started: result.started, reason: result.reason }
-	}
-
-	const trialSkipMessage = (reason?: string): string | null => {
-		if (!reason) return null
-		if (reason === 'trial_used') {
-			return 'Пробный Pro уже был активирован ранее для этого Telegram-аккаунта.'
-		}
-		if (reason === 'already_premium') {
-			return 'Pro уже активен для этого аккаунта.'
-		}
-		return null
 	}
 
 	const accountCreateErrorText = (error: unknown): string => {
@@ -315,13 +307,6 @@ export const saveDeleteAccountsCallback = (
 					await ctx.reply(TRIAL_DAY1_TEXT, {
 						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
 					})
-				} else {
-					const reasonText = trialSkipMessage(trialResult.reason)
-					if (reasonText) {
-						await ctx.reply(reasonText, {
-							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
-						})
-					}
 				}
 			} finally {
 				sessionAny.savingAccountLocks = (sessionAny.savingAccountLocks ?? []).filter(
@@ -470,13 +455,6 @@ export const saveDeleteAccountsCallback = (
 					await ctx.reply(TRIAL_DAY1_TEXT, {
 						reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
 					})
-				} else if (created > 0) {
-					const reasonText = trialSkipMessage(trialResult.reason)
-					if (reasonText) {
-						await ctx.reply(reasonText, {
-							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
-						})
-					}
 				}
 			} finally {
 				sessionAny.savingAllAccounts = false

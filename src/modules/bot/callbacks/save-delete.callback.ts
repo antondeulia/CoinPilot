@@ -276,7 +276,10 @@ export const saveDeleteCallback = (
 					msg.message_id
 				]
 
-			await renderHome(ctx as any, accountsService, analyticsService)
+				await renderHome(ctx as any, accountsService, analyticsService, {
+					forceNewMessage: true,
+					preservePreviousMessages: true
+				})
 
 			return
 		}

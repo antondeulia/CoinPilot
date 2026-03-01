@@ -7,10 +7,12 @@ import { appReplyKeyboard } from '../../../shared/keyboards/reply'
 export async function renderHome(
 	ctx: BotContext,
 	accountsService: AccountsService,
-	analyticsService: AnalyticsService
+	analyticsService: AnalyticsService,
+	options?: { forceNewMessage?: boolean; preservePreviousMessages?: boolean }
 ) {
+	const preservePreviousMessages = options?.preservePreviousMessages === true
 	const quickMenuId = (ctx.session as any).quickMenuMessageId as number | undefined
-	if (quickMenuId != null) {
+	if (!preservePreviousMessages && quickMenuId != null) {
 		try {
 			await ctx.api.deleteMessage(ctx.chat!.id, quickMenuId)
 		} catch {}
@@ -47,7 +49,13 @@ export async function renderHome(
 		monthlyChangePct
 	)
 	const existingHomeId = ctx.session.homeMessageId
-	if (existingHomeId != null) {
+	const forceNewMessage = options?.forceNewMessage === true
+	if (forceNewMessage && existingHomeId != null && !preservePreviousMessages) {
+		try {
+			await ctx.api.deleteMessage(ctx.chat!.id, existingHomeId)
+		} catch {}
+	}
+	if (!forceNewMessage && existingHomeId != null) {
 		try {
 			await ctx.api.editMessageText(ctx.chat!.id, existingHomeId, nextHomeText, {
 				parse_mode: 'HTML',
