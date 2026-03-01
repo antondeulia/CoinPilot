@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import Stripe from 'stripe'
 import { PrismaService } from '../prisma/prisma.service'
 import { SubscriptionPlan } from '../../generated/prisma/enums'
-import { addDays } from '../subscription/subscription.service'
+import { toDbMoney } from '../../utils/money'
 
 @Injectable()
 export class StripeService {
@@ -28,15 +28,22 @@ export class StripeService {
 	 * Создать Checkout Session для подписки (monthly/yearly).
 	 * Возвращает URL, по которому нужно отправить пользователя.
 	 */
+	private getRequiredStripePriceId(plan: 'monthly' | 'yearly'): string {
+		const key = plan === 'monthly' ? 'STRIPE_PRICE_MONTHLY' : 'STRIPE_PRICE_YEARLY'
+		const raw = this.config.getOrThrow<string>(key)
+		const priceId = String(raw ?? '').trim()
+		if (!priceId || !priceId.startsWith('price_')) {
+			throw new Error(`${key} is missing or invalid`)
+		}
+		return priceId
+	}
+
 	async createCheckoutSession(params: {
 		userId: string
 		telegramId: string
 		plan: 'monthly' | 'yearly'
 	}): Promise<string> {
-		const priceId =
-			params.plan === 'monthly'
-				? this.config.getOrThrow<string>('STRIPE_PRICE_MONTHLY')
-				: this.config.getOrThrow<string>('STRIPE_PRICE_YEARLY')
+		const priceId = this.getRequiredStripePriceId(params.plan)
 
 		const successUrl =
 			this.config.get<string>('STRIPE_SUCCESS_URL') ??
@@ -44,18 +51,11 @@ export class StripeService {
 		const cancelUrl =
 			this.config.get<string>('STRIPE_CANCEL_URL') ?? successUrl
 
-		const user = await this.prisma.user.findUnique({
-			where: { id: params.userId },
-			select: { trialUsed: true }
-		})
-		const subscriptionData: { metadata: { user_id: string; plan: string }; trial_period_days?: number } = {
+		const subscriptionData: { metadata: { user_id: string; plan: string } } = {
 			metadata: {
 				user_id: params.userId,
 				plan: params.plan
 			}
-		}
-		if (user && !user.trialUsed) {
-			subscriptionData.trial_period_days = 7
 		}
 		const session = await this.stripe.checkout.sessions.create({
 			mode: 'subscription',
@@ -119,8 +119,7 @@ export class StripeService {
 			this.logger.error('Stripe webhook signature verification failed', err as any)
 			return
 		}
-console.log(event)
-		switch (event.type) {
+			switch (event.type) {
 			case 'checkout.session.completed':
 				await this.handleCheckoutCompleted(
 					event.data.object as Stripe.Checkout.Session
@@ -169,21 +168,21 @@ console.log(event)
 			this.logger.error('Не удалось получить Stripe subscription', e as any)
 			return
 		}
-console.log(stripeSub, "stripeSub here")
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
-
-	 end = new Date(stripeSub.current_period_end * 1000)
+	
+			 end = new Date(stripeSub.current_period_end * 1000)
 }
-if (stripeSub.status === 'trialing') {
-	end = addDays(new Date(), 7)
-}
-		const plan =
+			const plan =
 			planMeta === 'monthly'
 				? SubscriptionPlan.monthly
 				: SubscriptionPlan.yearly
 
 		const stripeCustomerId = session.customer as string | null
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: { telegramId: true }
+		})
 
 		await this.prisma.$transaction([
 			this.prisma.user.update({
@@ -203,9 +202,29 @@ if (stripeSub.status === 'trialing') {
 					startDate: new Date(),
 					endDate: end,
 					amount: (session.amount_total ?? 0) / 100,
+					amountDecimal:
+						toDbMoney((session.amount_total ?? 0) / 100) ?? undefined,
 					currency: (session.currency ?? 'eur').toUpperCase()
 				}
-			})
+			}),
+			...(user?.telegramId
+				? [
+						this.prisma.trialLedger.upsert({
+							where: { telegramId: user.telegramId },
+							update: {
+								firstUserId: userId,
+								stripeCustomerId: stripeCustomerId ?? undefined,
+								usedAt: new Date()
+							},
+							create: {
+								telegramId: user.telegramId,
+								firstUserId: userId,
+								stripeCustomerId: stripeCustomerId ?? undefined,
+								usedAt: new Date()
+							}
+						})
+					]
+				: [])
 		])
 	}
 
@@ -224,7 +243,6 @@ if (stripeSub.status === 'trialing') {
 		const meta = stripeSub.metadata ?? {}
 		const userId = meta.user_id
 		if (!userId) return
-console.log(stripeSub, "stripeSub here 2")
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
 
@@ -250,7 +268,6 @@ if (stripeSub.current_period_end) {
 		const meta = stripeSub.metadata ?? {}
 		const userId = meta.user_id
 		if (!userId) return
-console.log(stripeSub, "stripeSub here 3")
 let end: Date | null = null;
 if (stripeSub.current_period_end) {
 

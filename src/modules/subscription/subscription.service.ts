@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import type { User } from '../../generated/prisma/client'
 import { PremiumEventType, SubscriptionPlan } from '../../generated/prisma/enums'
 import { PrismaService } from '../prisma/prisma.service'
 import { FREE_LIMITS, TRIAL_DAYS } from './subscription.constants'
+import { toDbMoney } from '../../utils/money'
 import { SYSTEM_MAX_CUSTOM_TAGS } from '../tags/tags.service'
 
 export function addDays(date: Date, days: number): Date {
@@ -34,12 +35,59 @@ export interface InvoiceParams {
 
 const INVOICE_RATE_LIMIT_MS = 60_000
 const FREE_TX_LIMIT_PER_MONTH = 30
+const DAY_MS = 24 * 60 * 60 * 1000
 
 @Injectable()
 export class SubscriptionService {
+	private readonly logger = new Logger(SubscriptionService.name)
 	private readonly lastInvoiceAtByUser = new Map<string, number>()
 
 	constructor(private readonly prisma: PrismaService) {}
+
+	private isDbUnreachableError(error: unknown): boolean {
+		const maybeAny = error as any
+		const code = String(maybeAny?.code ?? '')
+		const msg = String(maybeAny?.message ?? maybeAny ?? '').toLowerCase()
+		return (
+			code === 'P1001' ||
+			msg.includes("can't reach database server") ||
+			msg.includes('databasenotreachable')
+		)
+	}
+
+	private isSubscriptionWriteSchemaError(error: unknown): boolean {
+		const maybeAny = error as any
+		const code = String(maybeAny?.code ?? '')
+		const msg = String(maybeAny?.message ?? maybeAny ?? '').toLowerCase()
+		return (
+			code === 'P2022' ||
+			(msg.includes('column') && msg.includes('does not exist')) ||
+			msg.includes('amount_decimal') ||
+			msg.includes('autorenew')
+		)
+	}
+
+	private async withDbRetry<T>(task: string, fn: () => Promise<T>): Promise<T> {
+		const backoffMs = [1000, 3000]
+		let lastError: unknown
+		for (let attempt = 1; attempt <= backoffMs.length + 1; attempt++) {
+			try {
+				return await fn()
+			} catch (error: unknown) {
+				lastError = error
+				const maybeAny = error as any
+				const errorCode = String(maybeAny?.code ?? '')
+				if (!this.isDbUnreachableError(error) || attempt > backoffMs.length) {
+					throw error
+				}
+				this.logger.warn(
+					`DB unreachable in ${task} (attempt ${attempt}/${backoffMs.length + 1}, code=${errorCode || 'unknown'}). Retrying...`
+				)
+				await new Promise(resolve => setTimeout(resolve, backoffMs[attempt - 1]))
+			}
+		}
+		throw lastError
+	}
 
 	canSendInvoice(userId: string): boolean {
 		const at = this.lastInvoiceAtByUser.get(userId)
@@ -124,7 +172,7 @@ export class SubscriptionService {
 		return isPrem ? true : FREE_LIMITS.EXPORT_ALLOWED
 	}
 	/**
-	 * Лимит транзакций в месяц для Free.
+	 * Лимит транзакций в месяц для Basic.
 	 */
 	async canCreateTransaction(userId: string): Promise<LimitResult> {
 		const isPrem = await this.isPremiumForUser(userId)
@@ -171,63 +219,167 @@ export class SubscriptionService {
 	async canStartTrial(userId: string): Promise<{ allowed: boolean; reason?: string }> {
 		const user = await this.prisma.user.findUnique({
 			where: { id: userId },
-			include: { transactions: { take: 1 } }
+			select: {
+				id: true,
+				telegramId: true,
+				trialUsed: true,
+				isPremium: true,
+				premiumUntil: true
+			}
 		})
 		if (!user) return { allowed: false, reason: 'user_not_found' }
-		if (user.trialUsed) return { allowed: false, reason: 'trial_used' }
-		if (user.transactions.length === 0)
-			return { allowed: false, reason: 'add_transaction_first' }
+		if (this.isPremium(user)) {
+			return { allowed: false, reason: 'already_premium' }
+		}
+		const trialLedger = await this.prisma.trialLedger.findUnique({
+			where: { telegramId: user.telegramId },
+			select: { id: true }
+		})
+		if (user.trialUsed || trialLedger) {
+			return { allowed: false, reason: 'trial_used' }
+		}
+		const visibleAccountsCount = await this.prisma.account.count({
+			where: { userId, isHidden: false }
+		})
+		if (visibleAccountsCount < FREE_LIMITS.MAX_ACCOUNTS) {
+			return { allowed: false, reason: 'add_second_account' }
+		}
 		return { allowed: true }
 	}
 
-	async startTrial(userId: string): Promise<void> {
+	async startTrial(userId: string): Promise<Date> {
 		const check = await this.canStartTrial(userId)
 		if (!check.allowed) throw new Error(check.reason ?? 'Trial not allowed')
-		const endDate = addDays(new Date(), TRIAL_DAYS)
-		await this.prisma.$transaction([
-			this.prisma.user.update({
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			select: { id: true, telegramId: true }
+		})
+		if (!user) throw new Error('user_not_found')
+		const endDate = new Date(Date.now() + TRIAL_DAYS * DAY_MS)
+		await this.prisma.$transaction(async tx => {
+			await tx.user.update({
 				where: { id: userId },
 				data: {
 					isPremium: true,
 					premiumUntil: endDate,
 					trialUsed: true
 				}
-			}),
-			this.prisma.subscription.create({
-				data: {
-					userId,
-					plan: SubscriptionPlan.trial,
-					status: 'active',
-					endDate,
-					amount: 0,
-					currency: 'EUR'
+			})
+			await tx.trialLedger.upsert({
+				where: { telegramId: user.telegramId },
+				update: {
+					firstUserId: user.id,
+					usedAt: new Date()
+				},
+				create: {
+					telegramId: user.telegramId,
+					firstUserId: user.id,
+					usedAt: new Date()
 				}
 			})
-		])
+			try {
+				await tx.subscription.create({
+					data: {
+						userId,
+						plan: SubscriptionPlan.trial,
+						status: 'active',
+						endDate,
+						amount: 0,
+						amountDecimal: toDbMoney(0) ?? undefined,
+						currency: 'EUR'
+					}
+				})
+			} catch (error: unknown) {
+				if (!this.isSubscriptionWriteSchemaError(error)) throw error
+				const message = String((error as any)?.message ?? error)
+				this.logger.warn(
+					`Trial granted without subscription row due schema mismatch: ${message}`
+				)
+			}
+		})
 		await this.trackEvent(userId, PremiumEventType.trial_start)
+		return endDate
 	}
 
-	async checkAndExpirePremium(): Promise<{ userId: string; telegramId: string }[]> {
-		const now = new Date()
-		const users = await this.prisma.user.findMany({
-			where: {
-				isPremium: true,
-				premiumUntil: { not: null, lt: now }
-			},
-			select: { id: true, telegramId: true }
-		})
-		for (const u of users) {
-			await this.prisma.user.update({
-				where: { id: u.id },
-				data: { isPremium: false, premiumUntil: null }
-			})
-			await this.prisma.subscription.updateMany({
-				where: { userId: u.id, status: 'active', endDate: { lt: now } },
-				data: { status: 'expired' }
-			})
-			await this.trackEvent(u.id, PremiumEventType.trial_end)
+	async startTrialIfEligible(
+		userId: string
+	): Promise<{ started: boolean; endDate?: Date; reason?: string }> {
+		const check = await this.canStartTrial(userId)
+		if (!check.allowed) {
+			return { started: false, reason: check.reason }
 		}
-		return users.map(u => ({ userId: u.id, telegramId: u.telegramId }))
+		const endDate = await this.startTrial(userId)
+		return { started: true, endDate }
+	}
+
+	async checkAndExpirePremium(): Promise<
+		{ userId: string; telegramId: string; expiredTrial: boolean }[]
+	> {
+		try {
+			return await this.withDbRetry('checkAndExpirePremium', async () => {
+				const now = new Date()
+				const users = await this.prisma.user.findMany({
+					where: {
+						isPremium: true,
+						premiumUntil: { not: null, lt: now }
+					},
+					select: { id: true, telegramId: true }
+				})
+				const expired: {
+					userId: string
+					telegramId: string
+					expiredTrial: boolean
+				}[] = []
+				for (const u of users) {
+					const expiringSubs = await this.prisma.subscription.findMany({
+						where: { userId: u.id, status: 'active', endDate: { lt: now } },
+						select: { plan: true }
+					})
+					const hasPaidSubscription = await this.prisma.subscription.findFirst({
+						where: {
+							userId: u.id,
+							plan: {
+								in: [
+									SubscriptionPlan.monthly,
+									SubscriptionPlan.yearly,
+									SubscriptionPlan.lifetime
+								]
+							}
+						},
+						select: { id: true }
+					})
+					const expiredTrial =
+						expiringSubs.some(s => s.plan === SubscriptionPlan.trial) &&
+						!hasPaidSubscription
+					await this.prisma.user.update({
+						where: { id: u.id },
+						data: { isPremium: false, premiumUntil: null }
+					})
+					await this.prisma.subscription.updateMany({
+						where: { userId: u.id, status: 'active', endDate: { lt: now } },
+						data: { status: 'expired' }
+					})
+					if (expiredTrial) {
+						await this.trackEvent(u.id, PremiumEventType.trial_end)
+					}
+					expired.push({
+						userId: u.id,
+						telegramId: u.telegramId,
+						expiredTrial
+					})
+				}
+				return expired
+			})
+		} catch (error: unknown) {
+			if (this.isDbUnreachableError(error)) {
+				const code = String((error as any)?.code ?? 'unknown')
+				this.logger.warn(
+					`checkAndExpirePremium skipped for current tick: DB unreachable (code=${code}).`
+				)
+				return []
+			}
+			throw error
+		}
 	}
 
 	async getFrozenItems(userId: string): Promise<FrozenItems> {
@@ -301,6 +453,85 @@ export class SubscriptionService {
 		})
 	}
 
+	async hasMarker(userId: string, marker: string): Promise<boolean> {
+		const row = await this.prisma.premiumEvent.findFirst({
+			where: { userId, details: marker },
+			select: { id: true }
+		})
+		return !!row
+	}
+
+	async markMarkerIfAbsent(
+		userId: string,
+		marker: string,
+		type: (typeof PremiumEventType)[keyof typeof PremiumEventType] = PremiumEventType.upsell_shown
+	): Promise<boolean> {
+		if (await this.hasMarker(userId, marker)) return false
+		await this.trackEvent(userId, type, marker)
+		return true
+	}
+
+	async getActiveTrialUsersForFunnel(): Promise<
+		Array<{
+			userId: string
+			telegramId: string
+			startDate: Date
+			endDate: Date | null
+		}>
+	> {
+		try {
+			return await this.withDbRetry(
+				'getActiveTrialUsersForFunnel',
+				async () => {
+					const now = new Date()
+					const rows = await this.prisma.subscription.findMany({
+						where: {
+							plan: SubscriptionPlan.trial,
+							status: 'active',
+							endDate: { gt: now },
+							user: {
+								isPremium: true,
+								subscriptions: {
+									none: {
+										plan: {
+											in: [
+												SubscriptionPlan.monthly,
+												SubscriptionPlan.yearly,
+												SubscriptionPlan.lifetime
+											]
+										},
+										status: 'active'
+									}
+								}
+							}
+						},
+						select: {
+							userId: true,
+							startDate: true,
+							endDate: true,
+							user: { select: { telegramId: true } }
+						}
+					})
+					return rows.map(row => ({
+						userId: row.userId,
+						telegramId: row.user.telegramId,
+						startDate: row.startDate,
+						endDate: row.endDate
+					}))
+				}
+			)
+		} catch (error: unknown) {
+			if (this.isDbUnreachableError(error)) {
+				const code = String((error as any)?.code ?? 'unknown')
+				this.logger.warn(
+					`getActiveTrialUsersForFunnel skipped for current tick: DB unreachable (code=${code}).`
+				)
+				return []
+			}
+			throw error
+		}
+	}
+
 	async getUsersForMonthlyUpsell(): Promise<{ telegramId: string }[]> {
 		const since = new Date()
 		since.setDate(since.getDate() - 30)
@@ -337,6 +568,7 @@ export class SubscriptionService {
 
 	async getSubscriptionDisplay(userId: string): Promise<{
 		active: boolean
+		plan: string
 		planName: string
 		endDate: Date | null
 		daysLeft: number | null
@@ -355,7 +587,8 @@ export class SubscriptionService {
 		if (!active) {
 			return {
 				active: false,
-				planName: 'Free',
+				plan: 'basic',
+				planName: 'Basic',
 				endDate: null,
 				daysLeft: null,
 				amount: 0,
@@ -398,6 +631,7 @@ export class SubscriptionService {
 		const isTrial = plan === 'trial'
 		return {
 			active,
+			plan,
 			planName: planNames[plan] ?? plan,
 			endDate,
 			daysLeft,

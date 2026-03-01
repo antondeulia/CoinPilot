@@ -74,7 +74,8 @@ export function transactionsListKeyboard(
 		tag?: { name: string } | null
 	}>,
 	page: number,
-	totalCount: number
+	totalCount: number,
+	showMassEditButton = true
 ) {
 	const kb = new InlineKeyboard()
 	for (let i = 0; i < txs.length; i += 3) {
@@ -90,6 +91,12 @@ export function transactionsListKeyboard(
 			.text(`${page + 1}/${totalPages}`, 'transactions_page:noop')
 			.text('Вперёд »', 'transactions_page:next')
 			.row()
+	}
+	if (showMassEditButton) {
+		kb.text(
+			'🪄 Массовое редактирование транзакций',
+			'transactions_mass_edit_open'
+		).row()
 	}
 	kb.text('← Назад', 'go_home')
 	return kb

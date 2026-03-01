@@ -126,123 +126,129 @@ export const analyticsCategoriesCallback = (
 		}
 	})
 
-	bot.callbackQuery(/^analytics_category:/, async ctx => {
-		const categoryIdOrName = ctx.callbackQuery.data.replace('analytics_category:', '')
-		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
-		const accountId = (ctx.session as any).analyticsFilter?.accountId
-		;(ctx.session as any).analyticsCategoryDetailPage = 0
-		;(ctx.session as any).analyticsCategoryDetailId = categoryIdOrName
+		bot.callbackQuery(/^analytics_category:/, async ctx => {
+			const categoryIdOrName = ctx.callbackQuery.data.replace(
+				'analytics_category:',
+				''
+			)
+			const user = ctx.state.user as any
+			const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
+			const accountId = (ctx.session as any).analyticsFilter?.accountId
+			;(ctx.session as any).analyticsCategoryDetailPage = 0
+			;(ctx.session as any).analyticsCategoryDetailId = categoryIdOrName
 
-		let categoryName = categoryIdOrName
-		if (categoryIdOrName && /^[0-9a-f-]{36}$/i.test(categoryIdOrName)) {
-			const found = await prisma.category.findFirst({
-				where: { id: categoryIdOrName, userId: user.id },
-				select: { name: true }
-			})
-			if (found) categoryName = found.name
-		}
+			let categoryName = categoryIdOrName
+			if (categoryIdOrName && /^[0-9a-f-]{36}$/i.test(categoryIdOrName)) {
+				const found = await prisma.category.findFirst({
+					where: { id: categoryIdOrName, userId: user.id },
+					select: { name: true }
+				})
+				if (found) categoryName = found.name
+			}
+			;(ctx.session as any).analyticsCategoryDetailTitle = categoryName
 
-		const { transactions, total } = await analyticsService.getCategoryDetail(
-			user.id,
-			categoryName,
-			period,
-			0,
-			9,
-			user.mainCurrency ?? 'USD',
-			accountId
-		)
-		const symbol = getCurrencySymbol(user.mainCurrency ?? 'USD')
-		const totalPages = Math.max(1, Math.ceil(total / 9))
-		const lines = transactions.map(
-			t =>
-				`• ${(t.description ?? '—').slice(0, 25)} ${t.amount.toFixed(0)} ${symbol} ${new Date(t.transactionDate).toLocaleDateString('ru-RU')}`
-		)
-		const sum = transactions.reduce((a, t) => a + t.amount, 0)
+			const { transactions, total } = await analyticsService.getCategoryDetail(
+				user.id,
+				categoryIdOrName,
+				period,
+				0,
+				9,
+				user.mainCurrency ?? 'USD',
+				accountId
+			)
+			const symbol = getCurrencySymbol(user.mainCurrency ?? 'USD')
+			const totalPages = Math.max(1, Math.ceil(total / 9))
+			const lines = transactions.map(
+				t =>
+					`• ${(t.description ?? '—').slice(0, 25)} ${t.amount.toFixed(0)} ${symbol} ${new Date(t.transactionDate).toLocaleDateString('ru-RU')}`
+			)
+			const sum = transactions.reduce((a, t) => a + t.amount, 0)
 
-		const kb = new InlineKeyboard()
-		kb.text('« Назад', 'analytics_category_detail_page:prev')
-			.text(`1/${totalPages}`, 'analytics_category_detail_page:noop')
-			.text('Вперёд »', 'analytics_category_detail_page:next')
-			.row()
-		kb.text('7d', 'analytics_7d')
-			.text('30d', 'analytics_30d')
-			.text('90d', 'analytics_90d')
-			.row()
-		kb.text('← К категориям', 'analytics_by_category')
+			const kb = new InlineKeyboard()
+			kb.text('« Назад', 'analytics_category_detail_page:prev')
+				.text(`1/${totalPages}`, 'analytics_category_detail_page:noop')
+				.text('Вперёд »', 'analytics_category_detail_page:next')
+				.row()
+			kb.text('7d', 'analytics_7d')
+				.text('30d', 'analytics_30d')
+				.text('90d', 'analytics_90d')
+				.row()
+			kb.text('← К категориям', 'analytics_by_category')
 
-		const msgId = (ctx.session as any).homeMessageId
-		if (msgId != null) {
-			try {
-				await ctx.api.editMessageText(
-					ctx.chat!.id,
-					msgId,
-					`<b>Категория: ${categoryName}</b>\nСумма на странице: ${sum.toFixed(0)} ${symbol}\n\n${lines.join('\n') || '—'}`,
-					{ parse_mode: 'HTML', reply_markup: kb }
-				)
-			} catch {}
-		}
-	})
+			const msgId = (ctx.session as any).homeMessageId
+			if (msgId != null) {
+				try {
+					await ctx.api.editMessageText(
+						ctx.chat!.id,
+						msgId,
+						`<b>Категория: ${categoryName}</b>\nСумма на странице: ${sum.toFixed(0)} ${symbol}\n\n${lines.join('\n') || '—'}`,
+						{ parse_mode: 'HTML', reply_markup: kb }
+					)
+				} catch {}
+			}
+		})
 
-	bot.callbackQuery(/^analytics_category_detail_page:/, async ctx => {
-		const categoryName = (ctx.session as any).analyticsCategoryDetailId
-		if (!categoryName) return
-		const user = ctx.state.user as any
-		const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
-		const accountId = (ctx.session as any).analyticsFilter?.accountId
-		let page = (ctx.session as any).analyticsCategoryDetailPage ?? 0
-		const action = ctx.callbackQuery.data.split(':')[1]
-		const { total } = await analyticsService.getCategoryDetail(
-			user.id,
-			categoryName,
-			period,
-			0,
-			1,
-			user.mainCurrency ?? 'USD',
-			accountId
-		)
-		const totalPages = Math.max(1, Math.ceil(total / 9))
-		if (action === 'prev') page = page <= 0 ? totalPages - 1 : page - 1
-		if (action === 'next') page = page >= totalPages - 1 ? 0 : page + 1
-		;(ctx.session as any).analyticsCategoryDetailPage = page
+		bot.callbackQuery(/^analytics_category_detail_page:/, async ctx => {
+			const categoryIdOrName = (ctx.session as any).analyticsCategoryDetailId
+			if (!categoryIdOrName) return
+			const categoryName =
+				(ctx.session as any).analyticsCategoryDetailTitle ?? categoryIdOrName
+			const user = ctx.state.user as any
+			const period = ((ctx.session as any).analyticsPeriod ?? 'month') as AnalyticsPeriod
+			const accountId = (ctx.session as any).analyticsFilter?.accountId
+			let page = (ctx.session as any).analyticsCategoryDetailPage ?? 0
+			const action = ctx.callbackQuery.data.split(':')[1]
+			const { total } = await analyticsService.getCategoryDetail(
+				user.id,
+				categoryIdOrName,
+				period,
+				0,
+				1,
+				user.mainCurrency ?? 'USD',
+				accountId
+			)
+			const totalPages = Math.max(1, Math.ceil(total / 9))
+			if (action === 'prev') page = page <= 0 ? totalPages - 1 : page - 1
+			if (action === 'next') page = page >= totalPages - 1 ? 0 : page + 1
+			;(ctx.session as any).analyticsCategoryDetailPage = page
 
-		const { transactions: finalTxs } = await analyticsService.getCategoryDetail(
-			user.id,
-			categoryName,
-			period,
-			page,
-			9,
-			user.mainCurrency ?? 'USD',
-			accountId
-		)
-		const symbol = getCurrencySymbol(user.mainCurrency ?? 'USD')
-		const lines = finalTxs.map(
-			t =>
-				`• ${(t.description ?? '—').slice(0, 25)} ${t.amount.toFixed(0)} ${symbol} ${new Date(t.transactionDate).toLocaleDateString('ru-RU')}`
-		)
-		const sum = finalTxs.reduce((a, t) => a + t.amount, 0)
+			const { transactions: finalTxs } = await analyticsService.getCategoryDetail(
+				user.id,
+				categoryIdOrName,
+				period,
+				page,
+				9,
+				user.mainCurrency ?? 'USD',
+				accountId
+			)
+			const symbol = getCurrencySymbol(user.mainCurrency ?? 'USD')
+			const lines = finalTxs.map(
+				t =>
+					`• ${(t.description ?? '—').slice(0, 25)} ${t.amount.toFixed(0)} ${symbol} ${new Date(t.transactionDate).toLocaleDateString('ru-RU')}`
+			)
+			const sum = finalTxs.reduce((a, t) => a + t.amount, 0)
 
-		const kb = new InlineKeyboard()
-		kb.text('« Назад', 'analytics_category_detail_page:prev')
-			.text(`${page + 1}/${totalPages}`, 'analytics_category_detail_page:noop')
-			.text('Вперёд »', 'analytics_category_detail_page:next')
-			.row()
-		kb.text('7d', 'analytics_7d')
-			.text('30d', 'analytics_30d')
-			.text('90d', 'analytics_90d')
-			.row()
-		kb.text('← К категориям', 'analytics_by_category')
+			const kb = new InlineKeyboard()
+			kb.text('« Назад', 'analytics_category_detail_page:prev')
+				.text(`${page + 1}/${totalPages}`, 'analytics_category_detail_page:noop')
+				.text('Вперёд »', 'analytics_category_detail_page:next')
+				.row()
+			kb.text('7d', 'analytics_7d')
+				.text('30d', 'analytics_30d')
+				.text('90d', 'analytics_90d')
+				.row()
+			kb.text('← К категориям', 'analytics_by_category')
 
-		const msgId = (ctx.session as any).homeMessageId
-		if (msgId != null) {
-			try {
-				await ctx.api.editMessageText(
-					ctx.chat!.id,
-					msgId,
-					`<b>Категория: ${categoryName}</b>\nСумма на странице: ${sum.toFixed(0)} ${symbol}\n\n${lines.join('\n') || '—'}`,
-					{ parse_mode: 'HTML', reply_markup: kb }
-				)
-			} catch {}
-		}
-	})
+			const msgId = (ctx.session as any).homeMessageId
+			if (msgId != null) {
+				try {
+					await ctx.api.editMessageText(
+						ctx.chat!.id,
+						msgId,
+						`<b>Категория: ${categoryName}</b>\nСумма на странице: ${sum.toFixed(0)} ${symbol}\n\n${lines.join('\n') || '—'}`,
+						{ parse_mode: 'HTML', reply_markup: kb }
+					)
+				} catch {}
+			}
+		})
 }

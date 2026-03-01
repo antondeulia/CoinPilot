@@ -30,8 +30,6 @@ export class StripeController {
     @Headers('stripe-signature') signature: string | undefined,
     @Body() rawBody: Buffer, // express.raw() кладёт Buffer сюда напрямую
   ) {
-    console.log(rawBody)
-    console.log(signature)
     await this.stripeService.handleWebhook(rawBody, signature)
     return { received: true }
   }

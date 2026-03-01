@@ -18,9 +18,11 @@ export async function getShowConversion(
 	const account = await accountsService.getOneWithAssets(accountId, userId)
 	if (!account) return false
 	const codes = Array.from(
-		new Set(account.assets?.map(a => a.currency || account.currency) ?? [])
+		new Set(
+			account.assets?.map(a => String(a.currency || account.currency).toUpperCase()) ?? []
+		)
 	)
-	return !codes.includes(draft.currency)
+	return !codes.includes(String(draft.currency ?? '').toUpperCase())
 }
 
 export const confirmTxCallback = (
@@ -39,29 +41,33 @@ export const confirmTxCallback = (
 			ctx.session.awaitingTransaction = true
 			return
 		}
-		if ((drafts as any[]).every((d: any) => !!d.id)) {
-			ctx.session.confirmingTransaction = false
-			ctx.session.draftTransactions = undefined
-			ctx.session.currentTransactionIndex = undefined
-			ctx.session.editingField = undefined
+			if ((drafts as any[]).every((d: any) => !!d.id)) {
+				ctx.session.confirmingTransaction = false
+				ctx.session.draftTransactions = undefined
+				ctx.session.currentTransactionIndex = undefined
+				ctx.session.editingField = undefined
 			if (ctx.session.tempMessageId) {
 				try {
 					await ctx.api.deleteMessage(ctx.chat!.id, ctx.session.tempMessageId)
 				} catch {}
 				ctx.session.tempMessageId = undefined
 			}
-			return
-		}
+			await renderHome(ctx as any, accountsService, analyticsService, {
+				forceNewMessage: true,
+				preservePreviousMessages: true
+			})
+				return
+			}
 
-		// Лимит транзакций для Free
+		// Лимит транзакций для Basic
 		const newCount = drafts.length
 		const txLimit = await subscriptionService.canCreateTransaction(user.id)
 		if (!txLimit.allowed || txLimit.current + newCount > txLimit.limit) {
 			await ctx.answerCallbackQuery({
-				text: '💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!'
+				text: '💠 30 транзакций в месяц — лимит Basic. Разблокируйте безлимит с тарифом Pro!'
 			})
 			await ctx.reply(
-				'💠 30 транзакций в месяц — лимит Free. Разблокируйте безлимит с Premium!',
+				'💠 30 транзакций в месяц — лимит Basic. Разблокируйте безлимит с тарифом Pro!',
 				{
 					reply_markup: new InlineKeyboard()
 						.text('💠 Pro-тариф', 'view_premium')
@@ -84,12 +90,12 @@ export const confirmTxCallback = (
 				await ctx.answerCallbackQuery({
 					text: ctx.state.isPremium
 						? 'Достигнут системный лимит тегов.'
-						: '💠 3 кастомных тега — лимит Free. Разблокируйте безлимит с Premium!'
+						: '💠 3 кастомных тега — лимит Basic. Разблокируйте безлимит с Pro-тарифом!'
 				})
 				await ctx.reply(
 					ctx.state.isPremium
 						? 'Достигнут системный лимит тегов. Удалите лишние теги и попробуйте снова.'
-						: '💠 3 кастомных тега использовано. Разблокируйте безлимит с Premium!',
+						: '💠 3 кастомных тега использовано. Разблокируйте безлимит с Pro-тарифом!',
 					ctx.state.isPremium
 						? {
 								reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
@@ -105,16 +111,43 @@ export const confirmTxCallback = (
 			}
 		}
 
-		const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
-		const outsideWalletId =
-			allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
+			const allAccounts = await accountsService.getAllByUserIdIncludingHidden(user.id)
+			const outsideWalletId =
+				allAccounts.find(a => a.name === 'Вне Wallet')?.id ?? null
 
-		for (const draft of drafts as any[]) {
-			const accountId =
-				draft.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
-			if (!accountId) continue
+				for (const draft of drafts as any[]) {
+					const accountId =
+						draft.accountId || user.defaultAccountId || ctx.state.activeAccount?.id
+					if (!accountId) continue
+					if (
+						typeof draft.amount !== 'number' ||
+						!Number.isFinite(draft.amount) ||
+						draft.amount <= 0 ||
+						!draft.currency
+					) {
+						await ctx.reply(
+							'Транзакция не сохранена: не хватает критичных данных (сумма, валюта).',
+							{
+								reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+							}
+						)
+						return
+					}
+					if (
+						draft.direction !== 'transfer' &&
+						outsideWalletId &&
+					accountId === outsideWalletId
+				) {
+					await ctx.reply(
+						'Для доходов и расходов нельзя использовать счёт «Вне Wallet». Выберите обычный счёт.',
+						{
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						}
+					)
+					return
+				}
 
-			let tagId = draft.tagId
+				let tagId = draft.tagId
 			if (draft.tagIsNew && draft.tagName) {
 				const tag = await tagsService.create(ctx.state.user.id, draft.tagName)
 				tagId = tag.id
@@ -123,18 +156,36 @@ export const confirmTxCallback = (
 				await tagsService.incrementUsage(tagId)
 			}
 
-			const isTransfer = draft.direction === 'transfer'
-			await transactionsService.create({
-				accountId,
+				const isTransfer = draft.direction === 'transfer'
+				const toAccountId = draft.toAccountId ?? outsideWalletId ?? undefined
+				if (
+					isTransfer &&
+					outsideWalletId &&
+					accountId === outsideWalletId &&
+					toAccountId === outsideWalletId
+				) {
+					await ctx.reply(
+						'В переводе счёт «Вне Wallet» можно выбрать только в одном поле.',
+						{
+							reply_markup: new InlineKeyboard().text('Закрыть', 'hide_message')
+						}
+					)
+					return
+				}
+				await transactionsService.create({
+					accountId,
 				amount: draft.amount!,
 				currency: draft.currency!,
 				direction: draft.direction,
-				...(isTransfer
-					? {
-							fromAccountId: accountId,
-							toAccountId: draft.toAccountId ?? outsideWalletId ?? undefined
-						}
-					: { category: draft.category ?? '📦Другое' }),
+						...(isTransfer
+							? {
+									fromAccountId: accountId,
+									toAccountId
+								}
+							: {
+									categoryId: draft.categoryId ?? undefined,
+									category: draft.category ?? '📦Другое'
+								}),
 				description: draft.description,
 				rawText: draft.rawText || '',
 				userId: ctx.state.user.id,
@@ -169,20 +220,23 @@ export const confirmTxCallback = (
 			ctx.session.editMessageId = undefined
 		}
 
-		;(ctx.session as any).homeMessageId = undefined
-
 		// 🟢 success-сообщение
-		const msg = await ctx.reply(successText, {
-			parse_mode: 'HTML',
-			reply_markup: successKeyboard
+			const msg = await ctx.reply(successText, {
+				parse_mode: 'HTML',
+				reply_markup: successKeyboard
+			})
+			ctx.session.resultMessageIds = [
+				...((ctx.session.resultMessageIds ?? []) as number[]),
+				msg.message_id
+			]
+
+			// показать/обновить домашний экран как после /start
+			await renderHome(ctx as any, accountsService, analyticsService, {
+				forceNewMessage: true,
+				preservePreviousMessages: true
+			})
 		})
-
-		ctx.session.tempMessageId = msg.message_id
-
-		// показать домашний экран как после /start (новым сообщением)
-		await renderHome(ctx as any, accountsService, analyticsService)
-	})
-}
+	}
 
 const successKeyboard = {
 	inline_keyboard: [[{ text: '🙈 Закрыть', callback_data: 'hide_message' }]]
@@ -234,10 +288,12 @@ export function confirmKeyboard(
 	} else if (total > 1) {
 		kb.row()
 			.text('🗑 Удалить всё', 'ask_cancel_tx')
-			.text('🔁 Повторить', 'repeat_parse')
+			.text('🔁 Повторить', 'repeat_tx_confirm_open')
 		kb.row().text('Закрыть', 'close_preview')
 	} else {
-		kb.row().text('🗑 Удалить', 'ask_cancel_tx').text('🔁 Повторить', 'repeat_parse')
+		kb.row()
+			.text('🗑 Удалить', 'ask_cancel_tx')
+			.text('🔁 Повторить', 'repeat_tx_confirm_open')
 		kb.row().text('Закрыть', 'close_preview')
 	}
 	return kb

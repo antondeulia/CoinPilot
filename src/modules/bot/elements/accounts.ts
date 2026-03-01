@@ -2,7 +2,8 @@ import { InlineKeyboard } from 'grammy'
 import {
 	getCurrencySymbol,
 	formatAccountName,
-	formatAmount
+	formatByCurrencyPolicy,
+	formatExactAmount
 } from '../../../utils/format'
 import { formatTransactionDate } from '../../../utils/date'
 import { ExchangeService } from '../../../modules/exchange/exchange.service'
@@ -46,7 +47,12 @@ export interface AccountAnalyticsData {
 	thresholdAnomaly: number
 }
 
-function fmt(amount: number): string {
+function fmt(amount: number, currency?: string): string {
+	if (currency) {
+		return formatByCurrencyPolicy(amount, currency, undefined, {
+			withSymbol: false
+		})
+	}
 	return amount.toLocaleString('ru-RU', {
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2
@@ -59,76 +65,109 @@ export async function viewAccountsListText(
 	exchange: ExchangeService,
 	analytics: AnalyticsService,
 	userId: string,
-	tipText?: string | null
+	_tipText?: string | null,
+	expanded = true
 ): Promise<string> {
 	const mainSym = getCurrencySymbol(mainCurrency)
+	const visibleAccounts = accounts.filter(
+		acc => String(acc.name ?? '').trim().toLowerCase() !== 'вне wallet'
+	)
 	let totalMain = 0
 	let totalFiat = 0
 	let totalCrypto = 0
+	const accountBlocks: string[] = []
 
-	for (const acc of accounts) {
+	for (const acc of visibleAccounts) {
 		let accountTotalMain = 0
-		let accountFiat = 0
-		let accountCrypto = 0
+		const assetLines: string[] = []
 		for (const a of acc.assets) {
-			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
-			if (converted == null) continue
+			const amountRaw = Number(a.amount ?? 0)
+			const normalizedCurrency = String(a.currency ?? '').toUpperCase()
+			const amountStr = formatExactAmount(amountRaw, normalizedCurrency, {
+				maxFractionDigits: 18
+			})
+			const amountWithoutCurrency = amountStr.replace(/\s+[^\s]+$/u, '')
+			const converted = await exchange.convert(amountRaw, a.currency, mainCurrency)
+			if (converted == null) {
+				assetLines.push(`• ${normalizedCurrency}: ${amountWithoutCurrency} (курс недоступен)`)
+				continue
+			}
 			accountTotalMain += converted
-			const isCrypto = await exchange.isCryptoByCode(a.currency)
-			if (isCrypto) accountCrypto += converted
-			else accountFiat += converted
+			const isCrypto = await exchange.isCryptoByCode(normalizedCurrency)
+			if (isCrypto) totalCrypto += converted
+			else totalFiat += converted
+			assetLines.push(
+				`• ${normalizedCurrency}: ${amountWithoutCurrency} (${fmt(converted, mainCurrency)} ${mainSym})`
+			)
 		}
 		totalMain += accountTotalMain
-		totalFiat += accountFiat
-		totalCrypto += accountCrypto
+		const blockquoteOpen = assetLines.length > 3 ? '<blockquote expandable>' : '<blockquote>'
+		accountBlocks.push(
+			`🏦 ${formatAccountName(acc.name, false)}
+Сумма: ${fmt(accountTotalMain, mainCurrency)} ${mainSym}
+Активы:
+${blockquoteOpen}${assetLines.length ? assetLines.join('\n') : '• нет активов'}</blockquote>`
+		)
 	}
 
-	const totalStr = fmt(totalMain)
+	const totalStr = fmt(totalMain, mainCurrency)
 	const pctFiat = totalMain > 0 ? Math.round((totalFiat / totalMain) * 100) : 0
 	const pctCrypto = totalMain > 0 ? Math.round((totalCrypto / totalMain) * 100) : 0
-	const fiatStr = fmt(totalFiat)
-	const cryptoStr = fmt(totalCrypto)
+	const fiatStr = fmt(totalFiat, mainCurrency)
+	const cryptoStr = fmt(totalCrypto, mainCurrency)
 	let cashflow = 0
 	try {
 		cashflow = await analytics.getCashflow(userId, 'month', mainCurrency)
 	} catch {}
 	const beginning = totalMain - cashflow
-	const growthPct =
-		beginning > 0 ? (cashflow / beginning) * 100 : 0
+	const growthPct = beginning > 0 ? (cashflow / beginning) * 100 : Number.NaN
 	const growthStr =
-		(growthPct >= 0 ? '+' : '') + growthPct.toFixed(1) + '%'
-	const accountsCount = accounts.length
-
-	const tipLine = tipText?.trim() || '💡 Совет: регулярно обновляйте транзакции для точной аналитики.'
+		Number.isFinite(growthPct) && Math.abs(growthPct) <= 10000
+			? `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}%`
+			: '—'
+	const accountsCount = visibleAccounts.length
 	if (accountsCount === 0) {
 		return `💼 Ваши счета
 
+🏦 Список счетов пуст.
+
 💰 Общий капитал:
-<i>0,00 ${mainSym} (<b>0.0%</b>)</i>
+0,00 ${mainSym} (—)
 
 📊 Структура портфеля
-<blockquote>Фиат — <i>0,00 ${mainSym} (0%)</i>
-Крипто — <i>0,00 ${mainSym} (0%)</i></blockquote>
+Фиат — 0,00 ${mainSym} (0%)
+Крипто — 0,00 ${mainSym} (0%)
 
 🏦 Всего счетов: 0
-🌍 Основная валюта: ${mainCurrency}
-
-<blockquote>${tipLine}</blockquote>`
+🌍 Основная валюта: ${mainCurrency}`
 	}
+
+	const summaryBlock = `💼 Ваши счета
+
+💰 Общий капитал:
+${totalStr} ${mainSym} (${growthStr})
+
+📊 Структура портфеля
+Фиат — ${fiatStr} ${mainSym} (${pctFiat}%)
+Крипто — ${cryptoStr} ${mainSym} (${pctCrypto}%)
+
+🏦 Всего счетов: ${accountsCount}
+🌍 Основная валюта: ${mainCurrency}`
+	if (!expanded) return summaryBlock
 
 	return `💼 Ваши счета
 
+${accountBlocks.join('\n\n')}
+
 💰 Общий капитал:
-<i>${totalStr} ${mainSym} (<b>${growthStr}</b>)</i>
+${totalStr} ${mainSym} (${growthStr})
 
 📊 Структура портфеля
-<blockquote>Фиат — <i>${fiatStr} ${mainSym} (${pctFiat}%)</i>
-Крипто — <i>${cryptoStr} ${mainSym} (${pctCrypto}%)</i></blockquote>
+Фиат — ${fiatStr} ${mainSym} (${pctFiat}%)
+Крипто — ${cryptoStr} ${mainSym} (${pctCrypto}%)
 
 🏦 Всего счетов: ${accountsCount}
-🌍 Основная валюта: ${mainCurrency}
-
-<blockquote>${tipLine}</blockquote>`
+🌍 Основная валюта: ${mainCurrency}`
 }
 
 async function assetsBlock(
@@ -137,19 +176,21 @@ async function assetsBlock(
 	mainSym: string,
 	exchange: ExchangeService
 ): Promise<string> {
-	if (assets.length === 0) return 'Активы:\n— нет активов\n'
-	const lines: string[] = ['Активы:']
+	if (assets.length === 0) return '<b>📊 Активы:</b>\n— <i>нет активов</i>\n'
+	const lines: string[] = ['<b>📊 Активы:</b>']
 	for (let i = 0; i < assets.length; i++) {
 		const a = assets[i]
-		const amountStr = formatAmount(a.amount, a.currency)
+		const amountStr = formatExactAmount(a.amount, a.currency, {
+			maxFractionDigits: 18
+		})
 		if (a.currency === mainCurrency || a.amount === 0) {
-			lines.push(`${i + 1}. ${a.currency} — ${amountStr}`)
+			lines.push(`${i + 1}. ${a.currency} — <i>${amountStr}</i>`)
 		} else {
 			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
 			lines.push(
 				converted != null
-					? `${i + 1}. ${a.currency} — ${amountStr} (~ ${fmt(converted)} ${mainSym})`
-					: `${i + 1}. ${a.currency} — ${amountStr}`
+					? `${i + 1}. ${a.currency} — <i>${amountStr} (~ ${fmt(converted, mainCurrency)} ${mainSym})</i>`
+					: `${i + 1}. ${a.currency} — <i>${amountStr}</i>`
 			)
 		}
 	}
@@ -163,7 +204,8 @@ export async function accountDetailsText(
 	isDefault: boolean,
 	isPremium: boolean,
 	lastTransactions: AccountLastTxRow[],
-	analyticsData?: AccountAnalyticsData
+	analyticsData?: AccountAnalyticsData,
+	timezone: string = 'UTC+02:00'
 ): Promise<string> {
 	const mainSym = getCurrencySymbol(mainCurrency)
 	let balanceMain = 0
@@ -171,7 +213,7 @@ export async function accountDetailsText(
 		const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
 		if (converted != null) balanceMain += converted
 	}
-	const balanceStr = fmt(balanceMain)
+	const balanceStr = fmt(balanceMain, mainCurrency)
 	const nameHtml = escapeHtml(formatAccountName(account.name, isDefault))
 	const assetsSection = await assetsBlock(
 		account.assets,
@@ -181,54 +223,57 @@ export async function accountDetailsText(
 	)
 
 	if (!isPremium || !analyticsData) {
-		let body = `<b>${nameHtml}</b>
-Обзор за текущий месяц
+		const title = new Date().toLocaleString('ru-RU', { month: 'long' })
+		let body = `<b>${nameHtml}</b> – Обзор за ${title}
 
-Начальный капитал: ${balanceStr} ${mainSym}
-Текущий капитал: ${balanceStr} ${mainSym}
+💰 Капитал в начале месяца: <i>${balanceStr} ${mainSym}</i>
+💰 Текущий капитал: <i>${balanceStr} ${mainSym}</i>
 
-🔴 Расходы: −0,00 ${mainSym}
-🟢 Доходы: +0,00 ${mainSym}
-⚪️ Переводы: 0,00 ${mainSym}
+🔴 Расходы: <i>−0,00 ${mainSym}</i>
+🟢 Доходы: <i>+0,00 ${mainSym}</i>
+⚪️ Переводы: <i>0,00 ${mainSym}</i>
 
-<b>Денежный поток:</b> +0,00 ${mainSym}
-<b>Средний расход в день:</b> 0,00 ${mainSym}
+💸 Денежный поток: <i>+0,00 ${mainSym}</i>
+➖ Средний расход в день: <i>0,00 ${mainSym}</i>
 
 — — —
 
-${assetsSection}Последние операции:
+${assetsSection}
+<b>🧾 Последние операции:</b>
 `
 		if (lastTransactions.length === 0) body += 'Нет операций\n'
 		else {
 			lastTransactions.slice(0, 3).forEach((tx, i) => {
-				body += formatDetailTxLine(tx, i, mainSym, mainCurrency) + '\n'
+				body +=
+					formatDetailTxLine(tx, i, mainSym, mainCurrency, timezone) + '\n'
 			})
 		}
 		return body.trim()
 	}
 
 	const a = analyticsData
-	let body = `<b>${nameHtml}</b>
-Обзор за текущий месяц
+	const title = new Date().toLocaleString('ru-RU', { month: 'long' })
+	let body = `<b>${nameHtml}</b> – Обзор за ${title}
 
-Начальный капитал: ${fmt(a.beginningBalance)} ${mainSym}
-Текущий капитал: ${fmt(a.balance)} ${mainSym}
+💰 Капитал в начале месяца: <i>${fmt(a.beginningBalance, mainCurrency)} ${mainSym}</i>
+💰 Текущий капитал: <i>${fmt(a.balance, mainCurrency)} ${mainSym}</i>
 
-🔴 Расходы: −${fmt(a.expenses)} ${mainSym}
-🟢 Доходы: +${fmt(a.income)} ${mainSym}
-⚪️ Переводы: ${fmt(a.transfersTotal)} ${mainSym}
+🔴 Расходы: <i>−${fmt(a.expenses, mainCurrency)} ${mainSym}</i>
+🟢 Доходы: <i>+${fmt(a.income, mainCurrency)} ${mainSym}</i>
+⚪️ Переводы: <i>${fmt(a.transfersTotal, mainCurrency)} ${mainSym}</i>
 
-<b>Денежный поток:</b> ${a.cashflow >= 0 ? '+' : ''}${fmt(a.cashflow)} ${mainSym}
-<b>Средний расход в день:</b> ${fmt(a.burnRate)} ${mainSym}
+💸 Денежный поток: <i>${a.cashflow >= 0 ? '+' : ''}${fmt(a.cashflow, mainCurrency)} ${mainSym}</i>
+➖ Средний расход в день: <i>${fmt(a.burnRate, mainCurrency)} ${mainSym}</i>
 
 — — —
 
-${assetsSection}Последние операции:
+${assetsSection}
+<b>🧾 Последние операции:</b>
 `
 	if (lastTransactions.length === 0) body += 'Нет операций\n'
 	else {
 		lastTransactions.slice(0, 3).forEach((tx, i) => {
-			body += formatDetailTxLine(tx, i, mainSym, mainCurrency) + '\n'
+			body += formatDetailTxLine(tx, i, mainSym, mainCurrency, timezone) + '\n'
 		})
 	}
 	return body.trim()
@@ -248,21 +293,27 @@ function formatDetailTxLine(
 	tx: AccountLastTxRow,
 	_i: number,
 	mainSym: string,
-	mainCurrency: string
+	mainCurrency: string,
+	timezone: string
 ): string {
 	const label = capitalize(tx.description ?? tx.tagName ?? tx.category ?? '—')
-	const dateStr = formatTransactionDate(tx.transactionDate)
+	const dateStr = formatTransactionDate(tx.transactionDate, timezone)
 	if (tx.direction === 'transfer') {
-		const amountStr = `${fmt(tx.amountMain)} ${mainSym}`
-		return `⚪️ ${amountStr}  | ${escapeHtml(label)} | ${dateStr}`
+		const sourceAmount = formatExactAmount(Math.abs(tx.amount), tx.currency, {
+			maxFractionDigits: 18
+		})
+		const amountStr = `${sourceAmount} (~ ${fmt(tx.amountMain, mainCurrency)} ${mainSym})`
+		return `<blockquote>⚪️ ${amountStr}  | ${escapeHtml(label)} | ${dateStr}</blockquote>`
 	}
 	const sign = tx.direction === 'expense' ? '−' : '+'
 	const isMain = tx.currency === mainCurrency
 	const amountStr = isMain
-		? `${sign}${fmt(Math.abs(tx.amount))} ${mainSym}`
-		: `${sign}${formatAmount(Math.abs(tx.amount), tx.currency)} (${fmt(tx.amountMain)} ${mainSym})`
+		? `${sign}${fmt(Math.abs(tx.amount), mainCurrency)} ${mainSym}`
+		: `${sign}${formatExactAmount(Math.abs(tx.amount), tx.currency, {
+				maxFractionDigits: 18
+			})} (${fmt(tx.amountMain, mainCurrency)} ${mainSym})`
 	const icon = tx.direction === 'expense' ? '🔴' : '🟢'
-	return `${icon} ${amountStr}  | ${escapeHtml(label)} | ${dateStr}`
+	return `<blockquote>${icon} ${amountStr}  | ${escapeHtml(label)} | ${dateStr}</blockquote>`
 }
 
 export async function viewAccountsText(
@@ -280,14 +331,16 @@ export async function viewAccountsText(
 		const lines: string[] = []
 		for (const a of acc.assets) {
 			const converted = await exchange.convert(a.amount, a.currency, mainCurrency)
-			const amountStr = formatAmount(a.amount, a.currency)
+			const amountStr = formatExactAmount(a.amount, a.currency, {
+				maxFractionDigits: 18
+			})
 			if (converted != null) {
 				accountTotalMain += converted
 				if (a.currency === mainCurrency) {
 					lines.push(`• ${a.currency} — ${amountStr}`)
 				} else {
 					lines.push(
-						`• ${a.currency} — ${amountStr} ≈ ${fmt(converted)} ${mainSym}`
+						`• ${a.currency} — ${amountStr} ≈ ${fmt(converted, mainCurrency)} ${mainSym}`
 					)
 				}
 			} else {
@@ -295,7 +348,7 @@ export async function viewAccountsText(
 			}
 		}
 		totalMain += accountTotalMain
-		const accountTotalStr = fmt(accountTotalMain)
+		const accountTotalStr = fmt(accountTotalMain, mainCurrency)
 		const body = lines.length > 0 ? lines.join('\n') : '— нет активов'
 		const accountLine =
 			acc.assets.length > 0
@@ -303,11 +356,11 @@ export async function viewAccountsText(
 				: `Итого: 0.00 ${mainSym}`
 		const isDefault = acc.id === defaultAccountId
 		blocks.push(
-			`🏦 ${formatAccountName(acc.name, isDefault)}\n${accountLine}\n\n${body}`
+			`${formatAccountName(acc.name, isDefault)}\n${accountLine}\n\n${body}`
 		)
 	}
 
-	const totalStr = fmt(totalMain)
+	const totalStr = fmt(totalMain, mainCurrency)
 	const header = `📂 Список счетов
 
 💼 Всего по всем счетам:

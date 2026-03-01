@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { PrismaService } from '../prisma/prisma.service'
 import { ExchangeService } from '../exchange/exchange.service'
@@ -9,6 +9,8 @@ const BASIC_TX_LIMIT = 30
 
 @Injectable()
 export class DailyTipCronService {
+	private readonly logger = new Logger(DailyTipCronService.name)
+
 	constructor(
 		private readonly prisma: PrismaService,
 		private readonly exchange: ExchangeService,
@@ -18,11 +20,31 @@ export class DailyTipCronService {
 
 	@Cron('0 0 * * *')
 	async refreshDailyTips() {
-		const users = await this.prisma.user.findMany({
-			select: { id: true, mainCurrency: true, isPremium: true }
-		})
-		for (const user of users) {
-			await this.refreshTipForUser(user.id, user.mainCurrency ?? 'USD', user.isPremium)
+		try {
+			const users = await this.prisma.user.findMany({
+				select: { id: true, mainCurrency: true, isPremium: true }
+			})
+			for (const user of users) {
+				try {
+					await this.refreshTipForUser(
+						user.id,
+						user.mainCurrency ?? 'USD',
+						user.isPremium
+					)
+				} catch (error: unknown) {
+					this.logger.warn(
+						`refreshTipForUser failed for user=${user.id}: ${
+							(error as Error)?.message ?? error
+						}`
+					)
+				}
+			}
+		} catch (error: unknown) {
+			this.logger.warn(
+				`refreshDailyTips skipped for current tick: ${
+					(error as Error)?.message ?? error
+				}`
+			)
 		}
 	}
 

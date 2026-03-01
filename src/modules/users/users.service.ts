@@ -14,17 +14,18 @@ export class UsersService {
 	async getOrCreateByTelegramId(telegramId: string) {
 		const existing = await this.prisma.user.findUnique({
 			where: { telegramId },
-			include: { accounts: true }
+			include: { accounts: { orderBy: { createdAt: 'asc' } } }
 		})
 
 		if (existing) return existing
 
-		const user = await this.prisma.user.create({
-			data: {
-				telegramId,
-				mainCurrency: 'USD'
-			}
-		})
+			const user = await this.prisma.user.create({
+				data: {
+					telegramId,
+					mainCurrency: 'USD',
+					timezone: 'UTC+02:00'
+				}
+			})
 
 		await this.prisma.account.create({
 			data: {
@@ -41,7 +42,7 @@ export class UsersService {
 
 		const withAccounts = await this.prisma.user.findUnique({
 			where: { id: user.id },
-			include: { accounts: true }
+			include: { accounts: { orderBy: { createdAt: 'asc' } } }
 		})
 		return withAccounts!
 	}
@@ -54,9 +55,21 @@ export class UsersService {
 	}
 
 	async setDefaultAccount(userId: string, accountId: string) {
+		const account = await this.prisma.account.findFirst({
+			where: { id: accountId, userId, isHidden: false },
+			select: { id: true }
+		})
+		if (!account) return
 		await this.prisma.user.update({
 			where: { id: userId },
 			data: { defaultAccountId: accountId }
+		})
+	}
+
+	async setTimezone(userId: string, timezone: string) {
+		await this.prisma.user.update({
+			where: { id: userId },
+			data: { timezone }
 		})
 	}
 
@@ -74,13 +87,14 @@ export class UsersService {
 			await tx.alertConfig.deleteMany({ where: { userId } })
 			await tx.subscription.deleteMany({ where: { userId } })
 			await tx.premiumEvent.deleteMany({ where: { userId } })
-			await tx.user.update({
-				where: { id: userId },
-				data: {
-					mainCurrency: 'USD',
-					defaultAccountId: null,
-					activeAccountId: null
-				}
+				await tx.user.update({
+					where: { id: userId },
+					data: {
+						mainCurrency: 'USD',
+						timezone: 'UTC+02:00',
+						defaultAccountId: null,
+						activeAccountId: null
+					}
 			})
 			await tx.account.create({
 				data: {
