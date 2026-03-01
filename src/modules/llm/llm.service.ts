@@ -147,6 +147,24 @@ export class LLMService {
 		return false
 	}
 
+	private normalizeTransactionFunctionPayload(payload: unknown): unknown {
+		if (!payload || typeof payload !== 'object') return payload
+		const parsed = payload as { transactions?: unknown[] }
+		if (!Array.isArray(parsed.transactions)) return payload
+		return {
+			...parsed,
+			transactions: parsed.transactions.map(row => {
+				if (!row || typeof row !== 'object') {
+					return { action: 'create_transaction', direction: 'expense' }
+				}
+				return {
+					...(row as Record<string, unknown>),
+					action: 'create_transaction'
+				}
+			})
+		}
+	}
+
 	async parseTransaction(
 		text: string,
 		categoryNames: string[] = [],
@@ -236,8 +254,10 @@ export class LLMService {
 			throw new Error('LLM did not return function arguments')
 		}
 
-		const parsedJson = JSON.parse(call.arguments)
-		const { transactions: fastTransactions } = LlmTransactionListSchema.parse(parsedJson)
+			const parsedJson = this.normalizeTransactionFunctionPayload(
+				JSON.parse(call.arguments)
+			)
+			const { transactions: fastTransactions } = LlmTransactionListSchema.parse(parsedJson)
 		if (!this.shouldEscalateTxParse(fastTransactions as any[], text)) {
 			return fastTransactions
 		}
@@ -246,10 +266,12 @@ export class LLMService {
 		)
 		const qualityCall = qualityResponse.choices[0].message.function_call
 		if (!qualityCall?.arguments) return fastTransactions
-		const qualityJson = JSON.parse(qualityCall.arguments)
-		const { transactions } = LlmTransactionListSchema.parse(qualityJson)
-		return transactions
-	}
+			const qualityJson = this.normalizeTransactionFunctionPayload(
+				JSON.parse(qualityCall.arguments)
+			)
+			const { transactions } = LlmTransactionListSchema.parse(qualityJson)
+			return transactions
+		}
 
 	private buildTransactionParseInstructions(
 		categoryNames: string[],
@@ -409,7 +431,9 @@ export class LLMService {
 		if (!call?.arguments) {
 			throw new Error('LLM did not return function arguments')
 		}
-		const parsedJson = JSON.parse(call.arguments)
+		const parsedJson = this.normalizeTransactionFunctionPayload(
+			JSON.parse(call.arguments)
+		)
 		const { transactions: fastTransactions } = LlmTransactionListSchema.parse(parsedJson)
 		const qualitySource = `${captionTrimmed} image-parse`
 		if (!this.shouldEscalateTxParse(fastTransactions as any[], qualitySource)) {
@@ -420,7 +444,9 @@ export class LLMService {
 		)
 		const qualityCall = qualityResponse.choices[0].message.function_call
 		if (!qualityCall?.arguments) return fastTransactions
-		const qualityJson = JSON.parse(qualityCall.arguments)
+		const qualityJson = this.normalizeTransactionFunctionPayload(
+			JSON.parse(qualityCall.arguments)
+		)
 		const { transactions } = LlmTransactionListSchema.parse(qualityJson)
 		return transactions
 	}

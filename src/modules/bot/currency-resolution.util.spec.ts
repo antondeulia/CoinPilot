@@ -89,4 +89,22 @@ describe('currency-resolution.util', () => {
 			explicitMentioned: true
 		})
 	})
+
+	it('prefers explicit single currency mention over wrong llm currency', () => {
+		const result = resolveTransactionCurrency({
+			rawText: 'молоко 3 евро',
+			description: 'Молоко',
+			llmCurrency: 'UAH',
+			direction: 'expense',
+			amount: 3,
+			assets: [{ currency: 'UAH', amount: 200 }],
+			fallbackAccountCurrency: 'UAH',
+			supportedCurrencies: supported
+		})
+		expect(result).toEqual({
+			currency: 'EUR',
+			source: 'explicit',
+			explicitMentioned: true
+		})
+	})
 })

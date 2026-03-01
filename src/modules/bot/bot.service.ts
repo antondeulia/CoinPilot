@@ -2983,57 +2983,71 @@ export class BotService implements OnModuleInit {
 			}
 				const photos = ctx.message.photo
 				if (!photos?.length) return
-				const largest = photos[photos.length - 1]
 				try {
 					if (!(await this.ensureLlmRateLimit(ctx))) return
-					const imageDataUrl = await this.buildImageDataUrl(
-						largest.file_id,
-						'image/jpeg',
-						MAX_IMAGE_FILE_BYTES
-					)
-				const caption = ctx.message.caption?.trim() || undefined
-				if (isJarvisAssetEdit) {
-					const instruction =
-						await this.llmService.parseAccountEditInstructionFromImage(
-							imageDataUrl,
-							caption
-						)
-					if (!instruction) {
-						await ctx.reply(
-							'Не удалось распознать изменения активов со скриншота. Добавьте короткую текстовую команду.'
-						)
-						return
+					const caption = ctx.message.caption?.trim() || undefined
+					const candidates = [...photos].reverse().slice(0, 3)
+					let lastError: unknown = null
+					for (const candidate of candidates) {
+						try {
+							const imageDataUrl = await this.buildImageDataUrl(
+								candidate.file_id,
+								'image/jpeg',
+								MAX_IMAGE_FILE_BYTES
+							)
+							if (isJarvisAssetEdit) {
+								const instruction =
+									await this.llmService.parseAccountEditInstructionFromImage(
+										imageDataUrl,
+										caption
+									)
+								if (!instruction) {
+									await ctx.reply(
+										'Не удалось распознать изменения активов со скриншота. Добавьте короткую текстовую команду.'
+									)
+									return
+								}
+								await this.applyJarvisAssetInstruction(ctx, instruction)
+								return
+							}
+							if (isMassAccountsEdit) {
+								const instruction =
+									await this.llmService.parseAccountEditInstructionFromImage(
+										imageDataUrl,
+										caption
+									)
+								if (!instruction) {
+									await ctx.reply(
+										'Не удалось распознать команды по фото. Добавьте короткое текстовое уточнение с названиями счетов.'
+									)
+									return
+								}
+								await this.handleMassAccountsInstruction(ctx, instruction)
+								return
+							}
+							const parseToken = `PHOTO_PARSE:${new Date()
+								.toISOString()
+								.slice(0, 7)}:${candidate.file_unique_id}`
+							await this.parseTransactionsFromImage(
+								ctx,
+								imageDataUrl,
+								caption,
+								parseToken
+							)
+							return
+						} catch (candidateError: unknown) {
+							lastError = candidateError
+							this.logger.warn(
+								`photo-parse attempt failed for file=${candidate.file_unique_id}: ${String(
+									(candidateError as Error)?.message ?? candidateError
+								)}`
+							)
+						}
 					}
-					await this.applyJarvisAssetInstruction(ctx, instruction)
-					return
-				}
-				if (isMassAccountsEdit) {
-					const instruction =
-						await this.llmService.parseAccountEditInstructionFromImage(
-							imageDataUrl,
-							caption
-						)
-					if (!instruction) {
-						await ctx.reply(
-							'Не удалось распознать команды по фото. Добавьте короткое текстовое уточнение с названиями счетов.'
-						)
-						return
-					}
-					await this.handleMassAccountsInstruction(ctx, instruction)
-					return
-				}
-				const parseToken = `PHOTO_PARSE:${new Date()
-					.toISOString()
-					.slice(0, 7)}:${largest.file_unique_id}`
-				await this.parseTransactionsFromImage(
-					ctx,
-					imageDataUrl,
-					caption,
-					parseToken
-				)
-				} catch (error: unknown) {
-					if (String((error as Error)?.message ?? '').startsWith('FILE_TOO_LARGE:')) {
-						await ctx.reply(
+					throw lastError ?? new Error('PHOTO_PARSE_FAILED')
+					} catch (error: unknown) {
+						if (String((error as Error)?.message ?? '').startsWith('FILE_TOO_LARGE:')) {
+							await ctx.reply(
 							`Файл слишком большой. Максимальный размер изображения: ${Math.floor(
 								MAX_IMAGE_FILE_BYTES / (1024 * 1024)
 							)} MB.`,
@@ -3549,60 +3563,43 @@ export class BotService implements OnModuleInit {
 	}
 
 	private async replyHelp(ctx: BotContext) {
-		const text = `📘 Помощь
+		const text = `<b>💡 Как пользоваться CoinPilot</b>
+Твой личный центр управления капиталом. Бот понимает обычный текст и скриншоты.
 
-🌐 Полезные ссылки
-🧩 Мой переходник — https://t.me/isi_crypto
-📄 Пользовательское соглашение — <a href="https://docs.google.com/document/d/1vQyIYfhtVHiBtn_j8C85W1Fd-KX_FV5Vg7aGxSYXf-k/edit?usp=sharing">Открыть</a>
-🔐 Политика конфиденциальности — <a href="https://docs.google.com/document/d/1Rm1KJ68G-wuftglO4MkUqPWf87NIBJyMuy_YuA-iOPc/edit?usp=sharing">Открыть</a>
-💬 Поддержка — @sselnorr
+<b>1️⃣ Добавь счета (Крипта + Фиат)</b>
+Нажми кнопку <b>«Счета»</b> → <b>«Добавить»</b>.
+Пиши просто: <code>Revolut 500 EUR, Наличные 1000 USD, Ledger 0.5 BTC</code>
+<i>Система сама распределит активы по кошелькам.</i>
 
-🚀 Как пользоваться CoinPilot
-CoinPilot помогает учитывать крипту и фиат в одном месте — быстро и безопасно. 
+<b>2️⃣ Записывай расходы и доходы</b>
+Просто отправь в чат сообщение:
+• <code>Кофе 5 евро</code>
+• <code>Зарплата 2000 USD на Revolut</code>
+• <code>Обмен 1000 USDT на 950 EUR</code>
+<i>Или просто пришли скриншот чека — ИИ сделает всё за тебя.</i>
 
-1️⃣ Добавление счетов
+<b>3️⃣ Смотри аналитику</b>
+Раздел <b>«Аналитика»</b> покажет общую картину: где твои деньги и как растет твой чистый капитал (Net Worth).
 
-Нажмите /start, перейдите в "Счета" и добавьте свои счета в формате:
+<pre>---------------------------</pre>
+<b>💠 Pro-возможности</b>
+В разделе <b>«Подписка»</b> можно снять все лимиты:
+• Безлимитные счета и транзакции
+• Экспорт данных в CSV/Excel
+• ИИ-распознавание фото и чеков
+<i>Оплата через Stripe — безопасно и прозрачно.</i>
 
-"Название — сумма — валюта"
+<pre>---------------------------</pre>
+<b>🔐 Безопасность и приватность</b>
+• Мы <b>не имеем доступа</b> к твоим реальным кошелькам и API.
+• Все данные шифруются и принадлежат только тебе.
+• Удалить всю историю можно в <b>«Настройках»</b>.
 
-Можно вводить серийно — система распознает данные автоматически.
-
-2️⃣ Добавление транзакций
-
-Просто отправьте текст или фото операции.
-ИИ-парсер распознает сумму, категорию и валюту.
-
-3️⃣ Аналитика
-
-В разделе аналитики вы получите:
-• Баланс по всем счетам
-• Метрики
-• Распределение активов
-• Статистику по периодам
-
-💠 Подписка
-
-Вы можете подключить Pro-тариф в разделе «💠 Подписка».
-
-Pro открывает:
-• Безлимитные транзакции и счета
-• Расширенную аналитику
-• Экспорт CSV / Excel
-• Доступ к будущим Pro-функциям
-
-💳 Оплата проходит через Stripe — международную защищённую платёжную систему.
-Подписку можно изменить или отменить в любое время. После отмены доступ сохранится до конца оплаченного периода.
-
-🔐 Безопасность данных
-
-• Мы не запрашиваем доступ к вашим кошелькам или API
-• Данные шифруются
-• Никогда не передаются третьим лицам
-• Вы можете удалить все свои данные в настройках
-• После удаления восстановление невозможно
-
-Ваши данные принадлежат только вам.`
+<pre>---------------------------</pre>
+<b>📂 Полезные ссылки</b>
+• <a href="https://t.me/isi_crypto">Наш канал по крипте</a> — стратегии.
+• <a href="https://t.me/coinpilot_helper">Поддержка</a> — есть вопрос? Пиши.
+• <a href="https://docs.google.com/document/d/1Rm1KJ68G-wuftglO4MkUqPWf87NIBJyMuy_YuA-iOPc/edit?usp=sharing">Privacy &amp; <a href="https://docs.google.com/document/d/1vQyIYfhtVHiBtn_j8C85W1Fd-KX_FV5Vg7aGxSYXf-k/edit?usp=sharing">Terms</a>`
 		await ctx.reply(text, {
 			parse_mode: 'HTML',
 			link_preview_options: { is_disabled: true },
@@ -3741,31 +3738,50 @@ Pro открывает:
 		fileId: string,
 		maxBytes?: number
 	): Promise<Buffer> {
-		const file = await this.bot.api.getFile(fileId)
-		const knownSize = Number((file as any)?.file_size ?? 0)
-		if (
-			typeof maxBytes === 'number' &&
-			Number.isFinite(maxBytes) &&
-			knownSize > 0 &&
-			knownSize > maxBytes
-		) {
-			throw new Error(`FILE_TOO_LARGE:${knownSize}:${maxBytes}`)
-		}
 		const token = this.config.getOrThrow<string>('BOT_TOKEN')
-		const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
-		const res = await fetch(url)
-		if (!res.ok) {
-			throw new Error('Failed to download telegram file')
+		let lastError: unknown = null
+		for (let attempt = 1; attempt <= 3; attempt++) {
+			try {
+				const file = await this.bot.api.getFile(fileId)
+				const knownSize = Number((file as any)?.file_size ?? 0)
+				if (
+					typeof maxBytes === 'number' &&
+					Number.isFinite(maxBytes) &&
+					knownSize > 0 &&
+					knownSize > maxBytes
+				) {
+					throw new Error(`FILE_TOO_LARGE:${knownSize}:${maxBytes}`)
+				}
+				if (!file.file_path) {
+					throw new Error('TELEGRAM_FILE_PATH_MISSING')
+				}
+				const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
+				const res = await fetch(url)
+				if (!res.ok) {
+					throw new Error(`Failed to download telegram file: HTTP_${res.status}`)
+				}
+				const buffer = Buffer.from(await res.arrayBuffer())
+				if (
+					typeof maxBytes === 'number' &&
+					Number.isFinite(maxBytes) &&
+					buffer.length > maxBytes
+				) {
+					throw new Error(`FILE_TOO_LARGE:${buffer.length}:${maxBytes}`)
+				}
+				return buffer
+			} catch (error: unknown) {
+				lastError = error
+				const message = String((error as Error)?.message ?? '')
+				if (message.startsWith('FILE_TOO_LARGE:')) {
+					throw error
+				}
+				if (attempt >= 3) break
+				await new Promise(resolve => setTimeout(resolve, 250 * attempt))
+			}
 		}
-		const buffer = Buffer.from(await res.arrayBuffer())
-		if (
-			typeof maxBytes === 'number' &&
-			Number.isFinite(maxBytes) &&
-			buffer.length > maxBytes
-		) {
-			throw new Error(`FILE_TOO_LARGE:${buffer.length}:${maxBytes}`)
-		}
-		return buffer
+		throw lastError instanceof Error
+			? lastError
+			: new Error('Failed to download telegram file')
 	}
 
 	private async buildImageDataUrl(

@@ -15,6 +15,7 @@ const CURRENCY_ALIASES: Record<string, string> = {
 	$: 'USD',
 	USD: 'USD',
 	US$: 'USD',
+	ЮСД: 'USD',
 	ДОЛ: 'USD',
 	ДОЛЛ: 'USD',
 	'ДОЛ.': 'USD',
@@ -134,6 +135,7 @@ export function resolveTransactionCurrency(params: {
 		sourceText,
 		params.supportedCurrencies
 	)
+	const explicitMentionList = Array.from(explicitMentions)
 	const llmCurrency = normalizeCurrencyMentionToken(
 		String(params.llmCurrency ?? ''),
 		params.supportedCurrencies
@@ -145,6 +147,13 @@ export function resolveTransactionCurrency(params: {
 			.filter(Boolean)
 	)
 	const explicitMentioned = hasLlmCurrency && explicitMentions.has(llmCurrency)
+	if (explicitMentionList.length === 1) {
+		return {
+			currency: explicitMentionList[0],
+			source: 'explicit',
+			explicitMentioned: true
+		}
+	}
 	if (explicitMentioned) {
 		return {
 			currency: llmCurrency,
