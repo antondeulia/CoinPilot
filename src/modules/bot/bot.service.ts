@@ -94,6 +94,10 @@ import {
 import { LlmMemoryService } from '../llm-memory/llm-memory.service'
 import { formatExactAmount, isCryptoCurrency } from '../../utils/format'
 import { normalizeTag } from '../../utils/normalize'
+import {
+	resolveTransactionCurrency,
+	type CurrencyResolutionResult
+} from './currency-resolution.util'
 
 const ONBOARDING_ACCOUNTS_FIRST_OPEN_TEXT = `Добавь <b>два счёта</b>, которыми ты пользуешься в повседневной жизни. Формат свободный — можно писать через запятую, пробелы или с новой строки.
 
@@ -5797,20 +5801,9 @@ ${lines.join('\n\n')}${hidden}
 					user.id
 				)
 			: null
-		const visibleAccountsWithAssets =
-			await this.accountsService.getAllWithAssets(user.id)
-		const defaultHasEur =
-			defaultAccount?.assets?.some(
-				a => (a.currency || defaultAccount.currency) === 'EUR'
-			) ?? false
-		const accountsWithEur = visibleAccountsWithAssets.filter(acc =>
-			acc.assets?.some(
-				a => (a.currency || (acc as any).currency) === 'EUR'
-			)
-		)
-		const singleAccountWithEur =
-			accountsWithEur.length === 1 ? accountsWithEur[0] : null
-		const accountAliasMap: Record<string, string> = {
+			const visibleAccountsWithAssets =
+				await this.accountsService.getAllWithAssets(user.id)
+			const accountAliasMap: Record<string, string> = {
 			нал: 'Наличные',
 			наличные: 'Наличные',
 			байбит: 'Bybit',
@@ -6198,25 +6191,48 @@ ${lines.join('\n\n')}${hidden}
 					tx.account = defaultAccount?.name ?? tx.account
 				}
 			}
-			if (
-				tx.accountId === defaultAccountId &&
-				tx.currency === 'EUR' &&
-				!defaultHasEur &&
-				singleAccountWithEur
-			) {
-				tx.accountId = singleAccountWithEur.id
-				tx.account = singleAccountWithEur.name
-				acc = singleAccountWithEur
-			}
-			const accountForTx =
-				tx.accountId &&
-				visibleAccountsWithAssets.find(
-					(a: any) => a.id === tx.accountId
-				)
-				if (
-					accountForTx &&
-					(!accountForTx.assets || accountForTx.assets.length === 0)
-				) {
+				const accountForTx =
+					tx.accountId &&
+					visibleAccountsWithAssets.find(
+						(a: any) => a.id === tx.accountId
+					)
+				const accountAssets =
+					accountForTx?.assets?.map((asset: any) => ({
+						currency: String(
+							asset.currency ?? accountForTx?.currency ?? ''
+						).toUpperCase(),
+						amount: Number(asset.amount ?? 0)
+					})) ?? []
+				const currencyResolution: CurrencyResolutionResult =
+					resolveTransactionCurrency({
+						rawText: String(tx.rawText ?? ''),
+						description: String(tx.description ?? ''),
+						llmCurrency: String(tx.currency ?? ''),
+						direction: tx.direction,
+						amount: Number(tx.amount ?? 0),
+						assets: accountAssets,
+						fallbackAccountCurrency: String(
+							accountForTx?.currency ?? defaultAccount?.currency ?? ''
+						),
+						supportedCurrencies
+					})
+				if (currencyResolution.currency) {
+					tx.currency = currencyResolution.currency
+				}
+				;(tx as any).currencyResolution = currencyResolution
+				if (tx.currency && !supportedCurrencies.has(String(tx.currency).toUpperCase())) {
+					await this.preserveTransactionDraftOnError(
+						ctx,
+						tx,
+						['поддерживаемая валюта'],
+						`Валюта ${tx.currency} не поддерживается.`
+					)
+					return
+				}
+					if (
+						accountForTx &&
+						(!accountForTx.assets || accountForTx.assets.length === 0)
+					) {
 					const accountName = accountForTx.name || 'Основной счёт'
 					await this.preserveTransactionDraftOnError(
 						ctx,

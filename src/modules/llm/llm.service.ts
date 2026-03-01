@@ -4,6 +4,11 @@ import { LlmAccountListSchema } from './schemas/account.schema'
 import OpenAI from 'openai'
 import { ConfigService } from '@nestjs/config'
 import { toFile } from 'openai/uploads'
+import {
+	mergeAccountAssetsPreferLlm,
+	normalizeAccountCurrency,
+	parseRuleBasedAssetsChunk
+} from './account-parse.utils'
 
 export interface AiAnalyticsSnapshot {
 	user: {
@@ -273,7 +278,7 @@ export class LLMService {
 		const directionInstruction =
 			` Direction (тип транзакции): определяй по тексту или визуальным подсказкам. Сегодня: ${todayIso}. Часовой пояс пользователя: ${timezone}. В тексте: "перевёл", "перевод", "перевел", "вывел", "перекинул", "send", "sent", "снял в нал" = transfer. Обмен/конвертация валюты или криптоактива (swap/обмен/конвертация/валютообмен/пара вида TON-USDT или TON/USDT) = transfer. Обычная покупка товаров/услуг (продукты, гаджеты, кафе и т.п.) = expense, а не transfer. Доход (income) — зарплата, refund/возврат, оплата за услугу, прибыль/заработок. Если текст явно указывает перевод, знак суммы не должен менять transfer на expense. На скриншоте: знак «+» или зелёный цвет суммы = income; знак «-» или красный цвет суммы = expense.`
 		const parsingRules =
-			' Правила парсинга: (0) Если критично не хватает суммы — не выдумывай сумму. (1) Description всегда с заглавной буквы, максимум 1-2 слова, без общих слов "Перевод/Доход/Расход", если можно выделить более конкретную сущность. (2) Категория обязательна и должна быть из списка пользователя; если неуверен — выбери наиболее нейтральную из списка. (3) Для digital services/subscriptions/stars/донатов выбирай релевантную платежную категорию, если она есть в списке пользователя. (4) Подпись к изображению имеет более высокий приоритет для интерпретации типа/счёта/категории/тега, чем OCR-контекст скриншота. (5) Отдельные leg-транзакции (expense/income/fee) создавай только для обмена/конвертации валюты или криптоактива, а не для обычной покупки товаров/услуг. (6) Для transactionDate приоритет у явно указанной даты в источнике: формат DD.MM.YYYY, DD/MM/YYYY или дата словами ("23 февраля"). Никогда не выводи дату из суммы/количества актива (например 11.10 TON не является датой).'
+			' Правила парсинга: (0) Если критично не хватает суммы — не выдумывай сумму. (1) Description всегда с заглавной буквы, максимум 1-2 слова, без общих слов "Перевод/Доход/Расход", если можно выделить более конкретную сущность. (2) Категория обязательна и должна быть из списка пользователя; если неуверен — выбери наиболее нейтральную из списка. (3) Для digital services/subscriptions/stars/донатов выбирай релевантную платежную категорию, если она есть в списке пользователя. (4) Подпись к изображению имеет более высокий приоритет для интерпретации типа/счёта/категории/тега, чем OCR-контекст скриншота. (5) Отдельные leg-транзакции (expense/income/fee) создавай только для обмена/конвертации валюты или криптоактива, а не для обычной покупки товаров/услуг. (6) Для transactionDate приоритет у явно указанной даты в источнике: формат DD.MM.YYYY, DD/MM/YYYY или дата словами ("23 февраля"). Никогда не выводи дату из суммы/количества актива (например 11.10 TON не является датой). (7) Если в тексте нет явного указания валюты, оставляй поле currency пустым и не угадывай валюту.'
 		return {
 				systemContent:
 					'Ты парсер финансовых операций. Верни только JSON согласно схеме. ' +
@@ -504,60 +509,8 @@ export class LLMService {
 					)
 				)
 			: null
-		const normalizeCurrency = (raw: string): string => {
-			const compact = String(raw ?? '')
-				.trim()
-				.toUpperCase()
-				.replace(/\s+/g, '')
-			if (!compact) return ''
-			const alias: Record<string, string> = {
-				'$': 'USD',
-				USD: 'USD',
-				ДОЛЛАР: 'USD',
-				ДОЛЛАРЫ: 'USD',
-				ДОЛЛАРОВ: 'USD',
-				USDT: 'USDT',
-				ТЕТЕР: 'USDT',
-				'€': 'EUR',
-				EUR: 'EUR',
-				ЕВРО: 'EUR',
-				'₴': 'UAH',
-				UAH: 'UAH',
-				ГРН: 'UAH',
-				ГРИВНА: 'UAH',
-				ГРИВНЫ: 'UAH',
-				'₽': 'RUB',
-				RUB: 'RUB',
-				RUR: 'RUB',
-				РУБ: 'RUB',
-				РУБЛЬ: 'RUB',
-				РУБЛЯ: 'RUB',
-				РУБЛЕЙ: 'RUB',
-				'£': 'GBP',
-				GBP: 'GBP',
-				ФУНТ: 'GBP',
-				BYN: 'BYN',
-				BYP: 'BYN',
-				BYR: 'BYN',
-				БЕЛРУБ: 'BYN',
-				БЕЛОРУБЛЬ: 'BYN',
-				БЕЛОРУССКИЙРУБЛЬ: 'BYN'
-				}
-				if (alias[compact]) {
-					const code = alias[compact]
-					return !supportedCurrencySet || supportedCurrencySet.has(code) ? code : ''
-				}
-				const token = compact.replace(/[^A-Z0-9]/g, '')
-				if (alias[token]) {
-					const code = alias[token]
-					return !supportedCurrencySet || supportedCurrencySet.has(code) ? code : ''
-				}
-				if (/^[A-Z][A-Z0-9]{1,9}$/.test(token)) {
-					if (!supportedCurrencySet) return token
-					return supportedCurrencySet.has(token) ? token : ''
-				}
-				return ''
-			}
+		const normalizeCurrency = (raw: string): string =>
+			normalizeAccountCurrency(raw, supportedCurrencySet)
 		const stripAssetsFromAccountName = (raw: string): string => {
 			let value = String(raw ?? '')
 				.replace(/\s+/g, ' ')
@@ -597,60 +550,10 @@ export class LLMService {
 				.split(/\r?\n|;/g)
 				.map(line => line.trim())
 				.filter(Boolean)
-			const parseAssetsFromChunk = (chunk: string): Array<{ currency: string; amount: number }> => {
-				const source = String(chunk ?? '').trim()
-				if (!source) return []
-				const pairs = new Map<string, number>()
-				const add = (currencyRaw: string, amountRaw?: unknown) => {
-					const code = normalizeCurrency(currencyRaw)
-					if (!code) return
-					const amount = normalizeAmount(amountRaw)
-					const prev = pairs.get(code) ?? 0
-					pairs.set(code, Number((prev + amount).toFixed(12)))
-				}
-				const numberRe = /^-?\d+(?:[.,]\d+)?$/u
-				type Token = { raw: string }
-				const tokens: Token[] = Array.from(
-					source.matchAll(/-?\d+(?:[.,]\d+)?|[A-Za-zА-Яа-яЁё$€₴£₽]{1,16}/gu)
-				).map(m => ({ raw: m[0] }))
-				const consumed = new Set<number>()
-				for (let i = 0; i < tokens.length; i++) {
-					if (consumed.has(i)) continue
-					const current = tokens[i]
-					const next = tokens[i + 1]
-					if (!next || consumed.has(i + 1)) continue
-					const currentIsNumber = numberRe.test(current.raw)
-					const nextIsNumber = numberRe.test(next.raw)
-					if (currentIsNumber && !nextIsNumber) {
-						const code = normalizeCurrency(next.raw)
-						if (!code) continue
-						add(code, current.raw)
-						consumed.add(i)
-						consumed.add(i + 1)
-						i += 1
-						continue
-					}
-					if (!currentIsNumber && nextIsNumber) {
-						const code = normalizeCurrency(current.raw)
-						if (!code) continue
-						add(code, next.raw)
-						consumed.add(i)
-						consumed.add(i + 1)
-						i += 1
-					}
-				}
-				for (let i = 0; i < tokens.length; i++) {
-					if (consumed.has(i)) continue
-					const token = tokens[i].raw
-					const code = normalizeCurrency(token)
-					if (!code) continue
-					if (!pairs.has(code)) pairs.set(code, 0)
-				}
-				return Array.from(pairs.entries()).map(([currency, amount]) => ({
-					currency,
-					amount
-				}))
-			}
+			const parseAssetsFromChunk = (
+				chunk: string
+			): Array<{ currency: string; amount: number }> =>
+				parseRuleBasedAssetsChunk(chunk, normalizeCurrency)
 			const parseRuleBasedAccounts = (
 				input: string
 			): { accounts: ParsedAccount[]; missingCurrencyNames: string[] } => {
@@ -834,11 +737,15 @@ export class LLMService {
 					byName.set(key, ruleAcc)
 				continue
 			}
+			const mergedAssets = mergeAccountAssetsPreferLlm(
+				prev.assets ?? [],
+				ruleAcc.assets ?? []
+			)
 			byName.set(key, {
 				...prev,
 				name: prev.name || ruleAcc.name,
 				rawText: prev.rawText || ruleAcc.rawText,
-				assets: ruleAcc.assets.length ? ruleAcc.assets : prev.assets
+				assets: mergedAssets.length ? mergedAssets : prev.assets
 			})
 		}
 		const accounts = Array.from(byName.values()).filter(a => a.assets.length > 0)
